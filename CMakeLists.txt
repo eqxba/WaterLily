@@ -14,6 +14,20 @@ file(GLOB_RECURSE SOURCE_FILES LIST_DIRECTORIES false
 
 add_executable(${TARGET_NAME} ${SOURCE_FILES})
 
+find_package(Vulkan REQUIRED)
+
+add_subdirectory(External/glfw)
+
+target_include_directories(${TARGET_NAME} PRIVATE
+    ${Vulkan_INCLUDE_DIRS}
+    External/glfw/include/
+    # This one is header only :)
+    External/glm/
+    Source/
+)
+
+target_link_libraries(${TARGET_NAME} ${Vulkan_LIBRARIES} glfw)
+
 # IDE structuring
 # TODO: Still not sure about naming (case & ...)
 foreach(source IN ITEMS ${SOURCE_FILES})
@@ -25,6 +39,8 @@ endforeach()
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 set_property(TARGET ${TARGET_NAME} PROPERTY CMAKE_CXX_STANDARD_REQUIRED True)
 
-target_include_directories(${TARGET_NAME} PRIVATE    
-    Source/
-)
+if(MSVC)
+    target_compile_options(${TARGET_NAME} PRIVATE /W4 /WX /MP)
+else()
+    target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -pedantic -Werror)
+endif()
