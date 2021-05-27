@@ -24,3 +24,7 @@ endforeach()
 
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 set_property(TARGET ${TARGET_NAME} PROPERTY CMAKE_CXX_STANDARD_REQUIRED True)
+
+target_include_directories(${TARGET_NAME} PRIVATE    
+    Source/
+)
