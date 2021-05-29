@@ -6,7 +6,34 @@
 #include <GLFW/glfw3.h>
 
 namespace InstanceDetails
-{	
+{
+    static bool ExtensionsSupported(const std::vector<const char*>& extensions)
+    {
+        uint32_t extensionCount = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+    	
+        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+
+        for (const char* extension : extensions)
+        {
+            const auto isExtensionAvailable = [extension](const auto& extensionProperties)
+            {
+                return std::strcmp(extension, extensionProperties.extensionName) == 0;
+            };
+
+            const auto it = std::ranges::find_if(availableExtensions, isExtensionAvailable);
+
+            if (it == availableExtensions.end())
+            {
+                LogE << "Extension not supported: " << extension << std::endl;
+                return false;
+            }
+        }
+
+        return true;
+    }
+	
     static bool LayersSupported(const std::vector<const char*>& layers)
 	{  	
         uint32_t layerCount;
@@ -54,7 +81,6 @@ namespace InstanceDetails
         return VK_FALSE;
     }
 	
-	// TODO: Find out the right way to create it in place (i.e. Type val = GetVal() with no stack copying and & param)
 	static VkDebugUtilsMessengerCreateInfoEXT GetDebugMessengerCreateInfo()
     {
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
@@ -105,7 +131,6 @@ Instance::Instance()
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    // TODO: Check for extensions support
     std::vector<const char*> requiredExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
     std::vector<const char*> requiredLayers;
 
@@ -114,7 +139,10 @@ Instance::Instance()
         requiredExtensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         requiredLayers.emplace_back("VK_LAYER_KHRONOS_validation");
 	}
-
+	
+    const bool extensionsSupported = ExtensionsSupported(requiredExtensions);
+    Assert(extensionsSupported);
+	
     const bool layersSupported = LayersSupported(requiredLayers);
     Assert(layersSupported);
 	
@@ -136,7 +164,7 @@ Instance::Instance()
     VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
     Assert(result == VK_SUCCESS);
 
-    volkLoadInstance(instance);
+    volkLoadInstanceOnly(instance); 
 
     debugMessenger = CreateDebugMessenger(instance);
 }
