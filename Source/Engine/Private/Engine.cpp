@@ -8,8 +8,7 @@ std::unique_ptr<Window> Engine::window;
 
 void Engine::Create()
 {
-    // TODO: Move resolution to config
-    window = std::make_unique<Window>(1920, 1080, EngineConfig::engineName);
+    window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName);
 
     VulkanContext::Create();
 }

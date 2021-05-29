@@ -1,8 +1,5 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
-#include <memory>
-
 class Instance;
 
 class VulkanContext

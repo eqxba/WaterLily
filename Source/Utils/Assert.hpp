@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cassert>
-#include <iostream>
 
 // TODO: Constexpr template function?
 #ifdef NDEBUG

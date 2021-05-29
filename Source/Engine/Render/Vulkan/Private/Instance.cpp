@@ -2,18 +2,8 @@
 
 #include "Engine/EngineConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
-#include "Utils/Assert.hpp"
-#include "Utils/Logger.hpp"
 
 #include <GLFW/glfw3.h>
-#include <vector>
-#include <cstring>
-#include <algorithm>
-
-// TODO: Move to pch
-#pragma warning(disable: 4100) // Unreferenced formal parameter
-#pragma warning(disable: 4702) // Unreachable code
-#pragma warning(disable: 4505) // Unreferenced local function has been removed
 
 namespace InstanceDetails
 {	
@@ -36,7 +26,7 @@ namespace InstanceDetails
         	
             if (it == availableLayers.end())
             {
-                LogE << "Layer not supported: " << layer;
+                LogE << "Layer not supported: " << layer << std::endl;
                 return false;
             }
         }
@@ -48,49 +38,29 @@ namespace InstanceDetails
         VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData)
     {
-    	// TODO: Change to good looking logging
-        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+        std::string message(pCallbackData->pMessage);
+        message = message.substr(0, message.find("(http"));
+    	
+    	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    	{
+            LogE << message << std::endl;
+            Assert(false);
+    	}
+        else
+        {
+            LogW << message << std::endl;
+        }
 
         return VK_FALSE;
     }
-
-	// TODO: Change to automatic loading
-    static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-        const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
-	{
-        auto func =
-            (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-    	
-        if (func != nullptr)
-        {
-            return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-        }
-        else
-        {
-            return VK_ERROR_EXTENSION_NOT_PRESENT;
-        }
-    }
-
-    // TODO: Change to automatic loading
-    static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
-        const VkAllocationCallbacks* pAllocator)
-	{
-        auto func =
-			(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-        if (func != nullptr)
-        {
-            func(instance, debugMessenger, pAllocator);
-        }
-    }
-
+	
 	// TODO: Find out the right way to create it in place (i.e. Type val = GetVal() with no stack copying and & param)
 	static VkDebugUtilsMessengerCreateInfoEXT GetDebugMessengerCreateInfo()
     {
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         createInfo.messageSeverity =
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         createInfo.messageType =
             VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
@@ -109,14 +79,11 @@ namespace InstanceDetails
             return VK_NULL_HANDLE;
 	    }
 
-        VkDebugUtilsMessengerCreateInfoEXT createInfo = GetDebugMessengerCreateInfo();
-        
-    	// TODO: Refactor
+        VkDebugUtilsMessengerCreateInfoEXT createInfo = GetDebugMessengerCreateInfo();      
         VkDebugUtilsMessengerEXT debugMessenger;
-        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
-        {
-            Assert(false);
-        }
+    	
+        const VkResult result = vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger);
+        Assert(result == VK_SUCCESS);
 
         return debugMessenger;
     }
@@ -169,6 +136,8 @@ Instance::Instance()
     VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
     Assert(result == VK_SUCCESS);
 
+    volkLoadInstance(instance);
+
     debugMessenger = CreateDebugMessenger(instance);
 }
 
@@ -176,8 +145,7 @@ Instance::~Instance()
 {
 	if (debugMessenger != VK_NULL_HANDLE)
 	{
-		// TODO: Temp error for a validation error
-        //InstanceDetails::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 	}
 	
     vkDestroyInstance(instance, nullptr);

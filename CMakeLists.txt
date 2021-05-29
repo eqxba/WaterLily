@@ -21,8 +21,9 @@ add_subdirectory(External/glfw)
 target_include_directories(${TARGET_NAME} PRIVATE
     ${Vulkan_INCLUDE_DIRS}
     External/glfw/include/
-    # This one is header only :)
+    # This ones are header only :)
     External/glm/
+    External/volk/
     Source/
 )
 
@@ -44,3 +45,5 @@ if(MSVC)
 else()
     target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -pedantic -Werror)
 endif()
+
+target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)

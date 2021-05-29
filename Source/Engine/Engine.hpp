@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-
 class Window;
 
 class Engine
