@@ -6,7 +6,7 @@
 #include "Engine/Render/Vulkan/Surface.hpp"
 
 namespace DeviceDetails
-{
+{	
 	static bool ExtensionsSupported(VkPhysicalDevice device, const std::vector<const char*>& extensions)
 	{
 		uint32_t extensionCount;
@@ -34,10 +34,11 @@ namespace DeviceDetails
 		return true;
 	}
 	
-	static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
+	static QueueFamilyIndices GetQueueFamilyIndices(VkPhysicalDevice device)
 	{
-		QueueFamilyIndices indices{};
-		
+		std::optional<uint32_t> graphicsFamily;
+		std::optional<uint32_t> presentFamily;
+				
 		uint32_t queueFamilyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
@@ -48,7 +49,7 @@ namespace DeviceDetails
 		{
 			if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			{
-				indices.graphicsFamily = i;
+				graphicsFamily = i;
 			}
 
 			VkBool32 presentSupport = false;
@@ -56,33 +57,34 @@ namespace DeviceDetails
 
 			if (presentSupport)
 			{
-				indices.presentationFamily = i;
+				presentFamily = i;
 			}
 
-			if (indices.IsComplete())
+			if (graphicsFamily.has_value() && presentFamily.has_value())
 			{
 				break;
 			}
 		}
+
+		Assert(graphicsFamily.has_value() && presentFamily.has_value());
 		
-		return indices;
+		return { graphicsFamily.value(), presentFamily.value() };
 	}
 
 	static Queues GetQueues(VkPhysicalDevice physicalDevice, VkDevice device)
 	{
 		Queues queues{};
-		QueueFamilyIndices indices = DeviceDetails::FindQueueFamilies(physicalDevice);
+		queues.familyIndices = DeviceDetails::GetQueueFamilyIndices(physicalDevice);
 		
-		vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &queues.graphics);
-		vkGetDeviceQueue(device, indices.presentationFamily.value(), 0, &queues.presentation);
+		vkGetDeviceQueue(device, queues.familyIndices.graphicsFamily, 0, &queues.graphics);
+		vkGetDeviceQueue(device, queues.familyIndices.presentFamily, 0, &queues.present);
 
 		return queues;
 	}
 	
 	static bool IsPhysicalDeviceSuitable(VkPhysicalDevice device)
 	{
-		const QueueFamilyIndices indices = FindQueueFamilies(device);
-		return indices.IsComplete() && ExtensionsSupported(device, VulkanConfig::requiredDeviceExtensions);
+		return ExtensionsSupported(device, VulkanConfig::requiredDeviceExtensions);
 	}
 
 	// TODO: (low priority) device selection based on some kind of score (do i really need this?)
@@ -108,12 +110,12 @@ namespace DeviceDetails
 
 	static VkDevice SelectLogicalDevice(VkPhysicalDevice physicalDevice)
 	{
-		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+		QueueFamilyIndices indices = GetQueueFamilyIndices(physicalDevice);
 
 		float queuePriority = 1.0f;
 		
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentationFamily.value() };
+		std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
 
 		for (uint32_t queueFamily : uniqueQueueFamilies)
 		{

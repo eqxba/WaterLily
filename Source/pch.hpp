@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <limits>
 
 #include "Utils/Assert.hpp"
 #include "Utils/Logger.hpp"

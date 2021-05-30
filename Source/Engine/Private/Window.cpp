@@ -27,3 +27,10 @@ void Window::PollEvents() const
 {
 	glfwPollEvents();
 }
+
+Extent2D Window::GetExtentInPixels() const
+{
+	Extent2D extent;
+	glfwGetFramebufferSize(glfwWindow, &extent.width, &extent.height);
+	return extent;
+}

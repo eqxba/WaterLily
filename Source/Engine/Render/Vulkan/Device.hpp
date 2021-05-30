@@ -4,19 +4,15 @@
 
 struct QueueFamilyIndices
 {
-	std::optional<uint32_t> graphicsFamily;
-	std::optional<uint32_t> presentationFamily;
-
-	bool IsComplete() const
-	{
-		return graphicsFamily.has_value() && presentationFamily.has_value();
-	}
+	uint32_t graphicsFamily;
+	uint32_t presentFamily;
 };
 
 struct Queues
-{
+{	
 	VkQueue graphics;
-	VkQueue presentation;
+	VkQueue present;
+	QueueFamilyIndices familyIndices;
 };
 
 class Device
