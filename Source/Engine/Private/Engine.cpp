@@ -10,7 +10,7 @@ void Engine::Create()
 {
     window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName);
 
-    VulkanContext::Create();
+    VulkanContext::Create(*window);
 }
 
 void Engine::Run()

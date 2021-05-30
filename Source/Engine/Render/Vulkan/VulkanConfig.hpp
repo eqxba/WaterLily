@@ -1,5 +1,7 @@
 #pragma once
 
+#include <volk.h>
+
 namespace VulkanConfig
 {
 #ifdef NDEBUG
@@ -7,4 +9,8 @@ namespace VulkanConfig
 #else
 	constexpr bool useValidation = true;
 #endif
+
+	const std::vector<const char*> requiredDeviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
 }

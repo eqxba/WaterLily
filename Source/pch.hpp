@@ -6,6 +6,8 @@
 #include <iostream>
 #include <algorithm>
 #include <memory>
+#include <optional>
+#include <set>
 
 #include "Utils/Assert.hpp"
 #include "Utils/Logger.hpp"

@@ -17,12 +17,12 @@ namespace InstanceDetails
 
         for (const char* extension : extensions)
         {
-            const auto isExtensionAvailable = [extension](const auto& extensionProperties)
+            const auto isExtensionSupported = [extension](const auto& extensionProperties)
             {
                 return std::strcmp(extension, extensionProperties.extensionName) == 0;
             };
 
-            const auto it = std::ranges::find_if(availableExtensions, isExtensionAvailable);
+            const auto it = std::ranges::find_if(availableExtensions, isExtensionSupported);
 
             if (it == availableExtensions.end())
             {
