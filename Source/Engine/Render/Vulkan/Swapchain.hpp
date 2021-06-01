@@ -23,4 +23,5 @@ public:
 	VkExtent2D extent;
 
 	std::vector<VkImage> images;
+	std::vector<VkImageView> imageViews;
 };

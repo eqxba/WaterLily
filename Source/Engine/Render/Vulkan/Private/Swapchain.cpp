@@ -80,7 +80,8 @@ namespace SwapchainDetails
 		{
 			const Extent2D windowExtent = window.GetExtentInPixels();
 
-			const VkExtent2D actualExtent = {
+			const VkExtent2D actualExtent =
+			{
 				std::clamp(static_cast<uint32_t>(windowExtent.width),
 					capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
 				std::clamp(static_cast<uint32_t>(windowExtent.height),
@@ -104,63 +105,116 @@ namespace SwapchainDetails
 
 		return imageCount;
 	}
+
+	static VkSwapchainKHR CreateSwapchain(const SwapchainSupportDetails& swapChainSupportDetails,
+		const VkSurfaceFormatKHR surfaceFormat, const VkExtent2D extent)
+	{
+		VkSwapchainCreateInfoKHR createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		createInfo.surface = VulkanContext::surface->surface;
+		createInfo.minImageCount = SelectImageCount(swapChainSupportDetails.capabilities);
+		createInfo.imageFormat = surfaceFormat.format;
+		createInfo.imageColorSpace = surfaceFormat.colorSpace;
+		createInfo.imageExtent = extent;
+		createInfo.imageArrayLayers = 1;
+		// For now i'm going to render directly to swapchain images w/out anything like post-processing.
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+		const QueueFamilyIndices& familyIndices = VulkanContext::device->queues.familyIndices;
+		const uint32_t queueFamilyIndices[] = { familyIndices.graphicsFamily, familyIndices.presentFamily };
+
+		if (familyIndices.graphicsFamily != familyIndices.presentFamily)
+		{
+			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+			createInfo.queueFamilyIndexCount = 2;
+			createInfo.pQueueFamilyIndices = queueFamilyIndices;
+		}
+		else
+		{
+			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			createInfo.queueFamilyIndexCount = 0; // Optional
+			createInfo.pQueueFamilyIndices = nullptr; // Optional
+		}
+
+		createInfo.preTransform = swapChainSupportDetails.capabilities.currentTransform;
+		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		createInfo.presentMode = SelectPresentMode(swapChainSupportDetails.presentModes);
+		createInfo.clipped = VK_TRUE;
+		createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+		VkSwapchainKHR swapchain;
+		const VkResult result = vkCreateSwapchainKHR(VulkanContext::device->device, &createInfo, nullptr, &swapchain);
+		Assert(result == VK_SUCCESS);
+
+		return swapchain;
+	}
+
+	static std::vector<VkImage> GetSwapchainImages(VkSwapchainKHR swapchain)
+	{		
+		uint32_t imageCount;
+		vkGetSwapchainImagesKHR(VulkanContext::device->device, swapchain, &imageCount, nullptr);
+
+		std::vector<VkImage> images(imageCount);
+		vkGetSwapchainImagesKHR(VulkanContext::device->device, swapchain, &imageCount, images.data());
+
+		return images;
+	}
+
+	static std::vector<VkImageView> CreateImageViews(const std::vector<VkImage>& images, VkFormat format)
+	{
+		std::vector<VkImageView> imageViews;
+		imageViews.reserve(images.size());
+		
+		for (const auto& image : images)
+		{
+			VkImageViewCreateInfo createInfo{};
+			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			createInfo.image = image;
+			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			createInfo.format = format;
+			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			createInfo.subresourceRange.baseMipLevel = 0;
+			createInfo.subresourceRange.levelCount = 1;
+			createInfo.subresourceRange.baseArrayLayer = 0;
+			createInfo.subresourceRange.layerCount = 1;
+
+			VkImageView imageView;
+			const VkResult result = vkCreateImageView(VulkanContext::device->device, &createInfo, nullptr, &imageView);
+			Assert(result == VK_SUCCESS);
+			
+			imageViews.push_back(imageView);
+		}
+
+		return imageViews;
+	}
 }
 
 Swapchain::Swapchain(const Window& window)
 {
 	using namespace SwapchainDetails;
 	
-	SwapchainSupportDetails swapChainSupport = GetSwapchainSupportDetails(VulkanContext::device->physicalDevice);
-
-	VkSurfaceFormatKHR surfaceFormat = SelectSurfaceFormat(swapChainSupport.formats);
-	VkPresentModeKHR presentMode = SelectPresentMode(swapChainSupport.presentModes);
-	extent = SelectExtent(swapChainSupport.capabilities, window);
-	uint32_t imageCount = SelectImageCount(swapChainSupport.capabilities);
-
+	SwapchainSupportDetails swapChainSupportDetails = GetSwapchainSupportDetails(VulkanContext::device->physicalDevice);
+	VkSurfaceFormatKHR surfaceFormat = SelectSurfaceFormat(swapChainSupportDetails.formats);
+	
+	extent = SelectExtent(swapChainSupportDetails.capabilities, window);
 	format = surfaceFormat.format;
 
-	VkSwapchainCreateInfoKHR createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	createInfo.surface = VulkanContext::surface->surface;
-	createInfo.minImageCount = imageCount;
-	createInfo.imageFormat = surfaceFormat.format;
-	createInfo.imageColorSpace = surfaceFormat.colorSpace;
-	createInfo.imageExtent = extent;
-	createInfo.imageArrayLayers = 1;
-	// For now i'm going to render directly to swapchain images w/out anything like post-processing.
-	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapchain = CreateSwapchain(swapChainSupportDetails, surfaceFormat, extent);
 
-	const QueueFamilyIndices& familyIndices = VulkanContext::device->queues.familyIndices;	
-	const uint32_t queueFamilyIndices[] = { familyIndices.graphicsFamily, familyIndices.presentFamily };
-
-	if (familyIndices.graphicsFamily != familyIndices.presentFamily)
-	{
-		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-		createInfo.queueFamilyIndexCount = 2;
-		createInfo.pQueueFamilyIndices = queueFamilyIndices;
-	}
-	else
-	{
-		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.queueFamilyIndexCount = 0; // Optional
-		createInfo.pQueueFamilyIndices = nullptr; // Optional
-	}
-
-	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	createInfo.presentMode = presentMode;
-	createInfo.clipped = VK_TRUE;
-	createInfo.oldSwapchain = VK_NULL_HANDLE;
-	
-	const VkResult result = vkCreateSwapchainKHR(VulkanContext::device->device, &createInfo, nullptr, &swapchain);
-	Assert(result == VK_SUCCESS);
-
-	vkGetSwapchainImagesKHR(VulkanContext::device->device, swapchain, &imageCount, nullptr);
-	images.resize(imageCount);
-	vkGetSwapchainImagesKHR(VulkanContext::device->device, swapchain, &imageCount, images.data());
+	images = GetSwapchainImages(swapchain);
+	imageViews = CreateImageViews(images, format);
 }
 
 Swapchain::~Swapchain()
 {
+	for (const auto& imageView : imageViews)
+	{
+		vkDestroyImageView(VulkanContext::device->device, imageView, nullptr);
+	}
+	
 	vkDestroySwapchainKHR(VulkanContext::device->device, swapchain, nullptr);
 }

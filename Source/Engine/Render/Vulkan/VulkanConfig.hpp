@@ -10,7 +10,8 @@ namespace VulkanConfig
 	constexpr bool useValidation = true;
 #endif
 
-	const std::vector<const char*> requiredDeviceExtensions = {
+	const std::vector<const char*> requiredDeviceExtensions =
+	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
 }
