@@ -2,7 +2,6 @@
 
 #include "Engine/Window.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Instance.hpp"
 
 #include <GLFW/glfw3.h>
 

@@ -2,8 +2,6 @@
 
 #include "Engine/Window.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Device.hpp"
-#include "Engine/Render/Vulkan/Surface.hpp"
 
 namespace SwapchainDetails
 {

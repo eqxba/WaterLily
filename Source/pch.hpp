@@ -9,6 +9,7 @@
 #include <optional>
 #include <set>
 #include <limits>
+#include <fstream>
 
 #include "Utils/Assert.hpp"
 #include "Utils/Logger.hpp"

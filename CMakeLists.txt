@@ -47,3 +47,5 @@ else()
 endif()
 
 target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)
+
+# TODO: Make CMake compile shaders for us with a custom command

@@ -2,8 +2,6 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
-#include "Engine/Render/Vulkan/Instance.hpp"
-#include "Engine/Render/Vulkan/Surface.hpp"
 
 namespace DeviceDetails
 {	

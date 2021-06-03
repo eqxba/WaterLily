@@ -1,10 +1,12 @@
 #pragma once
 
-class Window;
-class Instance;
-class Surface;
-class Device;
-class Swapchain;
+#include "Engine/Window.hpp"
+#include "Engine/Render/Vulkan/Instance.hpp"
+#include "Engine/Render/Vulkan/Surface.hpp"
+#include "Engine/Render/Vulkan/Device.hpp"
+#include "Engine/Render/Vulkan/Swapchain.hpp"
+
+#include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
 
 class VulkanContext
 {
@@ -16,4 +18,6 @@ public:
 	static std::unique_ptr<Surface> surface;
 	static std::unique_ptr<Device> device;
 	static std::unique_ptr<Swapchain> swapchain;
+
+	static std::unique_ptr<ShaderManager> shaderManager;
 };

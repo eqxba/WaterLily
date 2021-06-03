@@ -2,7 +2,6 @@
 
 #include "Engine/EngineConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Window.hpp"
 
 std::unique_ptr<Window> Engine::window;
 
