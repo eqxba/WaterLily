@@ -12,6 +12,7 @@ class ShaderModule
 {
 public:
 	ShaderModule(const VkShaderModule shaderModule, const ShaderType shaderType);
+	ShaderModule(ShaderModule&& other);
 	~ShaderModule();
 
 	VkPipelineShaderStageCreateInfo GetVkPipelineShaderStageCreateInfo() const;

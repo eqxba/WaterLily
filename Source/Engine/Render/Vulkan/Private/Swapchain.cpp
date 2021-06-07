@@ -130,8 +130,8 @@ namespace SwapchainDetails
 		else
 		{
 			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			createInfo.queueFamilyIndexCount = 0; // Optional
-			createInfo.pQueueFamilyIndices = nullptr; // Optional
+			createInfo.queueFamilyIndexCount = 0;
+			createInfo.pQueueFamilyIndices = nullptr;
 		}
 
 		createInfo.preTransform = swapChainSupportDetails.capabilities.currentTransform;
@@ -184,7 +184,7 @@ namespace SwapchainDetails
 			const VkResult result = vkCreateImageView(VulkanContext::device->device, &createInfo, nullptr, &imageView);
 			Assert(result == VK_SUCCESS);
 			
-			imageViews.push_back(imageView);
+			imageViews.emplace_back(imageView);
 		}
 
 		return imageViews;

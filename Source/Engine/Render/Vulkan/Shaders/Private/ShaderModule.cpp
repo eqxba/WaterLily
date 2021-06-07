@@ -6,17 +6,19 @@ namespace ShaderModuleDetails
 {
 	static VkShaderStageFlagBits GetVkShaderStageFlagBits(const ShaderType shaderType)
 	{
+		VkShaderStageFlagBits result{};
+		
 		switch (shaderType)
 		{
 			case ShaderType::eVertex:
-				return VK_SHADER_STAGE_VERTEX_BIT;
+				result = VK_SHADER_STAGE_VERTEX_BIT;
+				break;
 			case ShaderType::eFragment:
-				return VK_SHADER_STAGE_FRAGMENT_BIT;
-			// TODO: Ask BigBoss about this stuff
-			default:
-				Assert(false);
-				return VK_SHADER_STAGE_ALL;
+				result = VK_SHADER_STAGE_FRAGMENT_BIT;
+				break;
 		}
+
+		return result;
 	}
 }
 
@@ -25,9 +27,19 @@ ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType 
 	, shaderType(aShaderType)
 {}
 
+ShaderModule::ShaderModule(ShaderModule&& other)
+	: shaderModule(other.shaderModule)
+	, shaderType(other.shaderType)
+{
+	other.shaderModule = VK_NULL_HANDLE;
+}
+
 ShaderModule::~ShaderModule()
 {
-	vkDestroyShaderModule(VulkanContext::device->device, shaderModule, nullptr);
+	if (shaderModule != VK_NULL_HANDLE)
+	{ 
+		vkDestroyShaderModule(VulkanContext::device->device, shaderModule, nullptr);
+	}	
 }
 
 VkPipelineShaderStageCreateInfo ShaderModule::GetVkPipelineShaderStageCreateInfo() const

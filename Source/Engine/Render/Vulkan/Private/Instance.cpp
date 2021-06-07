@@ -93,7 +93,7 @@ namespace InstanceDetails
             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = DebugCallback;
-        createInfo.pUserData = nullptr; // Optional
+        createInfo.pUserData = nullptr;
 
         return createInfo;
     }

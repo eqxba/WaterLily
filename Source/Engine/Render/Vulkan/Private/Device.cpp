@@ -122,7 +122,7 @@ namespace DeviceDetails
 			queueCreateInfo.queueFamilyIndex = queueFamily;
 			queueCreateInfo.queueCount = 1;
 			queueCreateInfo.pQueuePriorities = &queuePriority;
-			queueCreateInfos.push_back(queueCreateInfo);
+			queueCreateInfos.emplace_back(queueCreateInfo);
 		}
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
