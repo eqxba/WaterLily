@@ -23,6 +23,8 @@ void Engine::Run()
         window->PollEvents();
         renderSystem->Render();
     }
+
+    VulkanContext::device->WaitIdle();
 }
 
 void Engine::Destroy()

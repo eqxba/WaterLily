@@ -160,3 +160,9 @@ Device::~Device()
 {
 	vkDestroyDevice(device, nullptr);
 }
+
+void Device::WaitIdle() const
+{
+	vkDeviceWaitIdle(device);
+}
+

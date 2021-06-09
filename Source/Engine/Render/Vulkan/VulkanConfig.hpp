@@ -14,4 +14,6 @@ namespace VulkanConfig
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
+
+	constexpr int maxFramesInFlight = 2;
 }

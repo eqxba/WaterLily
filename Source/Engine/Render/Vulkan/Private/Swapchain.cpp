@@ -163,7 +163,7 @@ namespace SwapchainDetails
 		std::vector<VkImageView> imageViews;
 		imageViews.reserve(images.size());
 		
-		for (const auto& image : images)
+		for (const auto image : images)
 		{
 			VkImageViewCreateInfo createInfo{};
 			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -209,7 +209,7 @@ Swapchain::Swapchain(const Window& window)
 
 Swapchain::~Swapchain()
 {
-	for (const auto& imageView : imageViews)
+	for (const auto imageView : imageViews)
 	{
 		vkDestroyImageView(VulkanContext::device->device, imageView, nullptr);
 	}

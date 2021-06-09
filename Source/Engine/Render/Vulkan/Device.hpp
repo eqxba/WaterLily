@@ -21,6 +21,8 @@ public:
 	Device();
 	~Device();
 
+	void WaitIdle() const;
+
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
 
