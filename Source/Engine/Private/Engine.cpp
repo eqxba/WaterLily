@@ -6,6 +6,7 @@
 
 std::unique_ptr<Window> Engine::window;
 std::unique_ptr<RenderSystem> Engine::renderSystem;
+bool Engine::renderingSuspended = false;
 
 void Engine::Create()
 {
@@ -13,6 +14,8 @@ void Engine::Create()
 
     VulkanContext::Create(*window);
 
+    // TODO: Subscribe to events
+	
     renderSystem = std::make_unique<RenderSystem>();
 }
 
@@ -21,7 +24,11 @@ void Engine::Run()
     while (!window->ShouldClose())
     {
         window->PollEvents();
-        renderSystem->Render();
+
+    	if (!renderingSuspended)
+    	{
+			renderSystem->Render();
+    	}        
     }
 
     VulkanContext::device->WaitIdle();
@@ -31,4 +38,18 @@ void Engine::Destroy()
 {
     renderSystem.reset();
     window.reset();
+}
+
+void Engine::OnResize(const Extent2D& newSize)
+{
+    VulkanContext::device->WaitIdle();
+
+    renderingSuspended = newSize.width == 0 || newSize.height == 0;
+
+	if (!renderingSuspended)
+	{
+        VulkanContext::swapchain->Recreate(newSize);
+		
+        renderSystem->OnResize();
+	}
 }

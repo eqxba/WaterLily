@@ -18,7 +18,7 @@ void VulkanContext::Create(const Window& window)
 	instance = std::make_unique<Instance>();
 	surface = std::make_unique<Surface>(window);
 	device = std::make_unique<Device>();
-	swapchain = std::make_unique<Swapchain>(window);
+	swapchain = std::make_unique<Swapchain>(window.GetExtentInPixels());
 
 	shaderManager = std::make_unique<ShaderManager>();
 }

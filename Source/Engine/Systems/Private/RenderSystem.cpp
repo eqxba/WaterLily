@@ -138,20 +138,31 @@ namespace RenderSystemDetails
 
 		return fences;
 	}
+
+	static void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers)
+	{
+		for (const auto framebuffer : framebuffers)
+		{
+			vkDestroyFramebuffer(VulkanContext::device->device, framebuffer, nullptr);
+		}
+	}
 }
 
 RenderSystem::RenderSystem()
-	: graphicsPipeline(renderPass)
+	: renderPass(std::make_unique<RenderPass>())
+	, graphicsPipeline(std::make_unique<GraphicsPipeline>(*renderPass))
 	, imagesInFlight(VulkanContext::swapchain->images.size(), VK_NULL_HANDLE)
 {
 	using namespace RenderSystemDetails;
 	
-	swapchainFramebuffers = CreateFramebuffers(renderPass.renderPass);
+	framebuffers = CreateFramebuffers(renderPass->renderPass);
 	commandPool = CreateCommandPool();
-	commandBuffers = CreateCommandBuffers(commandPool, renderPass, swapchainFramebuffers, graphicsPipeline);
+	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline);
 	imageAvailableSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	renderFinishedSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	inFlightFences = CreateFences(VulkanConfig::maxFramesInFlight);
+
+	// TODO: Subscribe to events
 }
 
 RenderSystem::~RenderSystem()
@@ -166,10 +177,7 @@ RenderSystem::~RenderSystem()
 	
 	vkDestroyCommandPool(VulkanContext::device->device, commandPool, nullptr);
 	
-	for (const auto framebuffer : swapchainFramebuffers) 
-	{
-		vkDestroyFramebuffer(VulkanContext::device->device, framebuffer, nullptr);
-	}
+	RenderSystemDetails::DestroyFramebuffers(framebuffers);
 }
 
 void RenderSystem::Process(float deltaSeconds)
@@ -180,9 +188,11 @@ void RenderSystem::Render()
 	vkWaitForFences(VulkanContext::device->device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 	
 	uint32_t imageIndex;
-	vkAcquireNextImageKHR(VulkanContext::device->device, VulkanContext::swapchain->swapchain,
-		std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-
+	const VkResult acquireResult = vkAcquireNextImageKHR(VulkanContext::device->device, 
+		VulkanContext::swapchain->swapchain, std::numeric_limits<uint64_t>::max(), 
+		imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+	Assert(acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR);
+	
 	// Check if a previous frame is using this image (i.e. there is its fence to wait on)
 	if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) 
 	{
@@ -225,7 +235,21 @@ void RenderSystem::Render()
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr;
 
-	vkQueuePresentKHR(VulkanContext::device->queues.present, &presentInfo);
+	const VkResult presentResult = vkQueuePresentKHR(VulkanContext::device->queues.present, &presentInfo);
+	Assert(presentResult == VK_SUCCESS);
 
 	currentFrame = (currentFrame + 1) % VulkanConfig::maxFramesInFlight;
+}
+
+void RenderSystem::OnResize()
+{
+	using namespace RenderSystemDetails;
+
+	DestroyFramebuffers(framebuffers);
+	vkFreeCommandBuffers(VulkanContext::device->device, commandPool, static_cast<uint32_t>(commandBuffers.size()),
+		commandBuffers.data());
+	
+	graphicsPipeline = std::make_unique<GraphicsPipeline>(*renderPass);
+	framebuffers = CreateFramebuffers(renderPass->renderPass);
+	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline);
 }

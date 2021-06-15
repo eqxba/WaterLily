@@ -1,16 +1,20 @@
 #include "Engine/Render/Vulkan/Swapchain.hpp"
 
-#include "Engine/Window.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
 namespace SwapchainDetails
 {
+	static VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(VkPhysicalDevice device)
+	{
+		VkSurfaceCapabilitiesKHR capabilities;		
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, VulkanContext::surface->surface, &capabilities);
+		return capabilities;
+	}
+	
 	static SwapchainSupportDetails GetSwapchainSupportDetails(VkPhysicalDevice device)
 	{
 		SwapchainSupportDetails details;
-
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, VulkanContext::surface->surface, &details.capabilities);
-
+		
 		uint32_t formatCount;
 		vkGetPhysicalDeviceSurfaceFormatsKHR(device, VulkanContext::surface->surface, &formatCount, nullptr);
 		Assert(formatCount != 0);
@@ -66,7 +70,7 @@ namespace SwapchainDetails
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 
-	static VkExtent2D SelectExtent(const VkSurfaceCapabilitiesKHR& capabilities, const Window& window)
+	static VkExtent2D SelectExtent(const VkSurfaceCapabilitiesKHR& capabilities, const Extent2D& requiredExtentInPixels)
 	{
 		// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF)
 		// indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
@@ -76,13 +80,11 @@ namespace SwapchainDetails
 		}
 		else
 		{
-			const Extent2D windowExtent = window.GetExtentInPixels();
-
 			const VkExtent2D actualExtent =
 			{
-				std::clamp(static_cast<uint32_t>(windowExtent.width),
+				std::clamp(static_cast<uint32_t>(requiredExtentInPixels.width),
 					capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-				std::clamp(static_cast<uint32_t>(windowExtent.height),
+				std::clamp(static_cast<uint32_t>(requiredExtentInPixels.height),
 					capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
 			};
 			
@@ -104,13 +106,13 @@ namespace SwapchainDetails
 		return imageCount;
 	}
 
-	static VkSwapchainKHR CreateSwapchain(const SwapchainSupportDetails& swapChainSupportDetails,
-		const VkSurfaceFormatKHR surfaceFormat, const VkExtent2D extent)
+	static VkSwapchainKHR CreateSwapchain(const SwapchainSupportDetails& supportDetails, 
+		const VkSurfaceCapabilitiesKHR& capabilities, const VkSurfaceFormatKHR surfaceFormat, const VkExtent2D extent)
 	{
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		createInfo.surface = VulkanContext::surface->surface;
-		createInfo.minImageCount = SelectImageCount(swapChainSupportDetails.capabilities);
+		createInfo.minImageCount = SelectImageCount(capabilities);
 		createInfo.imageFormat = surfaceFormat.format;
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
 		createInfo.imageExtent = extent;
@@ -134,10 +136,11 @@ namespace SwapchainDetails
 			createInfo.pQueueFamilyIndices = nullptr;
 		}
 
-		createInfo.preTransform = swapChainSupportDetails.capabilities.currentTransform;
+		createInfo.preTransform = capabilities.currentTransform;
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		createInfo.presentMode = SelectPresentMode(swapChainSupportDetails.presentModes);
+		createInfo.presentMode = SelectPresentMode(supportDetails.presentModes);
 		createInfo.clipped = VK_TRUE;
+		// TODO: Create swapchain with the use of the old one
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 		VkSwapchainKHR swapchain;
@@ -191,28 +194,47 @@ namespace SwapchainDetails
 	}
 }
 
-Swapchain::Swapchain(const Window& window)
+Swapchain::Swapchain(const Extent2D& requiredExtentInPixels)
 {
 	using namespace SwapchainDetails;
-	
-	SwapchainSupportDetails swapChainSupportDetails = GetSwapchainSupportDetails(VulkanContext::device->physicalDevice);
-	VkSurfaceFormatKHR surfaceFormat = SelectSurfaceFormat(swapChainSupportDetails.formats);
-	
-	extent = SelectExtent(swapChainSupportDetails.capabilities, window);
-	format = surfaceFormat.format;
 
-	swapchain = CreateSwapchain(swapChainSupportDetails, surfaceFormat, extent);
+	const VkSurfaceCapabilitiesKHR surfaceCapabilities = GetSurfaceCapabilities(VulkanContext::device->physicalDevice);
+	supportDetails = GetSwapchainSupportDetails(VulkanContext::device->physicalDevice);
+	surfaceFormat = SelectSurfaceFormat(supportDetails.formats);	
+	extent = SelectExtent(surfaceCapabilities, requiredExtentInPixels);
+
+	swapchain = CreateSwapchain(supportDetails, surfaceCapabilities, surfaceFormat, extent);
 
 	images = GetSwapchainImages(swapchain);
-	imageViews = CreateImageViews(images, format);
+	imageViews = CreateImageViews(images, surfaceFormat.format);
 }
 
-Swapchain::~Swapchain()
+void Swapchain::Cleanup()
 {
 	for (const auto imageView : imageViews)
 	{
 		vkDestroyImageView(VulkanContext::device->device, imageView, nullptr);
 	}
-	
+
 	vkDestroySwapchainKHR(VulkanContext::device->device, swapchain, nullptr);
+}
+
+Swapchain::~Swapchain()
+{
+	Cleanup();
+}
+
+void Swapchain::Recreate(const Extent2D& requiredExtentInPixels)
+{
+	using namespace SwapchainDetails;
+
+	Cleanup();
+
+	const VkSurfaceCapabilitiesKHR surfaceCapabilities = GetSurfaceCapabilities(VulkanContext::device->physicalDevice);
+	extent = SelectExtent(surfaceCapabilities, requiredExtentInPixels);
+	
+	swapchain = CreateSwapchain(supportDetails, surfaceCapabilities, surfaceFormat, extent);
+
+	images = GetSwapchainImages(swapchain);
+	imageViews = CreateImageViews(images, surfaceFormat.format);
 }

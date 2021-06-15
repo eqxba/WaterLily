@@ -16,10 +16,14 @@ public:
 
 	void Render();
 
+	// TODO: Temp
+	void OnResize();
 private:
-	RenderPass renderPass;
-	GraphicsPipeline graphicsPipeline;
-	std::vector<VkFramebuffer> swapchainFramebuffers;
+	//void OnResize();
+	
+	std::unique_ptr<RenderPass> renderPass;
+	std::unique_ptr <GraphicsPipeline> graphicsPipeline;
+	std::vector<VkFramebuffer> framebuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 

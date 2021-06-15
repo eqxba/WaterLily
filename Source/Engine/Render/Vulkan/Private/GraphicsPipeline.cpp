@@ -180,12 +180,15 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
 {
 	using namespace GraphicsPipelineDetails;
 
+	// TODO: Extremely bad, need to presave this on first load because we recreate pipeline on resize
 	std::vector<ShaderModule> shaderModules = GetShaderModules();	
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
 	
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo();
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = GetInputAssemblyStateCreateInfo();
 
+	// TODO: Can use dynamic viewport and scissors states and avoid recreation of the pipeline on resize (related to the
+	// upper todo.
 	std::vector<VkViewport> viewports = GetViewports(VulkanContext::swapchain->extent);
 	std::vector<VkRect2D> scissors = GetScissors(VulkanContext::swapchain->extent);	
 	VkPipelineViewportStateCreateInfo viewportState = GetPipelineViewportStateCreateInfo(viewports, scissors);

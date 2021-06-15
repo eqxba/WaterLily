@@ -1,12 +1,11 @@
 #pragma once
 
-#include <volk.h>
+#include "Engine/Window.hpp"
 
-class Window;
+#include <volk.h>
 
 struct SwapchainSupportDetails
 {
-    VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
 };
@@ -14,14 +13,21 @@ struct SwapchainSupportDetails
 class Swapchain
 {
 public:
-	Swapchain(const Window& window);
+	Swapchain(const Extent2D& requiredExtentInPixels);
 	~Swapchain();
+
+	void Recreate(const Extent2D& requiredExtentInPixels);
 
 	VkSwapchainKHR swapchain;
 
-	VkFormat format;
+	VkSurfaceFormatKHR surfaceFormat;
 	VkExtent2D extent;
 
 	std::vector<VkImage> images;
 	std::vector<VkImageView> imageViews;
+
+private:
+	void Cleanup();
+	
+	SwapchainSupportDetails supportDetails;
 };
