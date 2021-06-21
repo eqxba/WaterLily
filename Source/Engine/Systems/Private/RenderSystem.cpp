@@ -1,5 +1,7 @@
 #include "Engine/Systems/RenderSystem.hpp"
 
+#include "Engine/Engine.hpp"
+#include "Engine/EventSystem.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 
@@ -80,7 +82,7 @@ namespace RenderSystemDetails
 			renderPassInfo.renderArea.offset = { 0, 0 };
 			renderPassInfo.renderArea.extent = VulkanContext::swapchain->extent;
 
-			VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+			VkClearValue clearColor = { 0.73f, 0.95f, 1.0f, 1.0f };
 			renderPassInfo.clearValueCount = 1;
 			renderPassInfo.pClearValues = &clearColor;
 
@@ -162,11 +164,13 @@ RenderSystem::RenderSystem()
 	renderFinishedSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	inFlightFences = CreateFences(VulkanConfig::maxFramesInFlight);
 
-	// TODO: Subscribe to events
+	Engine::GetEventSystem()->Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 }
 
 RenderSystem::~RenderSystem()
 {
+	Engine::GetEventSystem()->Unsubscribe<ES::WindowResized>(this);
+
 	for (const auto fence : inFlightFences)
 	{
 		vkDestroyFence(VulkanContext::device->device, fence, nullptr);

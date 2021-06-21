@@ -16,10 +16,8 @@ public:
 
 	void Render();
 
-	// TODO: Temp
-	void OnResize();
 private:
-	//void OnResize();
+	void OnResize();
 	
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr <GraphicsPipeline> graphicsPipeline;

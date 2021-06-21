@@ -2,7 +2,13 @@
 
 #include "Engine/Window.hpp"
 
+namespace ES
+{
+    struct WindowResized;   
+}
+
 class RenderSystem;
+class EventSystem;
 
 class Engine
 {
@@ -11,13 +17,17 @@ public:
     static void Run();
     static void Destroy();
 
-	// TODO: Temp
-    static void OnResize(const Extent2D& newSize);
+    static EventSystem* GetEventSystem()
+    {
+        return eventSystem.get();
+    }
+	
 private:
-    //void OnResize(const Extent2D& newSize);
+    static void OnResize(const ES::WindowResized& event);
 	
     static std::unique_ptr<Window> window;
     static std::unique_ptr<RenderSystem> renderSystem;
+    static std::unique_ptr<EventSystem> eventSystem;
 
     static bool renderingSuspended;
 };

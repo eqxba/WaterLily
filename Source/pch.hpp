@@ -10,6 +10,10 @@
 #include <set>
 #include <limits>
 #include <fstream>
+#include <unordered_map>
+#include <typeindex>
+#include <any>
+#include <functional>
 
 #include "Utils/Assert.hpp"
 #include "Utils/Logger.hpp"

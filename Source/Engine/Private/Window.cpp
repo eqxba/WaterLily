@@ -2,8 +2,8 @@
 
 #include <GLFW/glfw3.h>
 
-// TODO: Temp
 #include "Engine/Engine.hpp"
+#include "Engine/EventSystem.hpp"
 
 Window::Window(int width, int height, std::string title)
 {
@@ -40,6 +40,5 @@ Extent2D Window::GetExtentInPixels() const
 
 void Window::ResizeCallback(GLFWwindow* glfwWindow, int32_t width, int32_t height)
 {
-	// TODO: Implement EventSystem
-	Engine::OnResize({ width, height });
+	Engine::GetEventSystem()->Fire<ES::WindowResized>({ width, height });
 }
