@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(ENV{CMAKE_BUILD_PARALLEL_LEVEL} 8)
+
 set(TARGET_NAME WaterLily)
 project(${TARGET_NAME})
 

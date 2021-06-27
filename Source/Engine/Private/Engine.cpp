@@ -43,6 +43,9 @@ void Engine::Destroy()
     eventSystem->Unsubscribe<ES::WindowResized>(&Engine::OnResize);
 
     renderSystem.reset();
+
+    VulkanContext::Destroy();
+
     window.reset();
     eventSystem.reset();
 }
@@ -53,8 +56,8 @@ void Engine::OnResize(const ES::WindowResized& event)
 
     renderingSuspended = event.newWidth == 0 || event.newHeight == 0;
 
-	if (!renderingSuspended)
-	{
+    if (!renderingSuspended)
+    {
         VulkanContext::swapchain->Recreate({ event.newWidth, event.newHeight });	
-	}
+    }
 }
