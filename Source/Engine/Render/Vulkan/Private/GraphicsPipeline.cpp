@@ -2,6 +2,7 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Scene/Scene.hpp"
 
 namespace GraphicsPipelineDetails
 {
@@ -36,14 +37,16 @@ namespace GraphicsPipelineDetails
 		return shaderStages;
 	}
 
-	static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo()
+	static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
+		  const VkVertexInputBindingDescription& bindingDescription
+		, const std::vector<VkVertexInputAttributeDescription>& attributeDescriptions)
 	{
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr; 
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr; 
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; 
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); 
 
 		return vertexInputInfo;
 	}
@@ -183,8 +186,12 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
 	// TODO: Extremely bad, need to presave this on first load because we recreate pipeline on resize
 	std::vector<ShaderModule> shaderModules = GetShaderModules();	
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
-	
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo();
+
+	VkVertexInputBindingDescription bindingDescription = Vertex::GetBindingDescription();
+    const std::vector<VkVertexInputAttributeDescription> attributeDescriptions = Vertex::GetAttributeDescriptions();
+
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo(bindingDescription, 
+		attributeDescriptions);
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = GetInputAssemblyStateCreateInfo();
 
 	// TODO: Can use dynamic viewport and scissors states and avoid recreation of the pipeline on resize (related to the

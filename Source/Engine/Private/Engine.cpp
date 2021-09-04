@@ -4,10 +4,13 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/EventSystem.hpp"
 #include "Engine/Systems/RenderSystem.hpp"
+#include "Engine/Scene/Scene.hpp"
 
 std::unique_ptr<Window> Engine::window;
 std::unique_ptr<RenderSystem> Engine::renderSystem;
 std::unique_ptr<EventSystem> Engine::eventSystem;
+
+std::unique_ptr<Scene> Engine::scene;
 
 bool Engine::renderingSuspended = false;
 
@@ -18,9 +21,11 @@ void Engine::Create()
 
     VulkanContext::Create(*window);
 
+    scene = std::make_unique<Scene>();
+
     eventSystem->Subscribe<ES::WindowResized>(&Engine::OnResize);
 	
-    renderSystem = std::make_unique<RenderSystem>();
+    renderSystem = std::make_unique<RenderSystem>(scene.get());
 }
 
 void Engine::Run()
@@ -43,6 +48,8 @@ void Engine::Destroy()
     eventSystem->Unsubscribe<ES::WindowResized>(&Engine::OnResize);
 
     renderSystem.reset();
+
+    scene.reset();
 
     VulkanContext::Destroy();
 

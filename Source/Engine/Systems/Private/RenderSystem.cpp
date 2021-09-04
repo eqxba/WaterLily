@@ -4,6 +4,7 @@
 #include "Engine/EventSystem.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
+#include "Engine/Scene/Scene.hpp"
 
 namespace RenderSystemDetails
 {
@@ -51,7 +52,7 @@ namespace RenderSystemDetails
 	}
 
 	static std::vector<VkCommandBuffer> CreateCommandBuffers(VkCommandPool commandPool, const RenderPass& renderPass,
-		const std::vector<VkFramebuffer>& framebuffers, const GraphicsPipeline& graphicsPipeline)
+		const std::vector<VkFramebuffer>& framebuffers, const GraphicsPipeline& graphicsPipeline, Scene* scene)
 	{
 		std::vector<VkCommandBuffer> commandBuffers;
 		commandBuffers.resize(framebuffers.size());
@@ -88,6 +89,11 @@ namespace RenderSystemDetails
 
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.pipeline);
+
+            VkBuffer vertexBuffers[] = { scene->vertexBuffer };
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
 			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -150,16 +156,17 @@ namespace RenderSystemDetails
 	}
 }
 
-RenderSystem::RenderSystem()
+RenderSystem::RenderSystem(Scene* aScene)
 	: renderPass(std::make_unique<RenderPass>())
 	, graphicsPipeline(std::make_unique<GraphicsPipeline>(*renderPass))
 	, imagesInFlight(VulkanContext::swapchain->images.size(), VK_NULL_HANDLE)
+    , scene(aScene)
 {
 	using namespace RenderSystemDetails;
 	
 	framebuffers = CreateFramebuffers(renderPass->renderPass);
 	commandPool = CreateCommandPool();
-	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline);
+	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline, scene);
 	imageAvailableSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	renderFinishedSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	inFlightFences = CreateFences(VulkanConfig::maxFramesInFlight);
@@ -255,5 +262,5 @@ void RenderSystem::OnResize()
 	
 	graphicsPipeline = std::make_unique<GraphicsPipeline>(*renderPass);
 	framebuffers = CreateFramebuffers(renderPass->renderPass);
-	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline);
+	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline, scene);
 }

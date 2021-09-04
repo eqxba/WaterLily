@@ -8,7 +8,9 @@ std::unique_ptr<Surface> VulkanContext::surface;
 std::unique_ptr<Device> VulkanContext::device;
 std::unique_ptr<Swapchain> VulkanContext::swapchain;
 
+std::unique_ptr<MemoryManager> VulkanContext::memoryManager;
 std::unique_ptr<ShaderManager> VulkanContext::shaderManager;
+std::unique_ptr<BufferManger> VulkanContext::bufferManager;
 
 void VulkanContext::Create(const Window& window)
 {
@@ -20,12 +22,16 @@ void VulkanContext::Create(const Window& window)
 	device = std::make_unique<Device>();
 	swapchain = std::make_unique<Swapchain>(window.GetExtentInPixels());
 
+	memoryManager = std::make_unique<MemoryManager>();
 	shaderManager = std::make_unique<ShaderManager>();
+	bufferManager = std::make_unique<BufferManger>();
 }
 
 void VulkanContext::Destroy()
 {
 	shaderManager.reset();
+	bufferManager.reset();
+	memoryManager.reset();
 	
 	swapchain.reset();
 	device.reset();

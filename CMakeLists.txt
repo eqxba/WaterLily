@@ -24,6 +24,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
     ${Vulkan_INCLUDE_DIRS}
     External/glfw/include/
     # This ones are header only :)
+    External/VulkanMemoryAllocator/include
     External/glm/
     External/volk/
     Source/

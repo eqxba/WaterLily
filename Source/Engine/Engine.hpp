@@ -9,6 +9,7 @@ namespace ES
 
 class RenderSystem;
 class EventSystem;
+class Scene;
 
 class Engine
 {
@@ -28,6 +29,8 @@ private:
     static std::unique_ptr<Window> window;
     static std::unique_ptr<RenderSystem> renderSystem;
     static std::unique_ptr<EventSystem> eventSystem;
+
+    static std::unique_ptr<Scene> scene;
 
     static bool renderingSuspended;
 };

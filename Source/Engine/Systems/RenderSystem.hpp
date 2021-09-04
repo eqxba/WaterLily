@@ -6,10 +6,12 @@
 
 #include <volk.h>
 
+class Scene;
+
 class RenderSystem : public System
 {
 public:
-	RenderSystem();
+	RenderSystem(Scene* aScene);
 	~RenderSystem() override;
 
 	void Process(float deltaSeconds) override;
@@ -32,4 +34,6 @@ private:
 	std::vector<VkFence> imagesInFlight;
 	
 	size_t currentFrame = 0;
+
+	Scene* scene;
 };
