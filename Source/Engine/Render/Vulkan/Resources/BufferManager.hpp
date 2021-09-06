@@ -8,6 +8,8 @@
 class BufferManger
 {
 public:
+    ~BufferManger();
+
     VkBuffer CreateBuffer(const BufferDescription& bufferDescription, bool createStagingBuffer = true);
     void DestroyBuffer(VkBuffer buffer);
 

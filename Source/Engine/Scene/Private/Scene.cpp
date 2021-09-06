@@ -39,10 +39,20 @@ Scene::Scene()
 
     vertexBuffer = VulkanContext::bufferManager->CreateBuffer(vertexBufferDescription);
     VulkanContext::bufferManager->FillBuffer(vertexBuffer, static_cast<void*>(vertices.data()), 
-        vertices.size() * sizeof(Vertex));
+        vertices.size() * sizeof(vertices[0]));
+
+    BufferDescription indexBufferDescription{};
+    indexBufferDescription.size = static_cast<VkDeviceSize>(sizeof(indices[0]) * indices.size());
+    indexBufferDescription.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    indexBufferDescription.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    indexBuffer = VulkanContext::bufferManager->CreateBuffer(indexBufferDescription);
+    VulkanContext::bufferManager->FillBuffer(indexBuffer, static_cast<void*>(indices.data()), 
+        indices.size() * sizeof(indices[0]));
 }
 
 Scene::~Scene()
 {
     VulkanContext::bufferManager->DestroyBuffer(vertexBuffer);
+    VulkanContext::bufferManager->DestroyBuffer(indexBuffer);
 }

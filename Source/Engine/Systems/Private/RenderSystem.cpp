@@ -82,7 +82,9 @@ namespace RenderSystemDetails
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			vkCmdBindIndexBuffer(commandBuffers[i], scene->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(scene->indices.size()), 1, 0, 0, 0);
 			vkCmdEndRenderPass(commandBuffers[i]);
 
 			result = vkEndCommandBuffer(commandBuffers[i]);

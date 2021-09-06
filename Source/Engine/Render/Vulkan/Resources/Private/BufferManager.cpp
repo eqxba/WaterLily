@@ -2,6 +2,11 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
+BufferManger::~BufferManger()
+{
+    Assert(buffers.size() == 0);
+}
+
 VkBuffer BufferManger::CreateBuffer(const BufferDescription& bufferDescription, bool createStagingBuffer /* = true */)
 {
     VkBufferCreateInfo bufferInfo{};
