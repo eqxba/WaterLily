@@ -1,8 +1,8 @@
 #pragma once
 
-#include <volk.h>
+#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
-using DeviceCommands = std::function<void(VkCommandBuffer)>;
+#include <volk.h>
 
 struct QueueFamilyIndices
 {
@@ -15,12 +15,6 @@ struct Queues
 	VkQueue graphics;
 	VkQueue present;
 	QueueFamilyIndices familyIndices;
-};
-
-enum class CommandBufferType
-{
-    eOneTime,
-    eLongLived
 };
 
 class Device
@@ -41,4 +35,6 @@ public:
 
 private:
 	std::unordered_map<CommandBufferType, VkCommandPool> commandPools;
+
+	CommandBufferSync oneTimeCommandBufferSync;
 };

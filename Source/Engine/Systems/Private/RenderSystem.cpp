@@ -94,49 +94,6 @@ namespace RenderSystemDetails
 		return commandBuffers;
 	}
 
-	// TODO: On first reuse move to helpers file or smth (not only this function)
-	static std::vector<VkSemaphore> CreateSemaphores(const size_t count)
-	{
-		std::vector<VkSemaphore> semaphores(count);
-
-		for (auto& semaphore : semaphores)
-		{
-			VkSemaphoreCreateInfo semaphoreInfo{};
-			semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-			const VkResult result = 
-				vkCreateSemaphore(VulkanContext::device->device, &semaphoreInfo, nullptr, &semaphore);
-			Assert(result == VK_SUCCESS);
-		}
-
-		return semaphores;
-	}
-
-	static void DestroySemaphores(const std::vector<VkSemaphore>& semaphores)
-	{
-		for (const auto semaphore : semaphores)
-		{
-			vkDestroySemaphore(VulkanContext::device->device, semaphore, nullptr);
-		}
-	}
-
-	static std::vector<VkFence> CreateFences(const size_t count)
-	{
-		std::vector<VkFence> fences(count);
-
-		for (auto& fence : fences)
-		{
-			VkFenceCreateInfo fenceInfo{};
-			fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-			fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-			const VkResult result = vkCreateFence(VulkanContext::device->device, &fenceInfo, nullptr, &fence);
-			Assert(result == VK_SUCCESS);
-		}
-
-		return fences;
-	}
-
 	static void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers)
 	{
 		for (const auto framebuffer : framebuffers)
@@ -157,9 +114,12 @@ RenderSystem::RenderSystem(Scene* aScene)
 	framebuffers = CreateFramebuffers(renderPass->renderPass);
 	commandBuffers = CreateCommandBuffers(VulkanContext::device->GetCommandPool(CommandBufferType::eLongLived), 
 		*renderPass, framebuffers, *graphicsPipeline, scene);
-	imageAvailableSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
-	renderFinishedSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
-	inFlightFences = CreateFences(VulkanConfig::maxFramesInFlight);
+	imageAvailableSemaphores = VulkanHelpers::CreateSemaphores(VulkanContext::device->device, 
+		VulkanConfig::maxFramesInFlight);
+	renderFinishedSemaphores = VulkanHelpers::CreateSemaphores(VulkanContext::device->device, 
+		VulkanConfig::maxFramesInFlight);
+	inFlightFences = VulkanHelpers::CreateFences(VulkanContext::device->device, VK_FENCE_CREATE_SIGNALED_BIT,
+		VulkanConfig::maxFramesInFlight);
 
 	Engine::GetEventSystem()->Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 }
@@ -168,13 +128,9 @@ RenderSystem::~RenderSystem()
 {
 	Engine::GetEventSystem()->Unsubscribe<ES::WindowResized>(this);
 
-	for (const auto fence : inFlightFences)
-	{
-		vkDestroyFence(VulkanContext::device->device, fence, nullptr);
-	}
-	
-	RenderSystemDetails::DestroySemaphores(renderFinishedSemaphores);
-	RenderSystemDetails::DestroySemaphores(imageAvailableSemaphores);
+	VulkanHelpers::DestroyFences(VulkanContext::device->device, inFlightFences);
+	VulkanHelpers::DestroySemaphores(VulkanContext::device->device, renderFinishedSemaphores);
+	VulkanHelpers::DestroySemaphores(VulkanContext::device->device, imageAvailableSemaphores);
 	
 	RenderSystemDetails::DestroyFramebuffers(framebuffers);
 }

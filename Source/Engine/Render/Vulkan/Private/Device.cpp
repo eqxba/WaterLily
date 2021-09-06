@@ -176,10 +176,14 @@ Device::Device()
 	commandPools.emplace(CommandBufferType::eOneTime, 
 		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | 
 		VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsFamily));
+
+	oneTimeCommandBufferSync.fence = VulkanHelpers::CreateFence(device, {});
 }
 
 Device::~Device()
 {
+	VulkanHelpers::DestroyCommandBufferSync(device, oneTimeCommandBufferSync);
+
     for (auto& entry: commandPools)
     {
         vkDestroyCommandPool(device, entry.second, nullptr);
@@ -208,29 +212,16 @@ void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands)
 
     VkCommandBuffer oneTimeBuffer;
     vkAllocateCommandBuffers(device, &allocInfo, &oneTimeBuffer);
+	
+    VulkanHelpers::SubmitCommandBuffer(oneTimeBuffer, queues.graphics, commands, oneTimeCommandBufferSync);
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkWaitForFences(device, 1, &oneTimeCommandBufferSync.fence, VK_TRUE, UINT64_MAX);
 
-    vkBeginCommandBuffer(oneTimeBuffer, &beginInfo);
-	commands(oneTimeBuffer);
-    VkResult result = vkEndCommandBuffer(oneTimeBuffer);
-	Assert(result == VK_SUCCESS);
+	// TODO: (low priority) find out if we have to allocate and free each time or it's ok to have 1 buffer persistent
+	// Also see VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag
+	vkFreeCommandBuffers(device, commandPools[CommandBufferType::eOneTime], 1, &oneTimeBuffer);
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &oneTimeBuffer;
-
-	// TODO: Submit on a specific queue as a helpers method
-    result = vkQueueSubmit(queues.graphics, 1, &submitInfo, VK_NULL_HANDLE);
-	Assert(result == VK_SUCCESS);
-
-	// TODO: Bad, sync w/ fence
-    vkQueueWaitIdle(queues.graphics);
-
-	// TODO: maybe not allocate+free here, use precreated instead
-    vkFreeCommandBuffers(device, GetCommandPool(CommandBufferType::eOneTime), 1, &oneTimeBuffer);
+	const VkResult result = vkResetFences(device, 1, &oneTimeCommandBufferSync.fence);
+    Assert(result == VK_SUCCESS);
 }
 
