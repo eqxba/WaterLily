@@ -21,14 +21,15 @@ public:
 private:
 	void OnResize();
 	
+	// Per "stage"
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr <GraphicsPipeline> graphicsPipeline;
 	std::vector<VkFramebuffer> framebuffers;
+	
+	// Do not have to be recreated, persistent for FrameLoop
 	std::vector<VkCommandBuffer> commandBuffers;
-
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
-
 	std::vector<VkFence> inFlightFences;
 	std::vector<VkFence> imagesInFlight;
 	
