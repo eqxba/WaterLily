@@ -34,10 +34,12 @@ Scene::Scene()
 {
     BufferDescription vertexBufferDescription{};
     vertexBufferDescription.size = static_cast<VkDeviceSize>(sizeof(vertices[0]) * vertices.size());
-    vertexBufferDescription.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    vertexBufferDescription.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     vertexBufferDescription.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     vertexBuffer = VulkanContext::bufferManager->CreateBuffer(vertexBufferDescription);
+    VulkanContext::bufferManager->FillBuffer(vertexBuffer, static_cast<void*>(vertices.data()), 
+        vertices.size() * sizeof(Vertex));
 }
 
 Scene::~Scene()

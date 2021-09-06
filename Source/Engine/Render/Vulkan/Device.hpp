@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+using DeviceCommands = std::function<void(VkCommandBuffer)>;
+
 struct QueueFamilyIndices
 {
 	uint32_t graphicsFamily;
@@ -15,6 +17,12 @@ struct Queues
 	QueueFamilyIndices familyIndices;
 };
 
+enum class CommandBufferType
+{
+    eOneTime,
+    eLongLived
+};
+
 class Device
 {
 public:
@@ -23,8 +31,14 @@ public:
 
 	void WaitIdle() const;
 
+	VkCommandPool GetCommandPool(CommandBufferType type);
+	void ExecuteOneTimeCommandBuffer(DeviceCommands commands);
+
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
 
 	Queues queues;
+
+private:
+	std::unordered_map<CommandBufferType, VkCommandPool> commandPools;
 };

@@ -47,3 +47,36 @@ void MemoryManager::DestroyBuffer(VkBuffer buffer)
 
     bufferAllocations.erase(it);
 }
+
+// TODO: Make generic on the 1st need
+MemoryBlock MemoryManager::GetBufferMemoryBlock(VkBuffer buffer)
+{
+    const auto it = bufferAllocations.find(buffer);
+    Assert(it != bufferAllocations.end());
+
+    VmaAllocationInfo allocationInfo;
+    vmaGetAllocationInfo(allocator, it->second, &allocationInfo);
+
+    return MemoryBlock{ allocationInfo.deviceMemory, allocationInfo.offset, allocationInfo.size };
+}
+
+void* MemoryManager::MapBufferMemory(VkBuffer buffer)
+{
+    const auto it = bufferAllocations.find(buffer);
+    Assert(it != bufferAllocations.end());
+
+    void* mappedData;
+    const VkResult result = vmaMapMemory(allocator, it->second, &mappedData);
+    Assert(result == VK_SUCCESS);
+    
+
+    return mappedData;
+}
+
+void MemoryManager::UnmapBufferMemory(VkBuffer buffer)
+{
+    const auto it = bufferAllocations.find(buffer);
+    Assert(it != bufferAllocations.end());
+
+    vmaUnmapMemory(allocator, it->second);
+}

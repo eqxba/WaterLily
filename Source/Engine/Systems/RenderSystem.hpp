@@ -24,7 +24,6 @@ private:
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr <GraphicsPipeline> graphicsPipeline;
 	std::vector<VkFramebuffer> framebuffers;
-	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 
 	std::vector<VkSemaphore> imageAvailableSemaphores;

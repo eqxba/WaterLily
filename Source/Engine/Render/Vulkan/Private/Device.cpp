@@ -144,25 +144,93 @@ namespace DeviceDetails
 
 		return device;
 	}
+
+	static VkCommandPool CreateCommandPool(VkDevice device, VkCommandPoolCreateFlags flags, uint32_t queueFamilyIndex)
+	{		
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.queueFamilyIndex = queueFamilyIndex;
+		poolInfo.flags = flags;
+
+		VkCommandPool commandPool;
+		const VkResult result = vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool);
+		Assert(result == VK_SUCCESS);
+
+		return commandPool;
+	}
 }
 
 Device::Device()
 {
-	physicalDevice = DeviceDetails::SelectPhysicalDevice();
-	device = DeviceDetails::SelectLogicalDevice(physicalDevice);
+	using namespace DeviceDetails;
+
+	physicalDevice = SelectPhysicalDevice();
+	device = SelectLogicalDevice(physicalDevice);
 
 	volkLoadDevice(device);
 
-	queues = DeviceDetails::GetQueues(physicalDevice, device);
+	queues = GetQueues(physicalDevice, device);
+
+	commandPools.emplace(CommandBufferType::eLongLived, 
+		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queues.familyIndices.graphicsFamily));
+	commandPools.emplace(CommandBufferType::eOneTime, 
+		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | 
+		VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsFamily));
 }
 
 Device::~Device()
 {
+    for (auto& entry: commandPools)
+    {
+        vkDestroyCommandPool(device, entry.second, nullptr);
+    }
+
 	vkDestroyDevice(device, nullptr);
 }
 
 void Device::WaitIdle() const
 {
 	vkDeviceWaitIdle(device);
+}
+
+VkCommandPool Device::GetCommandPool(CommandBufferType type)
+{
+    return commandPools[type];
+}
+
+void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands)
+{
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPools[CommandBufferType::eOneTime];
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer oneTimeBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &oneTimeBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(oneTimeBuffer, &beginInfo);
+	commands(oneTimeBuffer);
+    VkResult result = vkEndCommandBuffer(oneTimeBuffer);
+	Assert(result == VK_SUCCESS);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &oneTimeBuffer;
+
+	// TODO: Submit on a specific queue as a helpers method
+    result = vkQueueSubmit(queues.graphics, 1, &submitInfo, VK_NULL_HANDLE);
+	Assert(result == VK_SUCCESS);
+
+	// TODO: Bad, sync w/ fence
+    vkQueueWaitIdle(queues.graphics);
+
+	// TODO: maybe not allocate+free here, use precreated instead
+    vkFreeCommandBuffers(device, GetCommandPool(CommandBufferType::eOneTime), 1, &oneTimeBuffer);
 }
 

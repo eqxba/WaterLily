@@ -37,20 +37,6 @@ namespace RenderSystemDetails
         return framebuffers;
 	}
 
-	static VkCommandPool CreateCommandPool()
-	{		
-		VkCommandPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.queueFamilyIndex = VulkanContext::device->queues.familyIndices.graphicsFamily;
-		poolInfo.flags = 0;
-
-		VkCommandPool commandPool;
-		const VkResult result = vkCreateCommandPool(VulkanContext::device->device, &poolInfo, nullptr, &commandPool);
-		Assert(result == VK_SUCCESS);
-
-		return commandPool;
-	}
-
 	static std::vector<VkCommandBuffer> CreateCommandBuffers(VkCommandPool commandPool, const RenderPass& renderPass,
 		const std::vector<VkFramebuffer>& framebuffers, const GraphicsPipeline& graphicsPipeline, Scene* scene)
 	{
@@ -68,6 +54,8 @@ namespace RenderSystemDetails
 
 		for (size_t i = 0; i < commandBuffers.size(); ++i)
 		{
+			// FYI: vkBeginCommandBuffer if buffer was created with VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag
+			// implicitly resets the buffer to the initial state
 			VkCommandBufferBeginInfo beginInfo{};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = 0;
@@ -165,8 +153,8 @@ RenderSystem::RenderSystem(Scene* aScene)
 	using namespace RenderSystemDetails;
 	
 	framebuffers = CreateFramebuffers(renderPass->renderPass);
-	commandPool = CreateCommandPool();
-	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline, scene);
+	commandBuffers = CreateCommandBuffers(VulkanContext::device->GetCommandPool(CommandBufferType::eLongLived), 
+		*renderPass, framebuffers, *graphicsPipeline, scene);
 	imageAvailableSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	renderFinishedSemaphores = CreateSemaphores(VulkanConfig::maxFramesInFlight);
 	inFlightFences = CreateFences(VulkanConfig::maxFramesInFlight);
@@ -185,8 +173,6 @@ RenderSystem::~RenderSystem()
 	
 	RenderSystemDetails::DestroySemaphores(renderFinishedSemaphores);
 	RenderSystemDetails::DestroySemaphores(imageAvailableSemaphores);
-	
-	vkDestroyCommandPool(VulkanContext::device->device, commandPool, nullptr);
 	
 	RenderSystemDetails::DestroyFramebuffers(framebuffers);
 }
@@ -257,10 +243,13 @@ void RenderSystem::OnResize()
 	using namespace RenderSystemDetails;
 
 	DestroyFramebuffers(framebuffers);
-	vkFreeCommandBuffers(VulkanContext::device->device, commandPool, static_cast<uint32_t>(commandBuffers.size()),
-		commandBuffers.data());
+	// TODO: Do we have to recreate 'em here?
+	vkFreeCommandBuffers(VulkanContext::device->device, 
+		VulkanContext::device->GetCommandPool(CommandBufferType::eLongLived), 
+		static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	
 	graphicsPipeline = std::make_unique<GraphicsPipeline>(*renderPass);
 	framebuffers = CreateFramebuffers(renderPass->renderPass);
-	commandBuffers = CreateCommandBuffers(commandPool, *renderPass, framebuffers, *graphicsPipeline, scene);
+	commandBuffers = CreateCommandBuffers(VulkanContext::device->GetCommandPool(CommandBufferType::eLongLived), 
+		*renderPass, framebuffers, *graphicsPipeline, scene);
 }

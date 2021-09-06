@@ -4,11 +4,15 @@
 
 #include <volk.h>
 
+// TODO: Think about API clarity of this class
 class BufferManger
 {
 public:
     VkBuffer CreateBuffer(const BufferDescription& bufferDescription, bool createStagingBuffer = true);
     void DestroyBuffer(VkBuffer buffer);
+
+    void FillBuffer(VkBuffer buffer, void* data, size_t size);
+    void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private:
     struct BufferEntry
