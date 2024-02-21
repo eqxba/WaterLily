@@ -5,13 +5,15 @@
 #include "Engine/Engine.hpp"
 #include "Engine/EventSystem.hpp"
 
-Window::Window(int width, int height, std::string title)
+Window::Window(int width, int height, std::string title, EventSystem& aEventSystem)
+	: eventSystem(aEventSystem)
 {
-	glfwInit();
-	
+	glfwInit();	
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	
 	glfwWindow = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+	
+	glfwSetWindowUserPointer(glfwWindow, this);
 	glfwSetFramebufferSizeCallback(glfwWindow, ResizeCallback);
 }
 
@@ -40,5 +42,6 @@ Extent2D Window::GetExtentInPixels() const
 
 void Window::ResizeCallback(GLFWwindow* glfwWindow, int32_t width, int32_t height)
 {
-	Engine::GetEventSystem()->Fire<ES::WindowResized>({ width, height });
+	EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;	
+	eventSystem.Fire<ES::WindowResized>({ width, height });
 }

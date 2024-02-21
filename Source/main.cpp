@@ -2,9 +2,8 @@
 
 int main()
 {
-    Engine::Create();
-    Engine::Run();
-    Engine::Destroy();
+    Engine engine;
+    engine.Run();
 
     return 0;
 }

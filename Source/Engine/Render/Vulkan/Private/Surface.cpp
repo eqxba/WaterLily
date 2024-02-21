@@ -5,14 +5,15 @@
 
 #include <GLFW/glfw3.h>
 
-Surface::Surface(const Window& window)
+Surface::Surface(const Window& window, const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
 {
-	const VkResult result
-		= glfwCreateWindowSurface(VulkanContext::instance->instance, window.glfwWindow, nullptr, &surface);
+	const VkResult result = glfwCreateWindowSurface(vulkanContext.GetInstance().GetVkInstance(), 
+		window.GetGlfwWindow(), nullptr, &surface);
 	Assert(result == VK_SUCCESS);
 }
 
 Surface::~Surface()
 {
-	vkDestroySurfaceKHR(VulkanContext::instance->instance, surface, nullptr);
+	vkDestroySurfaceKHR(vulkanContext.GetInstance().GetVkInstance(), surface, nullptr);
 }

@@ -4,6 +4,8 @@
 
 #include <volk.h>
 
+class VulkanContext;
+
 struct QueueFamilyIndices
 {
 	uint32_t graphicsFamily;
@@ -20,21 +22,44 @@ struct Queues
 class Device
 {
 public:
-	Device();
+	Device(const VulkanContext& aVulkanContext);
 	~Device();
+
+	Device(const Device&) = delete;
+	Device& operator=(const Device&) = delete;
+
+	Device(Device&&) = delete;
+	Device& operator=(Device&&) = delete;
 
 	void WaitIdle() const;
 
-	VkCommandPool GetCommandPool(CommandBufferType type);
-	void ExecuteOneTimeCommandBuffer(DeviceCommands commands);
+	VkCommandPool GetCommandPool(CommandBufferType type) const;
+	void ExecuteOneTimeCommandBuffer(DeviceCommands commands) const;
+
+	VkDevice GetVkDevice() const
+	{
+		return device;
+	}
+	
+	VkPhysicalDevice GetPhysicalDevice() const
+	{
+		return physicalDevice;
+	}
+
+	const Queues& GetQueues() const
+	{
+		return queues;
+	}
+
+private:
+	const VulkanContext& vulkanContext;
 
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
 
 	Queues queues;
 
-private:
-	std::unordered_map<CommandBufferType, VkCommandPool> commandPools;
+	mutable std::unordered_map<CommandBufferType, VkCommandPool> commandPools;
 
 	CommandBufferSync oneTimeCommandBufferSync;
 };

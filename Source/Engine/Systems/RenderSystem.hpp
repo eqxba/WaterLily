@@ -6,20 +6,37 @@
 
 #include <volk.h>
 
+namespace ES
+{
+	struct WindowResized;
+}
+
+class VulkanContext;
 class Scene;
+class EventSystem;
 
 class RenderSystem : public System
 {
 public:
-	RenderSystem(Scene* aScene);
+	RenderSystem(Scene& aScene, EventSystem& aEventSystem, const VulkanContext& vulkanContext);
 	~RenderSystem() override;
+
+	RenderSystem(const RenderSystem&) = delete;
+	RenderSystem& operator=(const RenderSystem&) = delete;
+
+	RenderSystem(RenderSystem&&) = delete;
+	RenderSystem& operator=(RenderSystem&&) = delete;
 
 	void Process(float deltaSeconds) override;
 
 	void Render();
 
 private:
-	void OnResize();
+	void OnResize(const ES::WindowResized& event);
+
+	const VulkanContext& vulkanContext;
+
+	EventSystem& eventSystem;
 	
 	// Per "stage"
 	std::unique_ptr<RenderPass> renderPass;
@@ -35,5 +52,5 @@ private:
 	
 	size_t currentFrame = 0;
 
-	Scene* scene;
+	Scene& scene;
 };

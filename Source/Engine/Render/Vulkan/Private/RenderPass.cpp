@@ -2,10 +2,11 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
-RenderPass::RenderPass()
+RenderPass::RenderPass(const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
 {
 	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = VulkanContext::swapchain->surfaceFormat.format;
+	colorAttachment.format = vulkanContext.GetSwapchain().GetSurfaceFormat().format;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -42,11 +43,11 @@ RenderPass::RenderPass()
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	const VkResult result = vkCreateRenderPass(VulkanContext::device->device, &renderPassInfo, nullptr, &renderPass);
+	const VkResult result = vkCreateRenderPass(vulkanContext.GetDevice().GetVkDevice(), &renderPassInfo, nullptr, &renderPass);
 	Assert(result == VK_SUCCESS);	
 }
 
 RenderPass::~RenderPass()
 {
-	vkDestroyRenderPass(VulkanContext::device->device, renderPass, nullptr);
+	vkDestroyRenderPass(vulkanContext.GetDevice().GetVkDevice(), renderPass, nullptr);
 }

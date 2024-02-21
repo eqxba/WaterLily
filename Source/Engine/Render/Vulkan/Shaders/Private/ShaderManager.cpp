@@ -3,6 +3,10 @@
 #include "Utils/Helpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
+ShaderManager::ShaderManager(const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
+{}
+
 // TODO: Deduct shader type from SPIR-V bytecode
 ShaderModule ShaderManager::CreateShaderModule(const std::string& filePath, const ShaderType shaderType) const
 {	
@@ -14,8 +18,8 @@ ShaderModule ShaderManager::CreateShaderModule(const std::string& filePath, cons
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
 
 	VkShaderModule shaderModule;
-	const VkResult result = vkCreateShaderModule(VulkanContext::device->device, &createInfo, nullptr, &shaderModule);
+	const VkResult result = vkCreateShaderModule(vulkanContext.GetDevice().GetVkDevice(), &createInfo, nullptr, &shaderModule);
 	Assert(result == VK_SUCCESS);
 
-	return ShaderModule(shaderModule, shaderType);
+	return ShaderModule(shaderModule, shaderType, vulkanContext);
 }

@@ -1,22 +1,23 @@
 #define VMA_IMPLEMENTATION
 
 #include "Engine/Render/Vulkan/Resources/MemoryManager.hpp"
-
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
-MemoryManager::MemoryManager()
+MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)
+    : vulkanContext{aVulkanContext}
 {
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
-    allocatorInfo.physicalDevice = VulkanContext::device->physicalDevice;
-    allocatorInfo.device = VulkanContext::device->device;
-    allocatorInfo.instance = VulkanContext::instance->instance;
+    allocatorInfo.physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
+    allocatorInfo.device = vulkanContext.GetDevice().GetVkDevice();
+    allocatorInfo.instance = vulkanContext.GetInstance().GetVkInstance();
 
     vmaCreateAllocator(&allocatorInfo, &allocator);
 }
 
 MemoryManager::~MemoryManager()
 {
+    Assert(bufferAllocations.empty());
     vmaDestroyAllocator(allocator);
 }
 
@@ -69,7 +70,6 @@ void* MemoryManager::MapBufferMemory(VkBuffer buffer)
     const VkResult result = vmaMapMemory(allocator, it->second, &mappedData);
     Assert(result == VK_SUCCESS);
     
-
     return mappedData;
 }
 

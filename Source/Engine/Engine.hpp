@@ -1,36 +1,42 @@
 #pragma once
 
 #include "Engine/Window.hpp"
+#include "Engine/EngineConfig.hpp"
 
 namespace ES
 {
     struct WindowResized;   
 }
 
-class RenderSystem;
 class EventSystem;
+class VulkanContext;
 class Scene;
+class RenderSystem;
 
 class Engine
 {
-public:
-    static void Create();
-    static void Run();
-    static void Destroy();
+public:   
+    Engine();
+    ~Engine();
 
-    static EventSystem* GetEventSystem()
-    {
-        return eventSystem.get();
-    }
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+
+    Engine(Engine&&) = delete;
+    Engine& operator=(Engine&&) = delete;   
+
+    EventSystem& GetEventSystem() const;
+
+    void Run();
 	
 private:
-    static void OnResize(const ES::WindowResized& event);
+    void OnResize(const ES::WindowResized& event);
 	
-    static std::unique_ptr<Window> window;
-    static std::unique_ptr<RenderSystem> renderSystem;
-    static std::unique_ptr<EventSystem> eventSystem;
+    std::unique_ptr<EventSystem> eventSystem = std::make_unique<EventSystem>();
+    std::unique_ptr<Window> window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName, *eventSystem);
+    std::unique_ptr<VulkanContext> vulkanContext = std::make_unique<VulkanContext>(*window);
+    std::unique_ptr<Scene> scene = std::make_unique<Scene>(*vulkanContext);
+    std::unique_ptr<RenderSystem> renderSystem = std::make_unique<RenderSystem>(*scene, *eventSystem, *vulkanContext);
 
-    static std::unique_ptr<Scene> scene;
-
-    static bool renderingSuspended;
+    bool renderingSuspended = false;
 };

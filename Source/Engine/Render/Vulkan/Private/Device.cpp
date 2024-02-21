@@ -32,7 +32,7 @@ namespace DeviceDetails
 		return true;
 	}
 	
-	static QueueFamilyIndices GetQueueFamilyIndices(VkPhysicalDevice device)
+	static QueueFamilyIndices GetQueueFamilyIndices(const VulkanContext& vulkanContext, VkPhysicalDevice device)
 	{
 		std::optional<uint32_t> graphicsFamily;
 		std::optional<uint32_t> presentFamily;
@@ -51,7 +51,7 @@ namespace DeviceDetails
 			}
 
 			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, VulkanContext::surface->surface, &presentSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, vulkanContext.GetSurface().GetVkSurfaceKHR(), &presentSupport);
 
 			if (presentSupport)
 			{
@@ -69,10 +69,10 @@ namespace DeviceDetails
 		return { graphicsFamily.value(), presentFamily.value() };
 	}
 
-	static Queues GetQueues(VkPhysicalDevice physicalDevice, VkDevice device)
+	static Queues GetQueues(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice, VkDevice device)
 	{
 		Queues queues{};
-		queues.familyIndices = DeviceDetails::GetQueueFamilyIndices(physicalDevice);
+		queues.familyIndices = DeviceDetails::GetQueueFamilyIndices(vulkanContext, physicalDevice);
 		
 		vkGetDeviceQueue(device, queues.familyIndices.graphicsFamily, 0, &queues.graphics);
 		vkGetDeviceQueue(device, queues.familyIndices.presentFamily, 0, &queues.present);
@@ -86,14 +86,16 @@ namespace DeviceDetails
 	}
 
 	// TODO: (low priority) device selection based on some kind of score (do i really need this?)
-	static VkPhysicalDevice SelectPhysicalDevice()
+	static VkPhysicalDevice SelectPhysicalDevice(const VulkanContext& vulkanContext)
 	{
+		const VkInstance vkInstance = vulkanContext.GetInstance().GetVkInstance();
+
 		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(VulkanContext::instance->instance, &deviceCount, nullptr);
+		vkEnumeratePhysicalDevices(vkInstance, &deviceCount, nullptr);
 		Assert(deviceCount != 0);
 		
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(VulkanContext::instance->instance, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(vkInstance, &deviceCount, devices.data());
 
 		const auto it = std::ranges::find_if(devices, IsPhysicalDeviceSuitable);
 		Assert(it != devices.end());
@@ -106,9 +108,9 @@ namespace DeviceDetails
 		return *it;
 	}
 
-	static VkDevice SelectLogicalDevice(VkPhysicalDevice physicalDevice)
+	static VkDevice SelectLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice)
 	{
-		QueueFamilyIndices indices = GetQueueFamilyIndices(physicalDevice);
+		QueueFamilyIndices indices = GetQueueFamilyIndices(vulkanContext, physicalDevice);
 
 		float queuePriority = 1.0f;
 		
@@ -160,16 +162,17 @@ namespace DeviceDetails
 	}
 }
 
-Device::Device()
+Device::Device(const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
 {
 	using namespace DeviceDetails;
 
-	physicalDevice = SelectPhysicalDevice();
-	device = SelectLogicalDevice(physicalDevice);
+	physicalDevice = SelectPhysicalDevice(vulkanContext);
+	device = SelectLogicalDevice(vulkanContext, physicalDevice);
 
 	volkLoadDevice(device);
 
-	queues = GetQueues(physicalDevice, device);
+	queues = DeviceDetails::GetQueues(vulkanContext, physicalDevice, device);
 
 	commandPools.emplace(CommandBufferType::eLongLived, 
 		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queues.familyIndices.graphicsFamily));
@@ -197,12 +200,12 @@ void Device::WaitIdle() const
 	vkDeviceWaitIdle(device);
 }
 
-VkCommandPool Device::GetCommandPool(CommandBufferType type)
+VkCommandPool Device::GetCommandPool(CommandBufferType type) const
 {
     return commandPools[type];
 }
 
-void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands)
+void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands) const
 {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

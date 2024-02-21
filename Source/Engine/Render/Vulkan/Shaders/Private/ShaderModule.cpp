@@ -22,24 +22,37 @@ namespace ShaderModuleDetails
 	}
 }
 
-ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType aShaderType)
-	: shaderModule(aShaderModule)
+ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType aShaderType, 
+	const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
+	, shaderModule(aShaderModule)
 	, shaderType(aShaderType)
 {}
-
-ShaderModule::ShaderModule(ShaderModule&& other)
-	: shaderModule(other.shaderModule)
-	, shaderType(other.shaderType)
-{
-	other.shaderModule = VK_NULL_HANDLE;
-}
 
 ShaderModule::~ShaderModule()
 {
 	if (shaderModule != VK_NULL_HANDLE)
 	{ 
-		vkDestroyShaderModule(VulkanContext::device->device, shaderModule, nullptr);
+		vkDestroyShaderModule(vulkanContext.GetDevice().GetVkDevice(), shaderModule, nullptr);
 	}	
+}
+
+ShaderModule::ShaderModule(ShaderModule&& other) noexcept
+	: vulkanContext{other.vulkanContext}
+	, shaderModule(other.shaderModule)
+	, shaderType(other.shaderType)
+{
+	other.shaderModule = VK_NULL_HANDLE;
+}
+
+ShaderModule& ShaderModule::operator=(ShaderModule&& other) noexcept
+{
+	if (this != &other)
+	{
+		shaderModule = other.shaderModule;
+		other.shaderModule = VK_NULL_HANDLE;
+	}	
+	return *this;
 }
 
 VkPipelineShaderStageCreateInfo ShaderModule::GetVkPipelineShaderStageCreateInfo() const

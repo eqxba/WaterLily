@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+class VulkanContext;
+
 enum class ShaderType
 {
 	eVertex,
@@ -11,12 +13,20 @@ enum class ShaderType
 class ShaderModule
 {
 public:
-	ShaderModule(const VkShaderModule shaderModule, const ShaderType shaderType);
-	ShaderModule(ShaderModule&& other);
+	ShaderModule(const VkShaderModule shaderModule, const ShaderType shaderType, const VulkanContext& aVulkanContext);
 	~ShaderModule();
 
+	ShaderModule(const ShaderModule&) = delete;
+	ShaderModule& operator=(const ShaderModule&) = delete;
+
+	ShaderModule(ShaderModule&& other) noexcept;
+	ShaderModule& operator=(ShaderModule&& other) noexcept;
+
 	VkPipelineShaderStageCreateInfo GetVkPipelineShaderStageCreateInfo() const;
-	
-	VkShaderModule shaderModule;
+
+private:
+	const VulkanContext& vulkanContext;
+
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
 	ShaderType shaderType;
 };

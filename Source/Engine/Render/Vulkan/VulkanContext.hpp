@@ -1,27 +1,70 @@
 #pragma once
 
-#include "Engine/Window.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
 #include "Engine/Render/Vulkan/Instance.hpp"
 #include "Engine/Render/Vulkan/Surface.hpp"
 #include "Engine/Render/Vulkan/Device.hpp"
 #include "Engine/Render/Vulkan/Swapchain.hpp"
-
 #include "Engine/Render/Vulkan/Resources/MemoryManager.hpp"
-#include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
 #include "Engine/Render/Vulkan/Resources/BufferManager.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
+
+class Window;
 
 class VulkanContext
 {
 public:
-	static void Create(const Window& window);
-	static void Destroy();
+	VulkanContext(const Window& window);
+	~VulkanContext() = default;
 
-	static std::unique_ptr<Instance> instance;
-	static std::unique_ptr<Surface> surface;
-	static std::unique_ptr<Device> device;
-	static std::unique_ptr<Swapchain> swapchain;
+	VulkanContext(const VulkanContext&) = delete;
+	VulkanContext& operator=(const VulkanContext&) = delete;
 
-	static std::unique_ptr<MemoryManager> memoryManager;
-	static std::unique_ptr<ShaderManager> shaderManager;
-	static std::unique_ptr<BufferManger> bufferManager;
+	VulkanContext(VulkanContext&&) = delete;
+	VulkanContext& operator=(VulkanContext&&) = delete;
+
+	const Instance& GetInstance() const
+	{
+		return *instance;
+	}
+
+	const Surface& GetSurface() const
+	{
+		return *surface;
+	}
+
+	const Device& GetDevice() const
+	{
+		return *device;
+	}
+
+	Swapchain& GetSwapchain() const
+	{
+		return *swapchain;
+	}
+
+	MemoryManager& GetMemoryManager() const
+	{
+		return *memoryManager;
+	}
+
+	BufferManager& GetBufferManager() const
+	{
+		return *bufferManager;
+	}
+
+	const ShaderManager& GetShaderManager() const
+	{
+		return *shaderManager;
+	}
+
+private:
+	std::unique_ptr<Instance> instance;
+	std::unique_ptr<Surface> surface;
+	std::unique_ptr<Device> device;
+	std::unique_ptr<Swapchain> swapchain;
+
+	std::unique_ptr<MemoryManager> memoryManager;
+	std::unique_ptr<BufferManager> bufferManager;
+	std::unique_ptr<ShaderManager> shaderManager;
 };

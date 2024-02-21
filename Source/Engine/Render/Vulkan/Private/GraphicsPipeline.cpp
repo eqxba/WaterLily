@@ -7,18 +7,16 @@
 namespace GraphicsPipelineDetails
 {
 	// TODO: Add FileSystem and remove absolute paths
-	constexpr const char* vertexShaderPath = "C:/Users/eqxba/Projects/WaterLily/Source/Shaders/vert.spv";
-	constexpr const char* fragmentShaderPath = "C:/Users/eqxba/Projects/WaterLily/Source/Shaders/frag.spv";
+	constexpr const char* vertexShaderPath = "E:/Projects/WaterLily/Source/Shaders/vert.spv";
+	constexpr const char* fragmentShaderPath = "E:/Projects/WaterLily/Source/Shaders/frag.spv";
 
-	static std::vector<ShaderModule> GetShaderModules()
+	static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager)
 	{
 		std::vector<ShaderModule> shaderModules;
 		shaderModules.reserve(2);
 		
-		shaderModules.emplace_back(
-			VulkanContext::shaderManager->CreateShaderModule(vertexShaderPath, ShaderType::eVertex));
-		shaderModules.emplace_back(
-			VulkanContext::shaderManager->CreateShaderModule(fragmentShaderPath, ShaderType::eFragment));
+		shaderModules.emplace_back(shaderManager.CreateShaderModule(vertexShaderPath, ShaderType::eVertex));
+		shaderModules.emplace_back(shaderManager.CreateShaderModule(fragmentShaderPath, ShaderType::eFragment));
 		
 		return shaderModules;
 	}
@@ -161,7 +159,7 @@ namespace GraphicsPipelineDetails
 		return colorBlending;
 	}
 
-	static VkPipelineLayout CreatePipelineLayout()
+	static VkPipelineLayout CreatePipelineLayout(const VulkanContext& vulkanContext)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -172,19 +170,20 @@ namespace GraphicsPipelineDetails
 
 		VkPipelineLayout pipelineLayout;
 		const VkResult result =
-			vkCreatePipelineLayout(VulkanContext::device->device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
+			vkCreatePipelineLayout(vulkanContext.GetDevice().GetVkDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout);
 		Assert(result == VK_SUCCESS);
 
 		return pipelineLayout;
 	}
 }
 
-GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
+GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
 {
 	using namespace GraphicsPipelineDetails;
 
 	// TODO: Extremely bad, need to presave this on first load because we recreate pipeline on resize
-	std::vector<ShaderModule> shaderModules = GetShaderModules();	
+	std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager());	
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
 
 	VkVertexInputBindingDescription bindingDescription = Vertex::GetBindingDescription();
@@ -194,10 +193,12 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
 		attributeDescriptions);
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = GetInputAssemblyStateCreateInfo();
 
+	const VkExtent2D extent = vulkanContext.GetSwapchain().GetExtent();
+
 	// TODO: Can use dynamic viewport and scissors states and avoid recreation of the pipeline on resize (related to the
 	// upper todo.
-	std::vector<VkViewport> viewports = GetViewports(VulkanContext::swapchain->extent);
-	std::vector<VkRect2D> scissors = GetScissors(VulkanContext::swapchain->extent);	
+	std::vector<VkViewport> viewports = GetViewports(extent);
+	std::vector<VkRect2D> scissors = GetScissors(extent);
 	VkPipelineViewportStateCreateInfo viewportState = GetPipelineViewportStateCreateInfo(viewports, scissors);
 
 	VkPipelineRasterizationStateCreateInfo rasterizer = GetRasterizationStateCreateInfo();
@@ -206,7 +207,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = GetPipelineColorBlendAttachmentState();
 	VkPipelineColorBlendStateCreateInfo colorBlending = GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
-	pipelineLayout = CreatePipelineLayout();
+	pipelineLayout = CreatePipelineLayout(vulkanContext);
 
 	// TODO: Move to separate function	
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -222,7 +223,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = nullptr;
 	pipelineInfo.layout = pipelineLayout;
-	pipelineInfo.renderPass = renderPass.renderPass;
+	pipelineInfo.renderPass = renderPass.GetVkRenderPass();
 	pipelineInfo.subpass = 0;
 	// Can be used to create pipeline from similar one (which is faster than entirely new one)
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -230,12 +231,14 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass)
 
 	// TODO: Use cache here
 	const VkResult result = 
-		vkCreateGraphicsPipelines(VulkanContext::device->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+		vkCreateGraphicsPipelines(vulkanContext.GetDevice().GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
 	Assert(result == VK_SUCCESS);
 }
 
 GraphicsPipeline::~GraphicsPipeline()
 {
-	vkDestroyPipeline(VulkanContext::device->device, pipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanContext::device->device, pipelineLayout, nullptr);
+	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+
+	vkDestroyPipeline(device, pipeline, nullptr);
+	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 }

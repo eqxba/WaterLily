@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+class VulkanContext;
+
 struct BufferDescription
 {
     VkDeviceSize size;
@@ -11,5 +13,5 @@ struct BufferDescription
 
 namespace BufferHelpers
 {
-    VkBuffer CreateStagingBuffer(VkDeviceSize size);
+    VkBuffer CreateStagingBuffer(const VulkanContext& vulkanContext, VkDeviceSize size);
 }

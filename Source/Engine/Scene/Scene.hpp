@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <volk.h>
 
+class VulkanContext;
+
 struct Vertex
 {
     static VkVertexInputBindingDescription GetBindingDescription();
@@ -15,8 +17,14 @@ struct Vertex
 class Scene
 {
 public:
-    Scene();
+    Scene(const VulkanContext& vulkanContext);
     ~Scene();
+
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
+
+    Scene(Scene&&) = delete;
+    Scene& operator=(Scene&&) = delete;
 
     std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -32,4 +40,7 @@ public:
 
     VkBuffer vertexBuffer;
     VkBuffer indexBuffer;
+
+private:
+    const VulkanContext& vulkanContext;    
 };

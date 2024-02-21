@@ -10,6 +10,7 @@ enum class CommandBufferType
     eLongLived
 };
 
+// TODO: This has to be a class with RAII
 struct CommandBufferSync
 {
     std::vector<VkSemaphore> waitSemaphores;

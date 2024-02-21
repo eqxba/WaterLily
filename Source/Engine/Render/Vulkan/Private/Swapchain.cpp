@@ -4,31 +4,37 @@
 
 namespace SwapchainDetails
 {
-	static VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(VkPhysicalDevice device)
+	static VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(const VulkanContext& vulkanContext)
 	{
+		const VkPhysicalDevice physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
+		const VkSurfaceKHR surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
+
 		VkSurfaceCapabilitiesKHR capabilities;		
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, VulkanContext::surface->surface, &capabilities);
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
 		return capabilities;
 	}
 	
-	static SwapchainSupportDetails GetSwapchainSupportDetails(VkPhysicalDevice device)
+	static SwapchainSupportDetails GetSwapchainSupportDetails(const VulkanContext& vulkanContext)
 	{
+		const VkPhysicalDevice physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
+		const VkSurfaceKHR surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
+
 		SwapchainSupportDetails details;
 		
 		uint32_t formatCount;
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, VulkanContext::surface->surface, &formatCount, nullptr);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
 		Assert(formatCount != 0);
 	
 		details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, VulkanContext::surface->surface, &formatCount,
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
 			details.formats.data());
 
 		uint32_t presentModeCount;
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, VulkanContext::surface->surface, &presentModeCount, nullptr);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
 		Assert(presentModeCount != 0);
 				
 		details.presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, VulkanContext::surface->surface, &presentModeCount,
+		vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount,
 			details.presentModes.data());
 		
 		return details;
@@ -106,12 +112,12 @@ namespace SwapchainDetails
 		return imageCount;
 	}
 
-	static VkSwapchainKHR CreateSwapchain(const SwapchainSupportDetails& supportDetails, 
+	static VkSwapchainKHR CreateSwapchain(const VulkanContext& vulkanContext, const SwapchainSupportDetails& supportDetails, 
 		const VkSurfaceCapabilitiesKHR& capabilities, const VkSurfaceFormatKHR surfaceFormat, const VkExtent2D extent)
 	{
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = VulkanContext::surface->surface;
+		createInfo.surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
 		createInfo.minImageCount = SelectImageCount(capabilities);
 		createInfo.imageFormat = surfaceFormat.format;
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -120,7 +126,7 @@ namespace SwapchainDetails
 		// For now i'm going to render directly to swapchain images w/out anything like post-processing.
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		const QueueFamilyIndices& familyIndices = VulkanContext::device->queues.familyIndices;
+		const QueueFamilyIndices& familyIndices = vulkanContext.GetDevice().GetQueues().familyIndices;
 		const uint32_t queueFamilyIndices[] = { familyIndices.graphicsFamily, familyIndices.presentFamily };
 
 		if (familyIndices.graphicsFamily != familyIndices.presentFamily)
@@ -144,24 +150,24 @@ namespace SwapchainDetails
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 		VkSwapchainKHR swapchain;
-		const VkResult result = vkCreateSwapchainKHR(VulkanContext::device->device, &createInfo, nullptr, &swapchain);
+		const VkResult result = vkCreateSwapchainKHR(vulkanContext.GetDevice().GetVkDevice(), &createInfo, nullptr, &swapchain);
 		Assert(result == VK_SUCCESS);
 
 		return swapchain;
 	}
 
-	static std::vector<VkImage> GetSwapchainImages(VkSwapchainKHR swapchain)
+	static std::vector<VkImage> GetSwapchainImages(VkDevice device, VkSwapchainKHR swapchain)
 	{		
 		uint32_t imageCount;
-		vkGetSwapchainImagesKHR(VulkanContext::device->device, swapchain, &imageCount, nullptr);
+		vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
 
 		std::vector<VkImage> images(imageCount);
-		vkGetSwapchainImagesKHR(VulkanContext::device->device, swapchain, &imageCount, images.data());
+		vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.data());
 
 		return images;
 	}
 
-	static std::vector<VkImageView> CreateImageViews(const std::vector<VkImage>& images, VkFormat format)
+	static std::vector<VkImageView> CreateImageViews(VkDevice device, const std::vector<VkImage>& images, VkFormat format)
 	{
 		std::vector<VkImageView> imageViews;
 		imageViews.reserve(images.size());
@@ -184,7 +190,7 @@ namespace SwapchainDetails
 			createInfo.subresourceRange.layerCount = 1;
 
 			VkImageView imageView;
-			const VkResult result = vkCreateImageView(VulkanContext::device->device, &createInfo, nullptr, &imageView);
+			const VkResult result = vkCreateImageView(device, &createInfo, nullptr, &imageView);
 			Assert(result == VK_SUCCESS);
 			
 			imageViews.emplace_back(imageView);
@@ -194,29 +200,15 @@ namespace SwapchainDetails
 	}
 }
 
-Swapchain::Swapchain(const Extent2D& requiredExtentInPixels)
+Swapchain::Swapchain(const Extent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext)
+	: vulkanContext{aVulkanContext}
 {
 	using namespace SwapchainDetails;
 
-	const VkSurfaceCapabilitiesKHR surfaceCapabilities = GetSurfaceCapabilities(VulkanContext::device->physicalDevice);
-	supportDetails = GetSwapchainSupportDetails(VulkanContext::device->physicalDevice);
-	surfaceFormat = SelectSurfaceFormat(supportDetails.formats);	
-	extent = SelectExtent(surfaceCapabilities, requiredExtentInPixels);
+	supportDetails = GetSwapchainSupportDetails(vulkanContext);
+	surfaceFormat = SelectSurfaceFormat(supportDetails.formats);
 
-	swapchain = CreateSwapchain(supportDetails, surfaceCapabilities, surfaceFormat, extent);
-
-	images = GetSwapchainImages(swapchain);
-	imageViews = CreateImageViews(images, surfaceFormat.format);
-}
-
-void Swapchain::Cleanup()
-{
-	for (const auto imageView : imageViews)
-	{
-		vkDestroyImageView(VulkanContext::device->device, imageView, nullptr);
-	}
-
-	vkDestroySwapchainKHR(VulkanContext::device->device, swapchain, nullptr);
+	Create(requiredExtentInPixels);
 }
 
 Swapchain::~Swapchain()
@@ -226,15 +218,32 @@ Swapchain::~Swapchain()
 
 void Swapchain::Recreate(const Extent2D& requiredExtentInPixels)
 {
+	Cleanup();
+	Create(requiredExtentInPixels);
+}
+
+void Swapchain::Create(const Extent2D& requiredExtentInPixels)
+{
 	using namespace SwapchainDetails;
 
-	Cleanup();
-
-	const VkSurfaceCapabilitiesKHR surfaceCapabilities = GetSurfaceCapabilities(VulkanContext::device->physicalDevice);
+	const VkSurfaceCapabilitiesKHR surfaceCapabilities = GetSurfaceCapabilities(vulkanContext);
 	extent = SelectExtent(surfaceCapabilities, requiredExtentInPixels);
-	
-	swapchain = CreateSwapchain(supportDetails, surfaceCapabilities, surfaceFormat, extent);
 
-	images = GetSwapchainImages(swapchain);
-	imageViews = CreateImageViews(images, surfaceFormat.format);
+	swapchain = CreateSwapchain(vulkanContext, supportDetails, surfaceCapabilities, surfaceFormat, extent);
+
+	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+	images = GetSwapchainImages(device, swapchain);
+	imageViews = CreateImageViews(device, images, surfaceFormat.format);
+}
+
+void Swapchain::Cleanup()
+{
+	const VkDevice vkDevice = vulkanContext.GetDevice().GetVkDevice();
+
+	for (const auto imageView : imageViews)
+	{
+		vkDestroyImageView(vkDevice, imageView, nullptr);
+	}
+
+	vkDestroySwapchainKHR(vkDevice, swapchain, nullptr);
 }

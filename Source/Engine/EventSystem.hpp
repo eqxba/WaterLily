@@ -9,8 +9,14 @@ class EventSystem
 public:
     using EventHandler = std::pair<void*, std::function<void(std::any)>>;
 
-    EventSystem();
+    EventSystem() = default;
     ~EventSystem();
+
+    EventSystem(const EventSystem&) = delete;
+    EventSystem& operator=(const EventSystem&) = delete;
+
+    EventSystem(EventSystem&&) = delete;
+    EventSystem& operator=(EventSystem&&) = delete;
 
     template<class T, class S>
     void Subscribe(S* subscriber, void (S::* function)(const T&));

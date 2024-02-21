@@ -1,7 +1,9 @@
 #include "Engine/EventSystem.hpp"
 
-EventSystem::EventSystem() = default;
-EventSystem::~EventSystem() = default;
+EventSystem::~EventSystem()
+{
+    Assert(subscriptions.empty());
+}
 
 void EventSystem::SubscribeImpl(std::type_index typeIndex, void* subscriber, 
     const std::function<void(std::any)> &handler)
@@ -23,4 +25,9 @@ void EventSystem::UnsubscribeImpl(std::type_index typeIndex, void* subscriber)
     };
 
     std::erase_if(subscriptions[typeIndex], pred);
+
+    if (subscriptions[typeIndex].empty())
+    {
+        subscriptions.erase(typeIndex);
+    }
 }

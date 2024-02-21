@@ -2,17 +2,31 @@
 
 #include <volk.h>
 
+class VulkanContext;
 class RenderPass;
 
 class GraphicsPipeline
 {
 public:
 	// TODO: Pass shaders (an probably other things) as parameters
-	GraphicsPipeline(const RenderPass& renderPass);
+	GraphicsPipeline(const RenderPass& renderPass, const VulkanContext& aVulkanContext);
 	~GraphicsPipeline();
 
-	VkPipeline pipeline;
+	GraphicsPipeline(const GraphicsPipeline&) = delete;
+	GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
+
+	GraphicsPipeline(GraphicsPipeline&&) = delete;
+	GraphicsPipeline& operator=(GraphicsPipeline&&) = delete;
+
+	VkPipeline GetVkPipeline() const
+	{
+		return pipeline;
+	}
 
 private:
+	const VulkanContext& vulkanContext;
+
 	VkPipelineLayout pipelineLayout;
+
+	VkPipeline pipeline;
 };
