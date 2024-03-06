@@ -5,11 +5,16 @@
 
 MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
-{
+{   
+    VmaVulkanFunctions vulkanFunctions{};
+    vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
     allocatorInfo.physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
     allocatorInfo.device = vulkanContext.GetDevice().GetVkDevice();
+    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
     allocatorInfo.instance = vulkanContext.GetInstance().GetVkInstance();
 
     vmaCreateAllocator(&allocatorInfo, &allocator);
