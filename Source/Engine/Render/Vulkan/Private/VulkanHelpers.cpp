@@ -45,49 +45,44 @@ std::vector<VkFence> VulkanHelpers::CreateFences(VkDevice device, VkFenceCreateF
 {
     std::vector<VkFence> fences(count);
 
-    VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = flags;
-
-	for (auto& fence : fences)
-	{
-		const VkResult result = vkCreateFence(device, &fenceInfo, nullptr, &fence);
-		Assert(result == VK_SUCCESS);
-	}
+    std::ranges::generate(fences, [&]() {
+        return CreateFence(device, flags);
+    });
 
 	return fences;
 }
 
 std::vector<VkSemaphore> VulkanHelpers::CreateSemaphores(VkDevice device, size_t count)
 {
-	std::vector<VkSemaphore> semaphores(count);
+    std::vector<VkSemaphore> semaphores(count);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-	for (auto& semaphore : semaphores)
-	{
-		const VkResult result = vkCreateSemaphore(device, &semaphoreInfo, nullptr, &semaphore);
-		Assert(result == VK_SUCCESS);
-	}
+    const auto createSemaphore = [&]() {
+        VkSemaphore semaphore;
+        const VkResult result = vkCreateSemaphore(device, &semaphoreInfo, nullptr, &semaphore);
+        Assert(result == VK_SUCCESS);
+        return semaphore;
+    };
 
-	return semaphores;
+    std::ranges::generate(semaphores, createSemaphore);
+
+    return semaphores;
 }
 
 void VulkanHelpers::DestroyFences(VkDevice device, std::vector<VkFence>& fences)
 {
-    for (const auto fence : fences)
-    {
+    std::ranges::for_each(fences, [&](VkFence fence) {
         vkDestroyFence(device, fence, nullptr);
-    }
+    });   
 }
 
 void VulkanHelpers::DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& semaphores)
 {
-    for (const auto semaphore : semaphores)
-    {
+    std::ranges::for_each(semaphores, [&](VkSemaphore semaphore) {
         vkDestroySemaphore(device, semaphore, nullptr);
-    }
+    });
 }
 
 void VulkanHelpers::DestroyCommandBufferSync(VkDevice device, CommandBufferSync& sync)

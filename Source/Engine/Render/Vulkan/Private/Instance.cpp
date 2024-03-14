@@ -6,59 +6,67 @@
 #include <GLFW/glfw3.h>
 
 namespace InstanceDetails
-{
-    static bool ExtensionsSupported(const std::vector<const char*>& extensions)
+{   
+    static std::vector<VkExtensionProperties> GetAvailableExtensionsProperties()
     {
         uint32_t extensionCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-    	
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
 
-        for (const char* extension : extensions)
-        {
-            const auto isExtensionSupported = [extension](const auto& extensionProperties)
-            {
-                return std::strcmp(extension, extensionProperties.extensionName) == 0;
-            };
+        std::vector<VkExtensionProperties> availableExtensionsProperties(extensionCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensionsProperties.data());
 
-            const auto it = std::ranges::find_if(availableExtensions, isExtensionSupported);
-
-            if (it == availableExtensions.end())
-            {
-                LogE << "Extension not supported: " << extension << std::endl;
-                return false;
-            }
-        }
-
-        return true;
+        return availableExtensionsProperties;
     }
-	
-    static bool LayersSupported(const std::vector<const char*>& layers)
-	{  	
+
+    static bool ExtensionsSupported(const std::vector<const char*>& extensions)
+    {
+        std::vector<VkExtensionProperties> availableExtensionsProperties = GetAvailableExtensionsProperties();
+
+        const auto isSupported = [&](const char* extension) {
+            const bool isSupported = std::ranges::any_of(availableExtensionsProperties, [=](const auto& properties) {
+                return std::strcmp(extension, properties.extensionName) == 0;
+            });
+
+            if (!isSupported)
+            {
+                LogE << "Extension not supported: " << extension << '\n';
+            }
+
+            return isSupported;
+        };
+
+        return std::ranges::all_of(extensions, isSupported);
+    }
+
+    static std::vector<VkLayerProperties> GetAvailableLayersProperties()
+    {
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
-        std::vector<VkLayerProperties> availableLayers(layerCount);
-        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+        std::vector<VkLayerProperties> availableLayersProperties(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, availableLayersProperties.data());
 
-        for (const char* layer : layers)
-        {
-            const auto isLayerAvailable = [layer](const auto& layerProperties)
+        return availableLayersProperties;
+    }
+
+    static bool LayersSupported(const std::vector<const char*>& layers)
+    {       
+        std::vector<VkLayerProperties> availableLayersProperties = GetAvailableLayersProperties();
+
+        const auto isSupported = [&](const char* layer) {
+            const bool isSupported = std::ranges::any_of(availableLayersProperties, [=](const auto& properties) {
+                return std::strcmp(layer, properties.layerName) == 0;
+            });
+
+            if (!isSupported)
             {
-                return std::strcmp(layer, layerProperties.layerName) == 0;
-            };
-        	
-            const auto it = std::ranges::find_if(availableLayers, isLayerAvailable);
-        	
-            if (it == availableLayers.end())
-            {
-                LogE << "Layer not supported: " << layer << std::endl;
-                return false;
+                LogE << "Layer not supported: " << layer << '\n';
             }
-        }
 
-        return true;
+            return isSupported;
+        };
+
+        return std::ranges::all_of(layers, isSupported);
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -73,7 +81,7 @@ namespace InstanceDetails
             LogE << message << std::endl;
             Assert(false);
     	}
-        else
+        else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
         {
             LogW << message << std::endl;
         }
@@ -87,6 +95,7 @@ namespace InstanceDetails
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         createInfo.messageSeverity =
             VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+            // | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
             | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         createInfo.messageType =
             VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
@@ -100,11 +109,6 @@ namespace InstanceDetails
 
 	static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance instance)
     {
-	    if constexpr (!VulkanConfig::useValidation)
-	    {
-            return VK_NULL_HANDLE;
-	    }
-
         VkDebugUtilsMessengerCreateInfoEXT createInfo = GetDebugMessengerCreateInfo();      
         VkDebugUtilsMessengerEXT debugMessenger;
     	
@@ -154,19 +158,23 @@ Instance::Instance()
     createInfo.enabledLayerCount = static_cast<uint32_t>(requiredLayers.size());
     createInfo.ppEnabledLayerNames = requiredLayers.data();
 
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if constexpr (VulkanConfig::useValidation)
 	{
         debugCreateInfo = GetDebugMessengerCreateInfo();
         createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
     }
 	
+    // A debug messenger can be enabled for this call as well but YAGNI
     VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
     Assert(result == VK_SUCCESS);
 
     volkLoadInstanceOnly(instance); 
 
-    debugMessenger = CreateDebugMessenger(instance);
+    if constexpr (VulkanConfig::useValidation)
+    {
+        debugMessenger = CreateDebugMessenger(instance);
+    }    
 }
 
 Instance::~Instance()

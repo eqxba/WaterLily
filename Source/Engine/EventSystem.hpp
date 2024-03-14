@@ -56,8 +56,7 @@ private:
 template<class T, class S>
 void EventSystem::Subscribe(S* subscriber, void (S::* function)(const T&))
 {
-    auto handler = [subscriber, function](std::any argument)
-    {
+    auto handler = [subscriber, function](std::any argument) {
         (subscriber->*function)(std::any_cast<T>(argument));
     };
 
@@ -67,8 +66,7 @@ void EventSystem::Subscribe(S* subscriber, void (S::* function)(const T&))
 template<class T, class S>
 void EventSystem::Subscribe(S* subscriber, void (S::* function)())
 {
-    auto handler = [subscriber, function](std::any argument)
-    {
+    auto handler = [subscriber, function](std::any argument) {
         (subscriber->*function)();
     };
 
@@ -78,8 +76,7 @@ void EventSystem::Subscribe(S* subscriber, void (S::* function)())
 template<class T>
 void EventSystem::Subscribe(void (*function)(const T&))
 {
-    auto handler = [function](std::any argument)
-    {
+    auto handler = [function](std::any argument) {
         function(std::any_cast<T>(argument));
     };
 
@@ -89,8 +86,7 @@ void EventSystem::Subscribe(void (*function)(const T&))
 template<class T>
 void EventSystem::Subscribe(void (*function)())
 {
-    auto handler = [function](std::any argument)
-    {
+    auto handler = [function](std::any argument) {
         function();
     };
 

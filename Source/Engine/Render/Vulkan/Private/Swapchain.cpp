@@ -42,8 +42,7 @@ namespace SwapchainDetails
 
 	static VkSurfaceFormatKHR SelectSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
-		const auto isPreferredSurfaceFormat = [](const auto& surfaceFormat)
-		{
+		const auto isPreferredSurfaceFormat = [](const auto& surfaceFormat) {
 			return surfaceFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
 				surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 		};
@@ -60,8 +59,7 @@ namespace SwapchainDetails
 
 	static VkPresentModeKHR SelectPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
 	{
-		const auto isPreferredPresentMode = [](const auto& presentMode)
-		{
+		const auto isPreferredPresentMode = [](const auto& presentMode) {
 			return presentMode == VK_PRESENT_MODE_MAILBOX_KHR;
 		};
 

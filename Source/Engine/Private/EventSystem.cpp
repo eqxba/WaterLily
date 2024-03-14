@@ -19,8 +19,7 @@ void EventSystem::SubscribeImpl(std::type_index typeIndex, void* subscriber,
 
 void EventSystem::UnsubscribeImpl(std::type_index typeIndex, void* subscriber)
 {
-    const auto pred = [subscriber](const EventHandler& handler)
-    {
+    const auto pred = [subscriber](const EventHandler& handler) {
         return handler.first == subscriber;
     };
 
