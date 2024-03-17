@@ -32,11 +32,11 @@ public:
 private:
     void OnResize(const ES::WindowResized& event);
 	
-    std::unique_ptr<EventSystem> eventSystem = std::make_unique<EventSystem>();
-    std::unique_ptr<Window> window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName, *eventSystem);
-    std::unique_ptr<VulkanContext> vulkanContext = std::make_unique<VulkanContext>(*window);
-    std::unique_ptr<Scene> scene = std::make_unique<Scene>(*vulkanContext);
-    std::unique_ptr<RenderSystem> renderSystem = std::make_unique<RenderSystem>(*scene, *eventSystem, *vulkanContext);
+    std::unique_ptr<EventSystem> eventSystem;
+    std::unique_ptr<Window> window;
+    std::unique_ptr<VulkanContext> vulkanContext;
+    std::unique_ptr<Scene> scene;
+    std::unique_ptr<RenderSystem> renderSystem;
 
     bool renderingSuspended = false;
 };

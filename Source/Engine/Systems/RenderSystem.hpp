@@ -14,6 +14,7 @@ namespace ES
 class VulkanContext;
 class Scene;
 class EventSystem;
+struct CommandBufferSync;
 
 class RenderSystem : public System
 {
@@ -45,10 +46,7 @@ private:
 	
 	// Do not have to be recreated, persistent for FrameLoop
 	std::vector<VkCommandBuffer> commandBuffers;
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
-	std::vector<VkFence> inFlightFences;
-	std::vector<VkFence> imagesInFlight;
+	std::vector<CommandBufferSync> syncs;
 	
 	size_t currentFrame = 0;
 

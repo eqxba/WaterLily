@@ -9,7 +9,7 @@ namespace SwapchainDetails
 		const VkPhysicalDevice physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
 		const VkSurfaceKHR surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
 
-		VkSurfaceCapabilitiesKHR capabilities;		
+		VkSurfaceCapabilitiesKHR capabilities;
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
 		return capabilities;
 	}
@@ -26,8 +26,7 @@ namespace SwapchainDetails
 		Assert(formatCount != 0);
 	
 		details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount,
-			details.formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, details.formats.data());
 
 		uint32_t presentModeCount;
 		vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr);
@@ -42,6 +41,8 @@ namespace SwapchainDetails
 
 	static VkSurfaceFormatKHR SelectSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
+		Assert(!availableFormats.empty());
+
 		const auto isPreferredSurfaceFormat = [](const auto& surfaceFormat) {
 			return surfaceFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
 				surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -169,9 +170,8 @@ namespace SwapchainDetails
 	{
 		std::vector<VkImageView> imageViews;
 		imageViews.reserve(images.size());
-		
-		for (const auto image : images)
-		{
+
+		const auto createImageView = [format, device](VkImage image) {
 			VkImageViewCreateInfo createInfo{};
 			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			createInfo.image = image;
@@ -190,9 +190,11 @@ namespace SwapchainDetails
 			VkImageView imageView;
 			const VkResult result = vkCreateImageView(device, &createInfo, nullptr, &imageView);
 			Assert(result == VK_SUCCESS);
-			
-			imageViews.emplace_back(imageView);
-		}
+
+			return imageView;
+		};
+
+		std::ranges::transform(images, std::back_inserter(imageViews), createImageView);
 
 		return imageViews;
 	}
@@ -238,10 +240,9 @@ void Swapchain::Cleanup()
 {
 	const VkDevice vkDevice = vulkanContext.GetDevice().GetVkDevice();
 
-	for (const auto imageView : imageViews)
-	{
+	std::ranges::for_each(imageViews, [vkDevice](VkImageView imageView) {
 		vkDestroyImageView(vkDevice, imageView, nullptr);
-	}
+	});	
 
 	vkDestroySwapchainKHR(vkDevice, swapchain, nullptr);
 }

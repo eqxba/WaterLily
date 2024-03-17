@@ -5,8 +5,14 @@
 #include "Engine/Systems/RenderSystem.hpp"
 #include "Engine/Scene/Scene.hpp"
 
-Engine::Engine()    
+Engine::Engine()
 {
+    eventSystem = std::make_unique<EventSystem>();
+    window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName, *eventSystem);
+    vulkanContext = std::make_unique<VulkanContext>(*window);
+    scene = std::make_unique<Scene>(*vulkanContext);
+    renderSystem = std::make_unique<RenderSystem>(*scene, *eventSystem, *vulkanContext);
+
     eventSystem->Subscribe<ES::WindowResized>(this, &Engine::OnResize);
 }
 

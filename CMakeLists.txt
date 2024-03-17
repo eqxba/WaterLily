@@ -40,7 +40,7 @@ foreach(source IN ITEMS ${SOURCE_FILES})
     source_group("${group_path}" FILES "${source}")
 endforeach()
 
-set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 set_property(TARGET ${TARGET_NAME} PROPERTY CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(MSVC)

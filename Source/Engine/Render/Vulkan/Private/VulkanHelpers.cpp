@@ -9,6 +9,8 @@ void VulkanHelpers::SubmitCommandBuffer(VkCommandBuffer commandBuffer, VkQueue q
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
+    // FYI: vkBeginCommandBuffer if buffer was created with VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag
+    // implicitly resets the buffer to the initial state
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 	commands(commandBuffer);
     VkResult result = vkEndCommandBuffer(commandBuffer);

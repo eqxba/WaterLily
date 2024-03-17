@@ -116,25 +116,27 @@ namespace DeviceDetails
 		return *it;
 	}
 
-	static VkDevice SelectLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice)
+	static VkDevice CreateLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice)
 	{
 		QueueFamilyIndices indices = GetQueueFamilyIndices(vulkanContext, physicalDevice);
 
 		float queuePriority = 1.0f;
-		
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+				
 		std::set<uint32_t> uniqueQueueFamilyIndices = { indices.graphicsFamily, indices.presentFamily };
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		queueCreateInfos.reserve(uniqueQueueFamilyIndices.size());
 
-		const auto addQueueCreateInfo = [&](uint32_t queueFamilyIndex) {
+		const auto createQueueCreateInfo = [&](uint32_t queueFamilyIndex) {
 			VkDeviceQueueCreateInfo queueCreateInfo{};
 			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 			queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
 			queueCreateInfo.queueCount = 1;
-			queueCreateInfo.pQueuePriorities = &queuePriority;
-			queueCreateInfos.emplace_back(queueCreateInfo);
-		};
+			queueCreateInfo.pQueuePriorities = &queuePriority;			
 
-		std::ranges::for_each(uniqueQueueFamilyIndices, addQueueCreateInfo);
+			return queueCreateInfo;
+		}; 
+
+		std::ranges::transform(uniqueQueueFamilyIndices, std::back_inserter(queueCreateInfos), createQueueCreateInfo);
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
 
@@ -177,7 +179,7 @@ Device::Device(const VulkanContext& aVulkanContext)
 	using namespace DeviceDetails;
 
 	physicalDevice = SelectPhysicalDevice(vulkanContext);
-	device = SelectLogicalDevice(vulkanContext, physicalDevice);
+	device = CreateLogicalDevice(vulkanContext, physicalDevice);
 
 	volkLoadDevice(device);
 
@@ -185,7 +187,7 @@ Device::Device(const VulkanContext& aVulkanContext)
 
 	commandPools.emplace(CommandBufferType::eLongLived, 
 		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queues.familyIndices.graphicsFamily));
-	commandPools.emplace(CommandBufferType::eOneTime, 
+	commandPools.emplace(CommandBufferType::eOneTime,
 		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | 
 		VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsFamily));
 

@@ -27,10 +27,9 @@ namespace GraphicsPipelineDetails
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 		shaderStages.reserve(shaderModules.size());
 
-		for (const auto& shaderModule : shaderModules)
-		{
-			shaderStages.emplace_back(shaderModule.GetVkPipelineShaderStageCreateInfo());
-		}
+		std::ranges::transform(shaderModules, std::back_inserter(shaderStages), [](const ShaderModule& shaderModule) {
+			return shaderModule.GetVkPipelineShaderStageCreateInfo();
+		});
 		
 		return shaderStages;
 	}
@@ -59,37 +58,23 @@ namespace GraphicsPipelineDetails
 		return inputAssembly;
 	}
 
-	static std::vector<VkViewport> GetViewports(const VkExtent2D extent)
+	VkPipelineDynamicStateCreateInfo GetPipelineDynamicStateCreateInfo(const std::vector<VkDynamicState>& dynamicStates)
 	{
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(extent.width);
-		viewport.height = static_cast<float>(extent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
+		VkPipelineDynamicStateCreateInfo dynamicState{};
+		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+		dynamicState.pDynamicStates = dynamicStates.data();
 
-		return { viewport };
+		return dynamicState;
 	}
 
-	static std::vector<VkRect2D> GetScissors(const VkExtent2D extent)
-	{
-		VkRect2D scissor{};
-		scissor.offset = { 0, 0 };
-		scissor.extent = extent;
-
-		return { scissor };
-	}
-
-	static VkPipelineViewportStateCreateInfo GetPipelineViewportStateCreateInfo(
-		const std::vector<VkViewport>& viewports, const std::vector<VkRect2D>& scissors)
+	static VkPipelineViewportStateCreateInfo GetPipelineViewportStateCreateInfo(const uint32_t viewportsCount,
+		const uint32_t scissorsCount)
 	{
 		VkPipelineViewportStateCreateInfo viewportState{};
 		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportState.viewportCount = static_cast<uint32_t>(viewports.size());
-		viewportState.pViewports = viewports.data();
-		viewportState.scissorCount = static_cast<uint32_t>(scissors.size());
-		viewportState.pScissors = scissors.data();
+		viewportState.viewportCount = viewportsCount;
+		viewportState.scissorCount = scissorsCount;
 
 		return viewportState;
 	}
@@ -182,7 +167,6 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 {
 	using namespace GraphicsPipelineDetails;
 
-	// TODO: Extremely bad, need to presave this on first load because we recreate pipeline on resize
 	std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager());	
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
 
@@ -193,13 +177,13 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 		attributeDescriptions);
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = GetInputAssemblyStateCreateInfo();
 
-	const VkExtent2D extent = vulkanContext.GetSwapchain().GetExtent();
+	std::vector<VkDynamicState> dynamicStates = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
 
-	// TODO: Can use dynamic viewport and scissors states and avoid recreation of the pipeline on resize (related to the
-	// upper todo.
-	std::vector<VkViewport> viewports = GetViewports(extent);
-	std::vector<VkRect2D> scissors = GetScissors(extent);
-	VkPipelineViewportStateCreateInfo viewportState = GetPipelineViewportStateCreateInfo(viewports, scissors);
+	VkPipelineDynamicStateCreateInfo dynamicState = GetPipelineDynamicStateCreateInfo(dynamicStates);
+	VkPipelineViewportStateCreateInfo viewportState = GetPipelineViewportStateCreateInfo(1, 1);
 
 	VkPipelineRasterizationStateCreateInfo rasterizer = GetRasterizationStateCreateInfo();
 	VkPipelineMultisampleStateCreateInfo multisampling = GetMultisampleStateCreateInfo();
@@ -209,7 +193,6 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 
 	pipelineLayout = CreatePipelineLayout(vulkanContext);
 
-	// TODO: Move to separate function	
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
@@ -221,7 +204,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	pipelineInfo.pMultisampleState = &multisampling;
 	pipelineInfo.pDepthStencilState = nullptr;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr;
+	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = renderPass.GetVkRenderPass();
 	pipelineInfo.subpass = 0;
