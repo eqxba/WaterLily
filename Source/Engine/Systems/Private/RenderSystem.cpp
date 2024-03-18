@@ -83,16 +83,18 @@ namespace RenderSystemDetails
 
 	static std::vector<CommandBufferSync> CreateCommandBufferSyncs(const VulkanContext& vulkanContext, const size_t count)
 	{
-		std::vector<CommandBufferSync> syncs(count);		
+		std::vector<CommandBufferSync> syncs(count);
 
 		const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 
 		std::ranges::generate(syncs, [&]() {
-			CommandBufferSync sync;
-			sync.waitSemaphores = VulkanHelpers::CreateSemaphores(device, 1);
-			sync.waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-			sync.signalSemaphores = VulkanHelpers::CreateSemaphores(device, 1);
-			sync.fence = VulkanHelpers::CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT);
+			CommandBufferSync sync{
+				VulkanHelpers::CreateSemaphores(device, 1),
+				{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },
+				VulkanHelpers::CreateSemaphores(device, 1), 
+				VulkanHelpers::CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT),
+				device
+			};
 			return sync;
 		});
 
@@ -164,13 +166,6 @@ RenderSystem::~RenderSystem()
 	eventSystem.Unsubscribe<ES::WindowResized>(this);
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();	
-
-	std::ranges::for_each(syncs, [device](CommandBufferSync& sync) {
-		VulkanHelpers::DestroySemaphores(device, sync.waitSemaphores);
-		VulkanHelpers::DestroySemaphores(device, sync.signalSemaphores);
-		vkDestroyFence(device, sync.fence, nullptr);
-	});
-	
 	RenderSystemDetails::DestroyFramebuffers(framebuffers, device);
 }
 
@@ -184,14 +179,14 @@ void RenderSystem::Render()
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 	const VkSwapchainKHR swapchain = vulkanContext.GetSwapchain().GetVkSwapchainKHR();
-	CommandBufferSync& sync = syncs[currentFrame];
+	const auto& [waitSemaphores, waitStages, signalSemaphores, fence] = syncs[currentFrame].AsTuple();
 
-	vkWaitForFences(device, 1, &sync.fence, VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &sync.fence);
+	vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &fence);
 	
 	uint32_t imageIndex;
 	const VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(), 
-		sync.waitSemaphores[0], VK_NULL_HANDLE, &imageIndex);
+		waitSemaphores[0], VK_NULL_HANDLE, &imageIndex);
 	Assert(acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR);
 
 	VkCommandBuffer commandBuffer = commandBuffers[currentFrame];
@@ -201,13 +196,13 @@ void RenderSystem::Render()
 		EnqueueRenderCommands(vulkanContext, buffer, framebuffers[imageIndex], *renderPass, *graphicsPipeline, scene);
 	};
 
-	VulkanHelpers::SubmitCommandBuffer(commandBuffer, queues.graphics, renderCommands, sync);
+	VulkanHelpers::SubmitCommandBuffer(commandBuffer, queues.graphics, renderCommands, syncs[currentFrame]);
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = sync.signalSemaphores.data();
+	presentInfo.pWaitSemaphores = signalSemaphores.data();
 
 	VkSwapchainKHR swapChains[] = { swapchain };
 	presentInfo.swapchainCount = 1;

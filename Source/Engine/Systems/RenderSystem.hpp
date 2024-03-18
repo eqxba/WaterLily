@@ -14,7 +14,7 @@ namespace ES
 class VulkanContext;
 class Scene;
 class EventSystem;
-struct CommandBufferSync;
+class CommandBufferSync;
 
 class RenderSystem : public System
 {

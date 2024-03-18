@@ -191,16 +191,17 @@ Device::Device(const VulkanContext& aVulkanContext)
 		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | 
 		VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsFamily));
 
-	oneTimeCommandBufferSync.fence = VulkanHelpers::CreateFence(device, {});
+	oneTimeCommandBufferSync = CommandBufferSync{ {}, {}, {}, VulkanHelpers::CreateFence(device, {}), device };
 }
 
 Device::~Device()
 {
-	VulkanHelpers::DestroyCommandBufferSync(device, oneTimeCommandBufferSync);
-
 	std::ranges::for_each(commandPools, [&](auto& entry) {
 		vkDestroyCommandPool(device, entry.second, nullptr);
 	});
+
+	// Gotta call it explicitly here cause on scope exit it's called by compiler and there's already no device
+	oneTimeCommandBufferSync.~CommandBufferSync();
 
 	vkDestroyDevice(device, nullptr);
 }
@@ -228,13 +229,14 @@ void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands) const
 	
     VulkanHelpers::SubmitCommandBuffer(oneTimeBuffer, queues.graphics, commands, oneTimeCommandBufferSync);
 
-    vkWaitForFences(device, 1, &oneTimeCommandBufferSync.fence, VK_TRUE, UINT64_MAX);
+	VkFence fence = oneTimeCommandBufferSync.GetFence();
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
 
 	// TODO: (low priority) find out if we have to allocate and free each time or it's ok to have 1 buffer persistent
 	// Also see VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag
 	vkFreeCommandBuffers(device, commandPools[CommandBufferType::eOneTime], 1, &oneTimeBuffer);
 
-	const VkResult result = vkResetFences(device, 1, &oneTimeCommandBufferSync.fence);
+	const VkResult result = vkResetFences(device, 1, &fence);
     Assert(result == VK_SUCCESS);
 }
 
