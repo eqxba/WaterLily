@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+class VulkanContext;
+
 using DeviceCommands = std::function<void(VkCommandBuffer)>;
 
 enum class CommandBufferType
@@ -61,6 +63,8 @@ private:
 
 namespace VulkanHelpers
 {
+    std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice device, const size_t count, VkCommandPool commandPool);
+
     void SubmitCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, DeviceCommands commands, 
         const CommandBufferSync& sync);
 

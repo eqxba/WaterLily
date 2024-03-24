@@ -63,24 +63,6 @@ namespace RenderSystemDetails
 		return scissor;
 	}
 
-	static std::vector<VkCommandBuffer> CreateCommandBuffers(const VulkanContext& vulkanContext, const size_t count,
-		VkCommandPool commandPool)
-	{
-		std::vector<VkCommandBuffer> commandBuffers;
-		commandBuffers.resize(count);
-
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = commandPool;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-
-		VkResult result = vkAllocateCommandBuffers(vulkanContext.GetDevice().GetVkDevice(), &allocInfo, commandBuffers.data());
-		Assert(result == VK_SUCCESS);		
-		
-		return commandBuffers;
-	}
-
 	static std::vector<CommandBufferSync> CreateCommandBufferSyncs(const VulkanContext& vulkanContext, const size_t count)
 	{
 		std::vector<CommandBufferSync> syncs(count);
@@ -125,13 +107,13 @@ namespace RenderSystemDetails
 		VkRect2D scissor = GetScissor(extent);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		VkBuffer vertexBuffers[] = { scene.vertexBuffer };
+		VkBuffer vertexBuffers[] = { scene.GetVertexBuffer()->GetVkBuffer() };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-		vkCmdBindIndexBuffer(commandBuffer, scene.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindIndexBuffer(commandBuffer, scene.GetIndexBuffer()->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.indices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.GetIndices().size()), 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffer);
 	}
 
@@ -151,12 +133,14 @@ RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const Vulka
     , scene{aScene}
 {
 	using namespace RenderSystemDetails;
+	using namespace VulkanHelpers;
+	using namespace VulkanConfig;
 
 	const VkCommandPool longLivedPool = vulkanContext.GetDevice().GetCommandPool(CommandBufferType::eLongLived);
 	
 	framebuffers = CreateFramebuffers(vulkanContext, renderPass->GetVkRenderPass());
-	commandBuffers = CreateCommandBuffers(vulkanContext, VulkanConfig::maxFramesInFlight, longLivedPool);
-	syncs = CreateCommandBufferSyncs(vulkanContext, VulkanConfig::maxFramesInFlight);
+	commandBuffers = CreateCommandBuffers(vulkanContext.GetDevice().GetVkDevice(), maxFramesInFlight, longLivedPool);
+	syncs = CreateCommandBufferSyncs(vulkanContext, maxFramesInFlight);
 
 	eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 }
@@ -222,11 +206,12 @@ void RenderSystem::OnResize(const ES::WindowResized& event)
 
 	vulkanContext.GetDevice().WaitIdle();
 
+	DestroyFramebuffers(framebuffers, vulkanContext.GetDevice().GetVkDevice());
+
 	if (event.newWidth != 0 && event.newHeight != 0)
 	{
 		vulkanContext.GetSwapchain().Recreate({event.newWidth, event.newHeight});
 	}
 
-	DestroyFramebuffers(framebuffers, vulkanContext.GetDevice().GetVkDevice());
 	framebuffers = CreateFramebuffers(vulkanContext, renderPass->GetVkRenderPass());
 }

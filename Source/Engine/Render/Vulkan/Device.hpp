@@ -61,5 +61,6 @@ private:
 
 	mutable std::unordered_map<CommandBufferType, VkCommandPool> commandPools;
 
+	VkCommandBuffer oneTimeCommandBuffer;
 	CommandBufferSync oneTimeCommandBufferSync;
 };

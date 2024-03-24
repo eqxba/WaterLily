@@ -2,7 +2,7 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
-VkBuffer BufferHelpers::CreateStagingBuffer(const VulkanContext& vulkanContext, VkDeviceSize size)
+VkBuffer BufferHelpers::CreateStagingBuffer(VkDeviceSize size, const VulkanContext& vulkanContext)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -16,4 +16,16 @@ VkBuffer BufferHelpers::CreateStagingBuffer(const VulkanContext& vulkanContext, 
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
     return vulkanContext.GetMemoryManager().CreateBuffer(bufferInfo, memoryProperties);
+}
+
+// TODO: 100% will need sync on this later
+void BufferHelpers::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const Device& device)
+{
+    device.ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
+        VkBufferCopy copyRegion{};
+        copyRegion.srcOffset = 0; // Optional
+        copyRegion.dstOffset = 0; // Optional
+        copyRegion.size = size;
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+    });
 }

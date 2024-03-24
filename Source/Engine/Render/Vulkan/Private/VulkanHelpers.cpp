@@ -1,5 +1,7 @@
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
+#include "Engine/Render/Vulkan/VulkanContext.hpp"
+
 CommandBufferSync::CommandBufferSync(std::vector<VkSemaphore> aWaitSemaphores, 
     std::vector<VkPipelineStageFlags> aWaitStages, std::vector<VkSemaphore> aSignalSemaphores, 
     VkFence aFence, VkDevice aDevice)
@@ -59,6 +61,24 @@ CommandBufferSync& CommandBufferSync::operator=(CommandBufferSync&& other) noexc
         other.device = VK_NULL_HANDLE;
     }
     return *this;
+}
+
+std::vector<VkCommandBuffer> VulkanHelpers::CreateCommandBuffers(VkDevice device, const size_t count, 
+    VkCommandPool commandPool)
+{
+    std::vector<VkCommandBuffer> commandBuffers;
+    commandBuffers.resize(count);
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+    VkResult result = vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data());
+    Assert(result == VK_SUCCESS);
+
+    return commandBuffers;
 }
 
 void VulkanHelpers::SubmitCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, DeviceCommands commands, 

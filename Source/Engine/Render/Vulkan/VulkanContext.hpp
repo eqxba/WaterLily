@@ -6,7 +6,6 @@
 #include "Engine/Render/Vulkan/Device.hpp"
 #include "Engine/Render/Vulkan/Swapchain.hpp"
 #include "Engine/Render/Vulkan/Resources/MemoryManager.hpp"
-#include "Engine/Render/Vulkan/Resources/BufferManager.hpp"
 #include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
 
 class Window;
@@ -48,11 +47,6 @@ public:
 		return *memoryManager;
 	}
 
-	BufferManager& GetBufferManager() const
-	{
-		return *bufferManager;
-	}
-
 	const ShaderManager& GetShaderManager() const
 	{
 		return *shaderManager;
@@ -65,6 +59,5 @@ private:
 	std::unique_ptr<Swapchain> swapchain;
 
 	std::unique_ptr<MemoryManager> memoryManager;
-	std::unique_ptr<BufferManager> bufferManager;
 	std::unique_ptr<ShaderManager> shaderManager;
 };

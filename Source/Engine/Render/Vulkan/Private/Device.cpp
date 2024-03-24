@@ -2,6 +2,7 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
+#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
 namespace DeviceDetails
 {	
@@ -191,6 +192,7 @@ Device::Device(const VulkanContext& aVulkanContext)
 		CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | 
 		VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsFamily));
 
+	oneTimeCommandBuffer = VulkanHelpers::CreateCommandBuffers(device, 1, commandPools[CommandBufferType::eOneTime])[0];
 	oneTimeCommandBufferSync = CommandBufferSync{ {}, {}, {}, VulkanHelpers::CreateFence(device, {}), device };
 }
 
@@ -218,23 +220,10 @@ VkCommandPool Device::GetCommandPool(CommandBufferType type) const
 
 void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands) const
 {
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPools[CommandBufferType::eOneTime];
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer oneTimeBuffer;
-    vkAllocateCommandBuffers(device, &allocInfo, &oneTimeBuffer);
-	
-    VulkanHelpers::SubmitCommandBuffer(oneTimeBuffer, queues.graphics, commands, oneTimeCommandBufferSync);
+    VulkanHelpers::SubmitCommandBuffer(oneTimeCommandBuffer, queues.graphics, commands, oneTimeCommandBufferSync);
 
 	VkFence fence = oneTimeCommandBufferSync.GetFence();
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-
-	// TODO: (low priority) find out if we have to allocate and free each time or it's ok to have 1 buffer persistent
-	// Also see VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag
-	vkFreeCommandBuffers(device, commandPools[CommandBufferType::eOneTime], 1, &oneTimeBuffer);
 
 	const VkResult result = vkResetFences(device, 1, &fence);
     Assert(result == VK_SUCCESS);

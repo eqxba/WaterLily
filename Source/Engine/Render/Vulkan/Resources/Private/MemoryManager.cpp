@@ -30,7 +30,6 @@ VkBuffer MemoryManager::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo,
     const VkMemoryPropertyFlags memoryProperties)
 {
     VmaAllocationCreateInfo allocInfo{};
-    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     allocInfo.requiredFlags = memoryProperties;
 
     VkBuffer buffer;

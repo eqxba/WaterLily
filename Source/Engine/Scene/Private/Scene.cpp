@@ -33,29 +33,18 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 Scene::Scene(const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {
-    BufferDescription vertexBufferDescription{};
-    vertexBufferDescription.size = static_cast<VkDeviceSize>(sizeof(vertices[0]) * vertices.size());
-    vertexBufferDescription.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    vertexBufferDescription.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    std::span verticesSpan(std::as_const(vertices));
+    std::span indicesSpan(std::as_const(indices));
 
-    BufferManager& bufferManager = vulkanContext.GetBufferManager();
+    BufferDescription vertexBufferDescription{ static_cast<VkDeviceSize>(verticesSpan.size_bytes()),
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true };
 
-    vertexBuffer = bufferManager.CreateBuffer(vertexBufferDescription);
-    bufferManager.FillBuffer(vertexBuffer, static_cast<void*>(vertices.data()), vertices.size() * sizeof(vertices[0]));
+    vertexBuffer = std::make_unique<Buffer>(vertexBufferDescription, vulkanContext, verticesSpan);
 
-    BufferDescription indexBufferDescription{};
-    indexBufferDescription.size = static_cast<VkDeviceSize>(sizeof(indices[0]) * indices.size());
-    indexBufferDescription.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    indexBufferDescription.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    BufferDescription indexBufferDescription{ static_cast<VkDeviceSize>(indicesSpan.size_bytes()),
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true };
 
-    indexBuffer = bufferManager.CreateBuffer(indexBufferDescription);
-    bufferManager.FillBuffer(indexBuffer, static_cast<void*>(indices.data()), indices.size() * sizeof(indices[0]));
-}
-
-Scene::~Scene()
-{
-    BufferManager& bufferManager = vulkanContext.GetBufferManager();
-
-    bufferManager.DestroyBuffer(vertexBuffer);
-    bufferManager.DestroyBuffer(indexBuffer);
+    indexBuffer = std::make_unique<Buffer>(indexBufferDescription, vulkanContext, indicesSpan);
 }

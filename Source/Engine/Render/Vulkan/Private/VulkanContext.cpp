@@ -22,6 +22,5 @@ VulkanContext::VulkanContext(const Window& window)
 	swapchain = std::make_unique<Swapchain>(window.GetExtentInPixels(), *this);
 
 	memoryManager = std::make_unique<MemoryManager>(*this);
-	bufferManager = std::make_unique<BufferManager>(*this);
 	shaderManager = std::make_unique<ShaderManager>(*this);
 }

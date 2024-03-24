@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <limits>
 #include <fstream>
 #include <unordered_map>
