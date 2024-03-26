@@ -34,6 +34,29 @@ namespace GraphicsPipelineDetails
 		return shaderStages;
 	}
 
+	// TODO: parse from SPIR-V reflection, create in manager and cache by description
+	static std::vector<VkDescriptorSetLayout> CreateDescriptorSetLayouts(VkDevice device)
+	{
+		VkDescriptorSetLayoutBinding uboLayoutBinding{};
+		uboLayoutBinding.binding = 0;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uboLayoutBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 1;
+		layoutInfo.pBindings = &uboLayoutBinding;
+
+		VkDescriptorSetLayout descriptorSetLayout;
+
+		const VkResult result = vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout);
+		Assert(result == VK_SUCCESS);
+
+		return { descriptorSetLayout };
+	}
+
 	static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
 		  const VkVertexInputBindingDescription& bindingDescription
 		, const std::vector<VkVertexInputAttributeDescription>& attributeDescriptions)
@@ -88,7 +111,7 @@ namespace GraphicsPipelineDetails
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f; 
 		rasterizer.depthBiasClamp = 0.0f; 
@@ -144,18 +167,19 @@ namespace GraphicsPipelineDetails
 		return colorBlending;
 	}
 
-	static VkPipelineLayout CreatePipelineLayout(const VulkanContext& vulkanContext)
+	static VkPipelineLayout CreatePipelineLayout(VkDevice device, 
+		const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0; 
-		pipelineLayoutInfo.pSetLayouts = nullptr; 
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = 0; 
 		pipelineLayoutInfo.pPushConstantRanges = nullptr; 
 
 		VkPipelineLayout pipelineLayout;
-		const VkResult result =
-			vkCreatePipelineLayout(vulkanContext.GetDevice().GetVkDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout);
+
+		const VkResult result = vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
 		Assert(result == VK_SUCCESS);
 
 		return pipelineLayout;
@@ -167,8 +191,12 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 {
 	using namespace GraphicsPipelineDetails;
 
+	VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+
 	std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager());	
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
+
+	descriptorSetLayouts = CreateDescriptorSetLayouts(device);
 
 	VkVertexInputBindingDescription bindingDescription = Vertex::GetBindingDescription();
     const std::vector<VkVertexInputAttributeDescription> attributeDescriptions = Vertex::GetAttributeDescriptions();
@@ -191,7 +219,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = GetPipelineColorBlendAttachmentState();
 	VkPipelineColorBlendStateCreateInfo colorBlending = GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
-	pipelineLayout = CreatePipelineLayout(vulkanContext);
+	pipelineLayout = CreatePipelineLayout(device, descriptorSetLayouts);
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -213,14 +241,17 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	pipelineInfo.basePipelineIndex = -1; 
 
 	// TODO: Use cache here
-	const VkResult result = 
-		vkCreateGraphicsPipelines(vulkanContext.GetDevice().GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+	const VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
 	Assert(result == VK_SUCCESS);
 }
 
 GraphicsPipeline::~GraphicsPipeline()
 {
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+
+	std::ranges::for_each(descriptorSetLayouts, [=](VkDescriptorSetLayout descriptorSetLayout) {
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+	});
 
 	vkDestroyPipeline(device, pipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);

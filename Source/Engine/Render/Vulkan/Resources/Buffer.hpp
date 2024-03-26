@@ -1,18 +1,25 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/Resources/BufferHelpers.hpp"
-
 #include <volk.h>
 
 class VulkanContext;
 
+struct BufferDescription
+{
+    VkDeviceSize size = 0;
+    VkBufferUsageFlags usage = {};
+    VkMemoryPropertyFlags memoryProperties = {};
+};
+
 class Buffer
 {
 public:
-    Buffer(BufferDescription description, const VulkanContext& vulkanContext);
+    Buffer() = default;
+    Buffer(BufferDescription description, bool createStagingBuffer, const VulkanContext* vulkanContext);
 
     template <typename T>
-    Buffer(BufferDescription description, const VulkanContext& vulkanContext, const std::span<const T> initialData);
+    Buffer(BufferDescription description, bool createStagingBuffer, const std::span<const T> initialData,
+        const VulkanContext* vulkanContext);
 
     ~Buffer();
 
@@ -23,27 +30,45 @@ public:
     Buffer& operator=(Buffer&& other) noexcept;
 
     template <typename T>
-    void Fill(const std::span<const T> data);    
+    void Fill(const std::span<const T> data);
+
+    std::span<std::byte> MapMemory(bool persistentMapping = false) const;
+    void UnmapMemory() const;
 
     VkBuffer GetVkBuffer() const
     {
         return buffer;
     }
 
+    const Buffer* GetStagingBuffer() const
+    {
+        return stagingBuffer.get();
+    }
+
+    const std::span<std::byte> GetMappedMemory() const
+    {
+        return mappedMemory;
+    }
+
 private:
     void FillImpl(const std::span<const std::byte> span);
 
-    const VulkanContext& vulkanContext;
+    const VulkanContext* vulkanContext = nullptr;
 
-    const BufferDescription description;
+    BufferDescription description = {};
 
     VkBuffer buffer = VK_NULL_HANDLE;
-    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+
+    std::unique_ptr<Buffer> stagingBuffer;
+
+    mutable std::span<std::byte> mappedMemory;
+    mutable bool persistentMapping = false; 
 };
 
 template <typename T>
-Buffer::Buffer(BufferDescription description, const VulkanContext& vulkanContext, const std::span<const T> initialData)
-    : Buffer{ std::move(description), vulkanContext }
+Buffer::Buffer(BufferDescription description, bool createStagingBuffer, const std::span<const T> initialData,
+    const VulkanContext* vulkanContext)
+    : Buffer{ std::move(description), createStagingBuffer, vulkanContext }
 {
     if (!initialData.empty())
     {

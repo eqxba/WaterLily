@@ -23,10 +23,22 @@ public:
 		return pipeline;
 	}
 
+	VkPipelineLayout GetPipelineLayout() const
+	{
+		return pipelineLayout;
+	}
+
+	const std::vector<VkDescriptorSetLayout>& GetDescriptorSetLayouts() const 
+	{ 
+		return descriptorSetLayouts; 
+	}
+
 private:
 	const VulkanContext& vulkanContext;
 
 	VkPipelineLayout pipelineLayout;
 
 	VkPipeline pipeline;
+
+	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 };

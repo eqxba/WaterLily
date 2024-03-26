@@ -36,15 +36,15 @@ Scene::Scene(const VulkanContext& aVulkanContext)
     std::span verticesSpan(std::as_const(vertices));
     std::span indicesSpan(std::as_const(indices));
 
-    BufferDescription vertexBufferDescription{ static_cast<VkDeviceSize>(verticesSpan.size_bytes()),
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true };
+    BufferDescription vertexBufferDescription{ .size = static_cast<VkDeviceSize>(verticesSpan.size_bytes()),
+        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    vertexBuffer = std::make_unique<Buffer>(vertexBufferDescription, vulkanContext, verticesSpan);
+    vertexBuffer = std::make_unique<Buffer>(vertexBufferDescription, true, verticesSpan, &vulkanContext);
 
-    BufferDescription indexBufferDescription{ static_cast<VkDeviceSize>(indicesSpan.size_bytes()),
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true };
+    BufferDescription indexBufferDescription{ .size = static_cast<VkDeviceSize>(indicesSpan.size_bytes()),
+        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    indexBuffer = std::make_unique<Buffer>(indexBufferDescription, vulkanContext, indicesSpan);
+    indexBuffer = std::make_unique<Buffer>(indexBufferDescription, true, indicesSpan, &vulkanContext);
 }

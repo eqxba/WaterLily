@@ -17,6 +17,7 @@
 #include <typeindex>
 #include <any>
 #include <functional>
+#include <chrono>
 
 #include "Utils/Assert.hpp"
 #include "Utils/Logger.hpp"

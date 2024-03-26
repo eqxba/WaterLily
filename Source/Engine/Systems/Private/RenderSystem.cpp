@@ -6,13 +6,15 @@
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Scene/Scene.hpp"
+#include "Shaders/Common.h"
+
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace RenderSystemDetails
 {
-	static std::vector<VkFramebuffer> CreateFramebuffers(const VulkanContext& vulkanContext, VkRenderPass renderPass)
+	static std::vector<VkFramebuffer> CreateFramebuffers(const Swapchain& swapchain, VkRenderPass renderPass, 
+		VkDevice device)
 	{
-		const Swapchain& swapchain = vulkanContext.GetSwapchain();
-
 		std::vector<VkFramebuffer> framebuffers;
 		framebuffers.reserve(swapchain.GetImageViews().size());
 
@@ -29,8 +31,7 @@ namespace RenderSystemDetails
 			framebufferInfo.layers = 1;
 
 			VkFramebuffer framebuffer;
-			const VkResult result = vkCreateFramebuffer(vulkanContext.GetDevice().GetVkDevice(), 
-				&framebufferInfo, nullptr, &framebuffer);
+			const VkResult result = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer);
 			Assert(result == VK_SUCCESS);
 
 			return framebuffer;
@@ -63,11 +64,9 @@ namespace RenderSystemDetails
 		return scissor;
 	}
 
-	static std::vector<CommandBufferSync> CreateCommandBufferSyncs(const VulkanContext& vulkanContext, const size_t count)
+	static std::vector<CommandBufferSync> CreateCommandBufferSyncs(const size_t count, VkDevice device)
 	{
 		std::vector<CommandBufferSync> syncs(count);
-
-		const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 
 		std::ranges::generate(syncs, [&]() {
 			CommandBufferSync sync{
@@ -84,7 +83,8 @@ namespace RenderSystemDetails
 	}
 
 	static void EnqueueRenderCommands(const VulkanContext& vulkanContext, VkCommandBuffer commandBuffer, 
-		VkFramebuffer framebuffer, const RenderPass& renderPass, const GraphicsPipeline& graphicsPipeline, Scene& scene)
+		VkFramebuffer framebuffer, const RenderPass& renderPass, const GraphicsPipeline& graphicsPipeline, Scene& scene,
+		const std::span<const VkDescriptorSet> descriptorSets)
 	{
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -113,6 +113,9 @@ namespace RenderSystemDetails
 
 		vkCmdBindIndexBuffer(commandBuffer, scene.GetIndexBuffer()->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 
+			0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.GetIndices().size()), 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffer);
 	}
@@ -122,6 +125,100 @@ namespace RenderSystemDetails
 		std::ranges::for_each(framebuffers, [=](VkFramebuffer framebuffer) {
 			vkDestroyFramebuffer(device, framebuffer, nullptr);
 		});
+	}
+
+	static std::vector<Buffer> CreateUniformBuffers(const VulkanContext& vulkanContext, const size_t count)
+	{
+		const auto createBuffer = [&]() {
+			BufferDescription bufferDescription{ static_cast<VkDeviceSize>(sizeof(gpu::UniformBufferObject)),
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+
+			auto result = Buffer(bufferDescription, true, &vulkanContext);
+			result.GetStagingBuffer()->MapMemory(true);
+
+			return result;
+		};
+
+		std::vector<Buffer> result(count);
+		std::ranges::generate(result, createBuffer);
+
+		return result;
+	}
+
+	static VkDescriptorPool CreateDescriptorPool(const uint32_t descriptorCount, const uint32_t maxSets, VkDevice device)
+	{
+		VkDescriptorPool descriptorPool;
+
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = descriptorCount;
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 1;
+		poolInfo.pPoolSizes = &poolSize;
+
+		poolInfo.maxSets = maxSets;
+
+		const VkResult result = vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool);
+		Assert(result == VK_SUCCESS);
+
+		return descriptorPool;
+	}
+
+	static std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool descriptorPool,
+		VkDescriptorSetLayout layout, size_t count, VkDevice device)
+	{
+		std::vector<VkDescriptorSet> descriptorSets(count);
+
+		std::vector<VkDescriptorSetLayout> layouts(count, layout);
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(count);
+		allocInfo.pSetLayouts = layouts.data();
+
+		const VkResult result = vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data());
+		Assert(result == VK_SUCCESS);
+
+		return descriptorSets;
+	}
+
+	static void PopulateDescriptorSets(const std::vector<VkDescriptorSet>& sets, const std::vector<Buffer>& buffers,
+		VkDevice device)
+	{
+		Assert(sets.size() == buffers.size());
+
+		std::vector<VkDescriptorBufferInfo> bufferInfos;
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+		bufferInfos.reserve(sets.size());
+		descriptorWrites.reserve(sets.size());
+
+		std::ranges::transform(buffers, std::back_inserter(bufferInfos), [](const Buffer& buffer) {
+			return VkDescriptorBufferInfo{ buffer.GetVkBuffer(), 0, sizeof(gpu::UniformBufferObject) };
+		});
+
+		const auto createWrite = [](const VkDescriptorSet& descriptorSet, const VkDescriptorBufferInfo& bufferInfo) {
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = descriptorSet;
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrite.descriptorCount = 1;
+			descriptorWrite.pBufferInfo = &bufferInfo;
+			descriptorWrite.pImageInfo = nullptr; // Optional
+			descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+			return descriptorWrite;
+		};
+
+		std::ranges::transform(sets, bufferInfos, std::back_inserter(descriptorWrites), createWrite);
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
 }
 
@@ -137,10 +234,19 @@ RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const Vulka
 	using namespace VulkanConfig;
 
 	const VkCommandPool longLivedPool = vulkanContext.GetDevice().GetCommandPool(CommandBufferType::eLongLived);
-	
-	framebuffers = CreateFramebuffers(vulkanContext, renderPass->GetVkRenderPass());
-	commandBuffers = CreateCommandBuffers(vulkanContext.GetDevice().GetVkDevice(), maxFramesInFlight, longLivedPool);
-	syncs = CreateCommandBufferSyncs(vulkanContext, maxFramesInFlight);
+	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+
+	framebuffers = CreateFramebuffers(vulkanContext.GetSwapchain(), renderPass->GetVkRenderPass(), device);
+	commandBuffers = CreateCommandBuffers(device, maxFramesInFlight, longLivedPool);
+	syncs = CreateCommandBufferSyncs(maxFramesInFlight, device);
+
+	VkDescriptorSetLayout layout = graphicsPipeline->GetDescriptorSetLayouts()[0];
+
+	uniformBuffers = CreateUniformBuffers(vulkanContext, maxFramesInFlight);
+	descriptorPool = CreateDescriptorPool(maxFramesInFlight, maxFramesInFlight, device);
+	descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);	
+
+	PopulateDescriptorSets(descriptorSets, uniformBuffers, device);
 
 	eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 }
@@ -150,11 +256,26 @@ RenderSystem::~RenderSystem()
 	eventSystem.Unsubscribe<ES::WindowResized>(this);
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();	
-	RenderSystemDetails::DestroyFramebuffers(framebuffers, device);
+	RenderSystemDetails::DestroyFramebuffers(framebuffers, device);	
+
+	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
 
 void RenderSystem::Process(float deltaSeconds)
-{}
+{
+	// Let this code be here for now
+	constexpr float rotationRate = 90.0f;
+	static float totalAngle = 0.0f;
+
+	totalAngle = std::fmod(totalAngle + deltaSeconds * rotationRate, 360.0f);
+
+	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(totalAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	VkExtent2D extent = vulkanContext.GetSwapchain().GetExtent();
+	ubo.projection = glm::perspective(glm::radians(45.0f), extent.width / (float)extent.height, 0.1f, 10.0f);
+	ubo.projection[1][1] *= -1;
+}
 
 void RenderSystem::Render()
 {
@@ -173,11 +294,14 @@ void RenderSystem::Render()
 		waitSemaphores[0], VK_NULL_HANDLE, &imageIndex);
 	Assert(acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR);
 
+	uniformBuffers[currentFrame].Fill(std::span{ reinterpret_cast<const std::byte*>(&ubo), sizeof(ubo) });
+
 	VkCommandBuffer commandBuffer = commandBuffers[currentFrame];
 	const Queues& queues = vulkanContext.GetDevice().GetQueues();
 
 	const auto renderCommands = [&](VkCommandBuffer buffer) {
-		EnqueueRenderCommands(vulkanContext, buffer, framebuffers[imageIndex], *renderPass, *graphicsPipeline, scene);
+		EnqueueRenderCommands(vulkanContext, buffer, framebuffers[imageIndex], *renderPass, *graphicsPipeline, scene,
+			std::span{ &descriptorSets[currentFrame], 1 });
 	};
 
 	VulkanHelpers::SubmitCommandBuffer(commandBuffer, queues.graphics, renderCommands, syncs[currentFrame]);
@@ -204,14 +328,15 @@ void RenderSystem::OnResize(const ES::WindowResized& event)
 {
 	using namespace RenderSystemDetails;
 
-	vulkanContext.GetDevice().WaitIdle();
+	const Device & device = vulkanContext.GetDevice();
+	device.WaitIdle();
 
-	DestroyFramebuffers(framebuffers, vulkanContext.GetDevice().GetVkDevice());
+	DestroyFramebuffers(framebuffers, device.GetVkDevice());
 
 	if (event.newWidth != 0 && event.newHeight != 0)
 	{
 		vulkanContext.GetSwapchain().Recreate({event.newWidth, event.newHeight});
 	}
 
-	framebuffers = CreateFramebuffers(vulkanContext, renderPass->GetVkRenderPass());
+	framebuffers = CreateFramebuffers(vulkanContext.GetSwapchain(), renderPass->GetVkRenderPass(), device.GetVkDevice());
 }

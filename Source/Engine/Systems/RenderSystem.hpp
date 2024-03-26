@@ -3,6 +3,7 @@
 #include "Engine/Systems/System.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
+#include "Shaders/Common.h"
 
 #include <volk.h>
 
@@ -15,6 +16,7 @@ class VulkanContext;
 class Scene;
 class EventSystem;
 class CommandBufferSync;
+class Buffer;
 
 class RenderSystem : public System
 {
@@ -38,8 +40,7 @@ private:
 	const VulkanContext& vulkanContext;
 
 	EventSystem& eventSystem;
-	
-	// Per "stage"
+
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr <GraphicsPipeline> graphicsPipeline;
 	std::vector<VkFramebuffer> framebuffers;
@@ -47,6 +48,13 @@ private:
 	// Do not have to be recreated, persistent for FrameLoop
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<CommandBufferSync> syncs;
+
+	gpu::UniformBufferObject ubo = { .model = glm::mat4(), .view = glm::mat4(), .projection = glm::mat4() };
+
+	std::vector<Buffer> uniformBuffers;
+
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
 	
 	size_t currentFrame = 0;
 

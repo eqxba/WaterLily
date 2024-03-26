@@ -11,6 +11,7 @@ namespace ES
 class EventSystem;
 class VulkanContext;
 class Scene;
+class System;
 class RenderSystem;
 
 class Engine
@@ -37,6 +38,8 @@ private:
     std::unique_ptr<VulkanContext> vulkanContext;
     std::unique_ptr<Scene> scene;
     std::unique_ptr<RenderSystem> renderSystem;
+
+    std::vector<System*> systems;
 
     bool renderingSuspended = false;
 };
