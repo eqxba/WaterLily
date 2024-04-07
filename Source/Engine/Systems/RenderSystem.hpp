@@ -3,6 +3,7 @@
 #include "Engine/Systems/System.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
+#include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
 #include "Shaders/Common.h"
 
 #include <volk.h>
