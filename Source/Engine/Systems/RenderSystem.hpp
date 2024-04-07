@@ -43,7 +43,7 @@ private:
 	EventSystem& eventSystem;
 
 	std::unique_ptr<RenderPass> renderPass;
-	std::unique_ptr <GraphicsPipeline> graphicsPipeline;
+	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
 	std::vector<VkFramebuffer> framebuffers;
 	
 	// Do not have to be recreated, persistent for FrameLoop

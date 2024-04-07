@@ -1,14 +1,9 @@
 #pragma once
 
+#include "Utils/DataStructures.hpp"
+
 struct GLFWwindow;
 class EventSystem;
-
-// TODO: Move from here
-struct Extent2D
-{
-	int width = 0;
-	int height = 0;
-};
 
 class Window
 {

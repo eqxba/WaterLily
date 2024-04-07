@@ -47,6 +47,11 @@ public:
 		return physicalDevice;
 	}
 
+	VkPhysicalDeviceProperties GetPhysicalDeviceProperties() const
+	{
+		return physicalDeviceProperties;
+	}
+
 	const Queues& GetQueues() const
 	{
 		return queues;
@@ -57,6 +62,8 @@ private:
 
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
+
+	VkPhysicalDeviceProperties physicalDeviceProperties;
 
 	Queues queues;
 

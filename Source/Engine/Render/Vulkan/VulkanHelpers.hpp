@@ -26,4 +26,6 @@ namespace VulkanHelpers
 
     void DestroyFences(VkDevice device, std::vector<VkFence>& fences);
     void DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& semaphores);
+
+    VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format);
 }

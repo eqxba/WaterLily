@@ -23,6 +23,7 @@ MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)
 MemoryManager::~MemoryManager()
 {
     Assert(bufferAllocations.empty());
+    Assert(imageAllocations.empty());
     vmaDestroyAllocator(allocator);
 }
 
@@ -83,4 +84,31 @@ void MemoryManager::UnmapBufferMemory(VkBuffer buffer)
     Assert(it != bufferAllocations.end());
 
     vmaUnmapMemory(allocator, it->second);
+}
+
+VkImage MemoryManager::CreateImage(const VkImageCreateInfo& imageCreateInfo, 
+    const VkMemoryPropertyFlags memoryProperties)
+{
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.requiredFlags = memoryProperties;
+
+    VkImage image;
+    VmaAllocation allocation;
+
+    const VkResult result = vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, nullptr);
+    Assert(result == VK_SUCCESS);
+
+    imageAllocations.emplace(image, allocation);
+
+    return image;
+}
+
+void MemoryManager::DestroyImage(VkImage image)
+{
+    const auto it = imageAllocations.find(image);
+    Assert(it != imageAllocations.end());
+
+    vmaDestroyImage(allocator, image, it->second);
+
+    imageAllocations.erase(it);
 }

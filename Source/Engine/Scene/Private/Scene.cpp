@@ -2,6 +2,11 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
+namespace SceneDetails
+{
+    constexpr const char* imagePath = "E:/Projects/WaterLily/Assets/testImage.jpg";
+}
+
 VkVertexInputBindingDescription Vertex::GetBindingDescription()
 {
     VkVertexInputBindingDescription bindingDescription{};
@@ -14,7 +19,7 @@ VkVertexInputBindingDescription Vertex::GetBindingDescription()
 
 std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions()
 {
-    std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions(3);
 
     // TODO: (low priority) parse from compiled shader file
     attributeDescriptions[0].binding = 0;
@@ -26,6 +31,11 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+    attributeDescriptions[2].binding = 0;
+    attributeDescriptions[2].location = 2;
+    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
     return attributeDescriptions;
 }
@@ -47,4 +57,10 @@ Scene::Scene(const VulkanContext& aVulkanContext)
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     indexBuffer = std::make_unique<Buffer>(indexBufferDescription, true, indicesSpan, &vulkanContext);
+
+    ImageDescription imageDescription{ .filePath = SceneDetails::imagePath,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    image = std::make_unique<Image>(imageDescription, &vulkanContext);
 }

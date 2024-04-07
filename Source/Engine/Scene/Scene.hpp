@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Engine/Render/Vulkan/Resources/Buffer.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
 
 #include <glm/glm.hpp>
 #include <volk.h>
 
 class VulkanContext;
+class Image;
 
 struct Vertex
 {
@@ -14,6 +16,7 @@ struct Vertex
 
     glm::vec2 pos;
     glm::vec3 color;
+    glm::vec2 texCoord;
 };
 
 class Scene
@@ -48,17 +51,23 @@ public:
         return indices;
     }
 
+    const Image* GetImage() const
+    {
+        return image.get();
+    }
+
 private:
     const VulkanContext& vulkanContext;    
 
     std::unique_ptr<Buffer> vertexBuffer;
     std::unique_ptr<Buffer> indexBuffer;
+    std::unique_ptr<Image> image;
 
     std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
     };
 
     std::vector<uint16_t> indices =

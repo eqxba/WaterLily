@@ -150,15 +150,20 @@ namespace RenderSystemDetails
 	{
 		VkDescriptorPool descriptorPool;
 
-		VkDescriptorPoolSize poolSize{};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = descriptorCount;
+		std::array<VkDescriptorPoolSize, 2> poolSizes{};
+
+		VkDescriptorPoolSize& uniformBufferPoolSize = poolSizes[0];
+		uniformBufferPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformBufferPoolSize.descriptorCount = descriptorCount;
+
+		VkDescriptorPoolSize& samplersPoolSize = poolSizes[1];
+		samplersPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplersPoolSize.descriptorCount = descriptorCount;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
-
+		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+		poolInfo.pPoolSizes = poolSizes.data();
 		poolInfo.maxSets = maxSets;
 
 		const VkResult result = vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool);
@@ -187,21 +192,26 @@ namespace RenderSystemDetails
 	}
 
 	static void PopulateDescriptorSets(const std::vector<VkDescriptorSet>& sets, const std::vector<Buffer>& buffers,
-		VkDevice device)
+		VkImageView imageView, VkSampler sampler, VkDevice device)
 	{
 		Assert(sets.size() == buffers.size());
+
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = imageView;
+		imageInfo.sampler = sampler;
 
 		std::vector<VkDescriptorBufferInfo> bufferInfos;
 		std::vector<VkWriteDescriptorSet> descriptorWrites;
 
 		bufferInfos.reserve(sets.size());
-		descriptorWrites.reserve(sets.size());
+		descriptorWrites.reserve(sets.size() * 2);
 
 		std::ranges::transform(buffers, std::back_inserter(bufferInfos), [](const Buffer& buffer) {
 			return VkDescriptorBufferInfo{ buffer.GetVkBuffer(), 0, sizeof(gpu::UniformBufferObject) };
 		});
 
-		const auto createWrite = [](const VkDescriptorSet& descriptorSet, const VkDescriptorBufferInfo& bufferInfo) {
+		const auto createBufferWrite = [](const VkDescriptorSet& descriptorSet, const VkDescriptorBufferInfo& bufferInfo) {
 			VkWriteDescriptorSet descriptorWrite{};
 			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrite.dstSet = descriptorSet;
@@ -210,13 +220,26 @@ namespace RenderSystemDetails
 			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			descriptorWrite.descriptorCount = 1;
 			descriptorWrite.pBufferInfo = &bufferInfo;
-			descriptorWrite.pImageInfo = nullptr; // Optional
-			descriptorWrite.pTexelBufferView = nullptr; // Optional
 
 			return descriptorWrite;
 		};
 
-		std::ranges::transform(sets, bufferInfos, std::back_inserter(descriptorWrites), createWrite);
+		const auto createSamplerWrite = [&imageInfo](const VkDescriptorSet& descriptorSet) {
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = descriptorSet;
+			descriptorWrite.dstBinding = 1;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrite.descriptorCount = 1;
+			descriptorWrite.pImageInfo = &imageInfo;
+
+			return descriptorWrite;
+		};
+
+		// TODO: 1 cycle instead of 2?
+		std::ranges::transform(sets, bufferInfos, std::back_inserter(descriptorWrites), createBufferWrite);
+		std::ranges::transform(sets, std::back_inserter(descriptorWrites), createSamplerWrite);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
@@ -246,7 +269,9 @@ RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const Vulka
 	descriptorPool = CreateDescriptorPool(maxFramesInFlight, maxFramesInFlight, device);
 	descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);	
 
-	PopulateDescriptorSets(descriptorSets, uniformBuffers, device);
+	const Image* image = scene.GetImage();
+
+	PopulateDescriptorSets(descriptorSets, uniformBuffers, image->GetImageView(), image->GetSampler(), device);
 
 	eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 }

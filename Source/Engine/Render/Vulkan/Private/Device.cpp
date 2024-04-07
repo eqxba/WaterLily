@@ -95,7 +95,8 @@ namespace DeviceDetails
 	}
 
 	// TODO: (low priority) device selection based on some kind of score (do i really need this?)
-	static VkPhysicalDevice SelectPhysicalDevice(const VulkanContext& vulkanContext)
+	static std::tuple<VkPhysicalDevice, VkPhysicalDeviceProperties> SelectPhysicalDevice(
+		const VulkanContext& vulkanContext)
 	{
 		const VkInstance vkInstance = vulkanContext.GetInstance().GetVkInstance();
 
@@ -114,7 +115,7 @@ namespace DeviceDetails
 
 		LogI << "Selected physical device: " << deviceProperties.deviceName << std::endl;
 
-		return *it;
+		return { *it, deviceProperties };
 	}
 
 	static VkDevice CreateLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice)
@@ -140,6 +141,7 @@ namespace DeviceDetails
 		std::ranges::transform(uniqueQueueFamilyIndices, std::back_inserter(queueCreateInfos), createQueueCreateInfo);
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
+		deviceFeatures.samplerAnisotropy = VK_TRUE;
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -179,7 +181,7 @@ Device::Device(const VulkanContext& aVulkanContext)
 {
 	using namespace DeviceDetails;
 
-	physicalDevice = SelectPhysicalDevice(vulkanContext);
+	std::tie(physicalDevice, physicalDeviceProperties) = SelectPhysicalDevice(vulkanContext);
 	device = CreateLogicalDevice(vulkanContext, physicalDevice);
 
 	volkLoadDevice(device);

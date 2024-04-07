@@ -34,10 +34,14 @@ public:
     void* MapBufferMemory(VkBuffer buffer);
     void UnmapBufferMemory(VkBuffer buffer);
 
+    VkImage CreateImage(const VkImageCreateInfo& imageCreateInfo, const VkMemoryPropertyFlags memoryProperties);
+    void DestroyImage(VkImage image);
+
 private:    
     const VulkanContext& vulkanContext;
 
     VmaAllocator allocator;
 
     std::unordered_map<VkBuffer, VmaAllocation> bufferAllocations;
+    std::unordered_map<VkImage, VmaAllocation> imageAllocations;
 };

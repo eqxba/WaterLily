@@ -4,7 +4,7 @@
 
 namespace BufferDetails
 {
-    VkBuffer CreateBuffer(BufferDescription description, const VulkanContext& vulkanContext)
+    static VkBuffer CreateBuffer(BufferDescription description, const VulkanContext& vulkanContext)
     {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -18,7 +18,7 @@ namespace BufferDetails
     }
 
     // TODO: 100% will need sync on this later
-    void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const Device& device)
+    static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const Device& device)
     {
         device.ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
             VkBufferCopy copyRegion{};
