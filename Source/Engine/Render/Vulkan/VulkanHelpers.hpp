@@ -27,5 +27,9 @@ namespace VulkanHelpers
     void DestroyFences(VkDevice device, std::vector<VkFence>& fences);
     void DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& semaphores);
 
-    VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format);
+    VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    void DestroyImageView(VkDevice device, VkImageView imageView);
+    
+    VkSampler CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties);
+    void DestroySampler(VkDevice device, VkSampler sampler);
 }

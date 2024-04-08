@@ -167,13 +167,14 @@ namespace SwapchainDetails
 		return images;
 	}
 
-	static std::vector<VkImageView> CreateImageViews(VkDevice device, const std::vector<VkImage>& images, VkFormat format)
+	static std::vector<VkImageView> CreateImageViews(VkDevice device, const std::vector<VkImage>& images, 
+		VkFormat format, VkImageAspectFlags aspectFlags)
 	{
 		std::vector<VkImageView> imageViews;
 		imageViews.reserve(images.size());
 
-		std::ranges::transform(images, std::back_inserter(imageViews), [format, device](VkImage image) {
-			return VulkanHelpers::CreateImageView(device, image, format);
+		std::ranges::transform(images, std::back_inserter(imageViews), [format, device, aspectFlags](VkImage image) {
+			return VulkanHelpers::CreateImageView(device, image, format, aspectFlags);
 		});
 
 		return imageViews;
@@ -213,7 +214,7 @@ void Swapchain::Create(const Extent2D& requiredExtentInPixels)
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 	images = GetSwapchainImages(device, swapchain);
-	imageViews = CreateImageViews(device, images, surfaceFormat.format);
+	imageViews = CreateImageViews(device, images, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Swapchain::Cleanup()

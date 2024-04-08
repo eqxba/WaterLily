@@ -1,6 +1,7 @@
 #include "Engine/Scene/Scene.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
 
 namespace SceneDetails
 {
@@ -24,7 +25,7 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
     // TODO: (low priority) parse from compiled shader file
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
     attributeDescriptions[1].binding = 0;
@@ -58,9 +59,26 @@ Scene::Scene(const VulkanContext& aVulkanContext)
 
     indexBuffer = std::make_unique<Buffer>(indexBufferDescription, true, indicesSpan, &vulkanContext);
 
-    ImageDescription imageDescription{ .filePath = SceneDetails::imagePath,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT,
+    const auto& [buffer, extent] = ResourceHelpers::LoadImageToBuffer(SceneDetails::imagePath, vulkanContext);
+
+    ImageDescription imageDescription{ .extent = extent, .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     image = std::make_unique<Image>(imageDescription, &vulkanContext);
+
+    image->Fill(buffer);
+    
+    const Device& device = vulkanContext.GetDevice();
+
+    imageView = image->CreateImageView(VK_IMAGE_ASPECT_COLOR_BIT);
+    sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties());
+}
+
+Scene::~Scene()
+{
+    VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+    
+    VulkanHelpers::DestroySampler(device, sampler);
+    VulkanHelpers::DestroyImageView(device, imageView);
 }

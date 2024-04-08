@@ -115,7 +115,8 @@ void VulkanHelpers::DestroySemaphores(VkDevice device, std::vector<VkSemaphore>&
     semaphores.clear();
 }
 
-VkImageView VulkanHelpers::CreateImageView(VkDevice device, VkImage image, VkFormat format)
+VkImageView VulkanHelpers::CreateImageView(VkDevice device, VkImage image, VkFormat format, 
+    VkImageAspectFlags aspectFlags)
 {
     VkImageViewCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -126,7 +127,7 @@ VkImageView VulkanHelpers::CreateImageView(VkDevice device, VkImage image, VkFor
     createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    createInfo.subresourceRange.aspectMask = aspectFlags;
     createInfo.subresourceRange.baseMipLevel = 0;
     createInfo.subresourceRange.levelCount = 1;
     createInfo.subresourceRange.baseArrayLayer = 0;
@@ -137,4 +138,47 @@ VkImageView VulkanHelpers::CreateImageView(VkDevice device, VkImage image, VkFor
     Assert(result == VK_SUCCESS);
 
     return imageView;
+}
+
+void VulkanHelpers::DestroyImageView(VkDevice device, VkImageView imageView)
+{
+    if (imageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(device, imageView, nullptr);
+    }
+}
+
+VkSampler VulkanHelpers::CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties)
+{
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+
+    VkSampler sampler;
+    VkResult result = vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
+    Assert(result == VK_SUCCESS);
+
+    return sampler;
+}
+
+void VulkanHelpers::DestroySampler(VkDevice device, VkSampler sampler)
+{
+    if (sampler != VK_NULL_HANDLE)
+    {
+        vkDestroySampler(device, sampler, nullptr);
+    }
 }

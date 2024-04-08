@@ -5,10 +5,12 @@
 #include <volk.h>
 
 class VulkanContext;
+class Buffer;
 
 struct ImageDescription
 {
-    std::string filePath;
+    Extent2D extent = {};
+    VkFormat format = {};
     VkBufferUsageFlags usage = {};
     VkMemoryPropertyFlags memoryProperties = {};
 };
@@ -27,14 +29,15 @@ public:
     Image(Image&& other) noexcept;
     Image& operator=(Image&& other) noexcept;
 
-    VkImageView GetImageView() const
-    {
-        return imageView;
-    }
+    void Fill(const Buffer& buffer) const;
 
-    VkSampler GetSampler() const
+    void TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout) const;
+
+    VkImageView CreateImageView(VkImageAspectFlags aspectFlags) const;
+
+    const ImageDescription& GetDescription() const
     {
-        return sampler;
+        return description;
     }
 
 private:
@@ -42,11 +45,5 @@ private:
 
     ImageDescription description = {};
 
-    VkImage image = VK_NULL_HANDLE;
-    
-    VkImageView imageView = VK_NULL_HANDLE; // TODO: do we have to store this here?
-    VkSampler sampler = VK_NULL_HANDLE; // TODO: move away to a proper location, samplers can be used with different images
-    // Think of a manager which cares about image-sampler compatibility? 
-
-    Extent2D extent = {};
+    VkImage image = VK_NULL_HANDLE;        
 };

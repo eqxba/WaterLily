@@ -18,6 +18,7 @@ class Scene;
 class EventSystem;
 class CommandBufferSync;
 class Buffer;
+class Image;
 
 class RenderSystem : public System
 {
@@ -45,6 +46,8 @@ private:
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
 	std::vector<VkFramebuffer> framebuffers;
+	std::unique_ptr<Image> depthAttachment;
+	VkImageView depthImageView = VK_NULL_HANDLE;
 	
 	// Do not have to be recreated, persistent for FrameLoop
 	std::vector<VkCommandBuffer> commandBuffers;

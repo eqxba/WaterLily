@@ -5,6 +5,7 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
 #include "Engine/Scene/Scene.hpp"
 #include "Shaders/Common.h"
 
@@ -12,20 +13,20 @@
 
 namespace RenderSystemDetails
 {
-	static std::vector<VkFramebuffer> CreateFramebuffers(const Swapchain& swapchain, VkRenderPass renderPass, 
-		VkDevice device)
+	static std::vector<VkFramebuffer> CreateFramebuffers(const Swapchain& swapchain, VkImageView depthImageView,
+		VkRenderPass renderPass, VkDevice device)
 	{
 		std::vector<VkFramebuffer> framebuffers;
 		framebuffers.reserve(swapchain.GetImageViews().size());
 
 		const auto createFramebuffer = [&](VkImageView imageView) {
-			VkImageView attachments[] = { imageView };
+			std::array<VkImageView, 2> attachments = { imageView, depthImageView };
 
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			framebufferInfo.renderPass = renderPass;
-			framebufferInfo.attachmentCount = 1;
-			framebufferInfo.pAttachments = attachments;
+			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+			framebufferInfo.pAttachments = attachments.data();
 			framebufferInfo.width = swapchain.GetExtent().width;
 			framebufferInfo.height = swapchain.GetExtent().height;
 			framebufferInfo.layers = 1;
@@ -40,6 +41,17 @@ namespace RenderSystemDetails
 		std::ranges::transform(swapchain.GetImageViews(), std::back_inserter(framebuffers), createFramebuffer);
 
         return framebuffers;
+	}
+
+	static std::unique_ptr<Image> CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
+	{
+		ImageDescription imageDescription{ 
+			.extent = { static_cast<int>(extent.width), static_cast<int>(extent.height) },
+			.format = VulkanConfig::depthImageFormat,
+			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+		return std::make_unique<Image>(imageDescription, &vulkanContext);
 	}
 
 	static VkViewport GetViewport(const VkExtent2D extent)
@@ -93,9 +105,12 @@ namespace RenderSystemDetails
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = vulkanContext.GetSwapchain().GetExtent();
 
-		VkClearValue clearColor = { 0.73f, 0.95f, 1.0f, 1.0f };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { 0.73f, 0.95f, 1.0f, 1.0f };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
@@ -259,7 +274,11 @@ RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const Vulka
 	const VkCommandPool longLivedPool = vulkanContext.GetDevice().GetCommandPool(CommandBufferType::eLongLived);
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 
-	framebuffers = CreateFramebuffers(vulkanContext.GetSwapchain(), renderPass->GetVkRenderPass(), device);
+	const Swapchain& swapchain = vulkanContext.GetSwapchain();
+
+	depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), vulkanContext);
+	depthImageView = depthAttachment->CreateImageView(VK_IMAGE_ASPECT_DEPTH_BIT);
+	framebuffers = CreateFramebuffers(swapchain, depthImageView, renderPass->GetVkRenderPass(), device);
 	commandBuffers = CreateCommandBuffers(device, maxFramesInFlight, longLivedPool);
 	syncs = CreateCommandBufferSyncs(maxFramesInFlight, device);
 
@@ -269,9 +288,7 @@ RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const Vulka
 	descriptorPool = CreateDescriptorPool(maxFramesInFlight, maxFramesInFlight, device);
 	descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);	
 
-	const Image* image = scene.GetImage();
-
-	PopulateDescriptorSets(descriptorSets, uniformBuffers, image->GetImageView(), image->GetSampler(), device);
+	PopulateDescriptorSets(descriptorSets, uniformBuffers, scene.GetImageView(), scene.GetSampler(), device);
 
 	eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 }
@@ -280,8 +297,10 @@ RenderSystem::~RenderSystem()
 {
 	eventSystem.Unsubscribe<ES::WindowResized>(this);
 
-	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();	
-	RenderSystemDetails::DestroyFramebuffers(framebuffers, device);	
+	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+	
+	RenderSystemDetails::DestroyFramebuffers(framebuffers, device);
+	VulkanHelpers::DestroyImageView(device, depthImageView);
 
 	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
@@ -353,15 +372,20 @@ void RenderSystem::OnResize(const ES::WindowResized& event)
 {
 	using namespace RenderSystemDetails;
 
-	const Device & device = vulkanContext.GetDevice();
+	const Device& device = vulkanContext.GetDevice();
 	device.WaitIdle();
 
 	DestroyFramebuffers(framebuffers, device.GetVkDevice());
+	VulkanHelpers::DestroyImageView(device.GetVkDevice(), depthImageView);
+
+	Swapchain& swapchain = vulkanContext.GetSwapchain();
 
 	if (event.newWidth != 0 && event.newHeight != 0)
 	{
-		vulkanContext.GetSwapchain().Recreate({event.newWidth, event.newHeight});
+		swapchain.Recreate({event.newWidth, event.newHeight});
 	}
 
-	framebuffers = CreateFramebuffers(vulkanContext.GetSwapchain(), renderPass->GetVkRenderPass(), device.GetVkDevice());
+	depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), vulkanContext);
+	depthImageView = depthAttachment->CreateImageView(VK_IMAGE_ASPECT_DEPTH_BIT);
+	framebuffers = CreateFramebuffers(swapchain, depthImageView, renderPass->GetVkRenderPass(), device.GetVkDevice());
 }

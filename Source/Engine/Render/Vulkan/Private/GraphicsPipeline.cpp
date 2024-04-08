@@ -143,6 +143,23 @@ namespace GraphicsPipelineDetails
 		return multisampling;
 	}
 
+	static VkPipelineDepthStencilStateCreateInfo GetPipelineDepthStencilStateCreateInfo()
+	{
+		VkPipelineDepthStencilStateCreateInfo depthStencil{};
+		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depthStencil.depthTestEnable = VK_TRUE;
+		depthStencil.depthWriteEnable = VK_TRUE;
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencil.depthBoundsTestEnable = VK_FALSE;
+		depthStencil.minDepthBounds = 0.0f;
+		depthStencil.maxDepthBounds = 1.0f;
+		depthStencil.stencilTestEnable = VK_FALSE;
+		depthStencil.front = {};
+		depthStencil.back = {};
+
+		return depthStencil;
+	}
+
 	static VkPipelineColorBlendAttachmentState GetPipelineColorBlendAttachmentState()
 	{
 		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
@@ -225,6 +242,8 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	VkPipelineRasterizationStateCreateInfo rasterizer = GetRasterizationStateCreateInfo();
 	VkPipelineMultisampleStateCreateInfo multisampling = GetMultisampleStateCreateInfo();
 	
+	VkPipelineDepthStencilStateCreateInfo depthStencil = GetPipelineDepthStencilStateCreateInfo();
+
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = GetPipelineColorBlendAttachmentState();
 	VkPipelineColorBlendStateCreateInfo colorBlending = GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
@@ -239,7 +258,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
 	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = nullptr;
+	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = pipelineLayout;
