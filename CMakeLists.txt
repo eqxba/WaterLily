@@ -28,6 +28,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
     External/glm/
     External/volk/
     External/stb
+    External/tinyobjloader
     Source/
 )
 
