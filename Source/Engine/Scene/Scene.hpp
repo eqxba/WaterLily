@@ -14,6 +14,8 @@ struct Vertex
     static VkVertexInputBindingDescription GetBindingDescription();
     static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 
+    bool operator==(const Vertex& other) const;
+
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
@@ -46,7 +48,7 @@ public:
         return vertices;
     }
 
-    const std::vector<uint16_t>& GetIndices()
+    const std::vector<uint32_t>& GetIndices()
     {
         return indices;
     }
@@ -76,21 +78,6 @@ private:
     VkImageView imageView = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE; // TODO: move away to a proper location, pool or smth
 
-    std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-    };
-
-    std::vector<uint16_t> indices =
-    {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-    };
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 };

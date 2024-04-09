@@ -126,7 +126,7 @@ namespace RenderSystemDetails
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-		vkCmdBindIndexBuffer(commandBuffer, scene.GetIndexBuffer()->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindIndexBuffer(commandBuffer, scene.GetIndexBuffer()->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 
 			0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
@@ -308,7 +308,7 @@ RenderSystem::~RenderSystem()
 void RenderSystem::Process(float deltaSeconds)
 {
 	// Let this code be here for now
-	constexpr float rotationRate = 90.0f;
+	constexpr float rotationRate = 20.0f;
 	static float totalAngle = 0.0f;
 
 	totalAngle = std::fmod(totalAngle + deltaSeconds * rotationRate, 360.0f);

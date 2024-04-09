@@ -3,9 +3,85 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
 
+#pragma warning(push, 0)
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+#pragma warning(pop)
+
+namespace std {
+    template<>
+    struct hash<Vertex>
+    {
+        size_t operator()(Vertex const& vertex) const
+        {
+            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+                (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
+
 namespace SceneDetails
 {
-    constexpr const char* imagePath = "E:/Projects/WaterLily/Assets/testImage.jpg";
+    constexpr const char* objPath = "E:/Projects/WaterLily/Assets/model.obj";
+    constexpr const char* imagePath = "E:/Projects/WaterLily/Assets/texture.png";
+
+    static std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadModel(const std::string& absolutePath)
+    {
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+
+        tinyobj::attrib_t attributes;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+
+        std::string warn, err;
+
+        if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &warn, &err, absolutePath.c_str()))
+        {
+            Assert(false);
+        }
+
+        std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+        const auto processMeshIndex = [&](const tinyobj::index_t& index) {
+            Vertex vertex{};
+
+            vertex.pos = {
+                attributes.vertices[3 * index.vertex_index + 0],
+                attributes.vertices[3 * index.vertex_index + 1],
+                attributes.vertices[3 * index.vertex_index + 2], };
+
+            vertex.texCoord = {
+                attributes.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attributes.texcoords[2 * index.texcoord_index + 1], };
+
+            vertex.color = { 1.0f, 1.0f, 1.0f };
+
+            if (uniqueVertices.count(vertex) == 0)
+            {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.push_back(vertex);
+            }
+
+            indices.push_back(uniqueVertices[vertex]);
+        };
+
+        std::ranges::for_each(shapes, [&](const auto& shape) {
+            std::ranges::for_each(shape.mesh.indices, processMeshIndex);
+        });
+
+        return { std::move(vertices), std::move(indices) };
+    }
+}
+
+bool Vertex::operator==(const Vertex& other) const 
+{
+    return pos == other.pos && color == other.color && texCoord == other.texCoord;
 }
 
 VkVertexInputBindingDescription Vertex::GetBindingDescription()
@@ -44,6 +120,8 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 Scene::Scene(const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {
+    std::tie(vertices, indices) = SceneDetails::LoadModel(SceneDetails::objPath);
+
     std::span verticesSpan(std::as_const(vertices));
     std::span indicesSpan(std::as_const(indices));
 
