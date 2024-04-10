@@ -10,6 +10,7 @@ class Buffer;
 struct ImageDescription
 {
     Extent2D extent = {};
+    uint32_t mipLevelsCount = 1;
     VkFormat format = {};
     VkBufferUsageFlags usage = {};
     VkMemoryPropertyFlags memoryProperties = {};
@@ -29,9 +30,7 @@ public:
     Image(Image&& other) noexcept;
     Image& operator=(Image&& other) noexcept;
 
-    void Fill(const Buffer& buffer) const;
-
-    void TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout) const;
+    void FillMipLevel0(const Buffer& buffer, bool generateOtherMipLevels = false) const;
 
     VkImageView CreateImageView(VkImageAspectFlags aspectFlags) const;
 
@@ -41,9 +40,15 @@ public:
     }
 
 private:
+    void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout) const;
+    void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout,
+        uint32_t baseMipLevel, uint32_t mipLevelsCount) const;
+
+    void GenerateMipLevelsFromLevel0(VkCommandBuffer commandBuffer) const;
+
     const VulkanContext* vulkanContext = nullptr;
 
     ImageDescription description = {};
 
-    VkImage image = VK_NULL_HANDLE;        
+    VkImage image = VK_NULL_HANDLE;
 };

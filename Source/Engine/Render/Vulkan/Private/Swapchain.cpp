@@ -174,7 +174,7 @@ namespace SwapchainDetails
 		imageViews.reserve(images.size());
 
 		std::ranges::transform(images, std::back_inserter(imageViews), [format, device, aspectFlags](VkImage image) {
-			return VulkanHelpers::CreateImageView(device, image, format, aspectFlags);
+			return VulkanHelpers::CreateImageView(device, image, format, aspectFlags, 1);
 		});
 
 		return imageViews;

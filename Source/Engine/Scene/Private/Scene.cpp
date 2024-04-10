@@ -139,18 +139,22 @@ Scene::Scene(const VulkanContext& aVulkanContext)
 
     const auto& [buffer, extent] = ResourceHelpers::LoadImageToBuffer(SceneDetails::imagePath, vulkanContext);
 
-    ImageDescription imageDescription{ .extent = extent, .format = VK_FORMAT_R8G8B8A8_SRGB,
-        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    const int maxDimension = std::max(extent.width, extent.height);
+    const uint32_t mipLevelsCount = static_cast<uint32_t>(std::floor(std::log2(maxDimension))) + 1;
+
+    ImageDescription imageDescription{ .extent = extent, .mipLevelsCount = mipLevelsCount, 
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT ,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     image = std::make_unique<Image>(imageDescription, &vulkanContext);
 
-    image->Fill(buffer);
+    image->FillMipLevel0(buffer, true);
     
     const Device& device = vulkanContext.GetDevice();
 
     imageView = image->CreateImageView(VK_IMAGE_ASPECT_COLOR_BIT);
-    sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties());
+    sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
 }
 
 Scene::~Scene()

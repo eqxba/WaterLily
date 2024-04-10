@@ -116,7 +116,7 @@ void VulkanHelpers::DestroySemaphores(VkDevice device, std::vector<VkSemaphore>&
 }
 
 VkImageView VulkanHelpers::CreateImageView(VkDevice device, VkImage image, VkFormat format, 
-    VkImageAspectFlags aspectFlags)
+    VkImageAspectFlags aspectFlags, uint32_t mipLevelsCount)
 {
     VkImageViewCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -129,7 +129,7 @@ VkImageView VulkanHelpers::CreateImageView(VkDevice device, VkImage image, VkFor
     createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
     createInfo.subresourceRange.aspectMask = aspectFlags;
     createInfo.subresourceRange.baseMipLevel = 0;
-    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.levelCount = mipLevelsCount;
     createInfo.subresourceRange.baseArrayLayer = 0;
     createInfo.subresourceRange.layerCount = 1;
 
@@ -148,7 +148,7 @@ void VulkanHelpers::DestroyImageView(VkDevice device, VkImageView imageView)
     }
 }
 
-VkSampler VulkanHelpers::CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties)
+VkSampler VulkanHelpers::CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties, uint32_t mipLevelsCount)
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -166,7 +166,7 @@ VkSampler VulkanHelpers::CreateSampler(VkDevice device, VkPhysicalDeviceProperti
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
+    samplerInfo.maxLod = static_cast<float>(mipLevelsCount);
 
     VkSampler sampler;
     VkResult result = vkCreateSampler(device, &samplerInfo, nullptr, &sampler);

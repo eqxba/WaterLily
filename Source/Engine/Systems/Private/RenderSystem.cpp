@@ -47,6 +47,7 @@ namespace RenderSystemDetails
 	{
 		ImageDescription imageDescription{ 
 			.extent = { static_cast<int>(extent.width), static_cast<int>(extent.height) },
+			.mipLevelsCount = 1,
 			.format = VulkanConfig::depthImageFormat,
 			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 			.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
