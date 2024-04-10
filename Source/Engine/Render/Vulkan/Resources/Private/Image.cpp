@@ -1,7 +1,6 @@
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Vulkan/Resources/Buffer.hpp"
 
 namespace ImageDetails
@@ -28,15 +27,16 @@ namespace ImageDetails
         return vulkanContext.GetMemoryManager().CreateImage(imageInfo, description.memoryProperties);
     }
 
-    static void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, 
-        VkImageLayout newLayout, uint32_t baseMipLevel, uint32_t mipLevelsCount)
+    static void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, ImageLayoutTransition transition, 
+        uint32_t baseMipLevel, uint32_t mipLevelsCount)
     {
         VkAccessFlags srcAccessMask{};
         VkAccessFlags dstAccessMask{};
         VkPipelineStageFlags sourceStage{};
         VkPipelineStageFlags destinationStage{};
 
-        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
+        if (transition.srcLayout == VK_IMAGE_LAYOUT_UNDEFINED && 
+            transition.dstLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
         {
             srcAccessMask = 0;
             dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -44,7 +44,8 @@ namespace ImageDetails
             sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
             destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         }
-        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+        else if (transition.srcLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+            transition.dstLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         {
             srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -52,7 +53,8 @@ namespace ImageDetails
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         }
-        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+        else if (transition.srcLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+            transition.dstLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
         {
             srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -60,7 +62,8 @@ namespace ImageDetails
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         }
-        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        else if (transition.srcLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL &&
+            transition.dstLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         {            
             srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
             dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -75,8 +78,8 @@ namespace ImageDetails
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = oldLayout;
-        barrier.newLayout = newLayout;
+        barrier.oldLayout = transition.srcLayout;
+        barrier.newLayout = transition.dstLayout;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = image;
@@ -183,7 +186,7 @@ void Image::FillMipLevel0(const Buffer& buffer, bool generateOtherMipLevels /* =
     // TODO: Remember layout before and do out-and-in transition?
 
     vulkanContext->GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
-        TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        TransitionLayout(commandBuffer, ImageLayoutTransitions::undefinedToDstOptimal);
         CopyBufferToImage(commandBuffer, buffer.GetVkBuffer(), image, description.extent);
 
         if (generateOtherMipLevels && description.mipLevelsCount > 1)
@@ -192,7 +195,7 @@ void Image::FillMipLevel0(const Buffer& buffer, bool generateOtherMipLevels /* =
         }
         else
         {
-            TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            TransitionLayout(commandBuffer, ImageLayoutTransitions::dstOptimalToShaderReadOnlyOptimal);
         }
     });
 }
@@ -203,15 +206,15 @@ VkImageView Image::CreateImageView(VkImageAspectFlags aspectFlags) const
     return VulkanHelpers::CreateImageView(device, image, description.format, aspectFlags, description.mipLevelsCount);
 }
 
-void Image::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout) const
+void Image::TransitionLayout(VkCommandBuffer commandBuffer, ImageLayoutTransition transition) const
 {
-    TransitionLayout(commandBuffer, oldLayout, newLayout, 0, description.mipLevelsCount);
+    TransitionLayout(commandBuffer, transition, 0, description.mipLevelsCount);
 }
 
-void Image::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout,
-    uint32_t baseMipLevel, uint32_t mipLevelsCount) const
+void Image::TransitionLayout(VkCommandBuffer commandBuffer, ImageLayoutTransition transition, uint32_t baseMipLevel, 
+    uint32_t mipLevelsCount /* = 1 */) const
 {
-    ImageDetails::TransitionImageLayout(commandBuffer, image, oldLayout, newLayout, baseMipLevel, mipLevelsCount);
+    ImageDetails::TransitionImageLayout(commandBuffer, image, transition, baseMipLevel, mipLevelsCount);
 }
 
 void Image::GenerateMipLevelsFromLevel0(VkCommandBuffer cb) const
@@ -225,9 +228,9 @@ void Image::GenerateMipLevelsFromLevel0(VkCommandBuffer cb) const
     std::ranges::iota(sourceMips, 0);
 
     const auto generateNextMipLevel = [&](uint32_t sourceMip) {
-        TransitionLayout(cb, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sourceMip, 1);
+        TransitionLayout(cb, ImageLayoutTransitions::dstOptimalToSrcOptimal, sourceMip);
         ImageDetails::BlitMipToNextMip(cb, image, sourceMip, mipWidth, mipHeight);
-        TransitionLayout(cb, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, sourceMip, 1);
+        TransitionLayout(cb, ImageLayoutTransitions::srcOptimalToShaderReadOnlyOptimal, sourceMip);
 
         mipWidth = std::max(mipWidth / 2, 1);
         mipHeight = std::max(mipHeight / 2, 1);
@@ -235,5 +238,5 @@ void Image::GenerateMipLevelsFromLevel0(VkCommandBuffer cb) const
 
     std::ranges::for_each(sourceMips, generateNextMipLevel);   
 
-    TransitionLayout(cb, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, description.mipLevelsCount - 1, 1);
+    TransitionLayout(cb, ImageLayoutTransitions::dstOptimalToShaderReadOnlyOptimal, description.mipLevelsCount - 1);
 }

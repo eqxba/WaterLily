@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Utils/DataStructures.hpp"
+#include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
 
 #include <volk.h>
 
@@ -40,9 +41,9 @@ public:
     }
 
 private:
-    void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout) const;
-    void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout,
-        uint32_t baseMipLevel, uint32_t mipLevelsCount) const;
+    void TransitionLayout(VkCommandBuffer commandBuffer, ImageLayoutTransition transition) const;
+    void TransitionLayout(VkCommandBuffer commandBuffer, ImageLayoutTransition transition, uint32_t baseMipLevel, 
+        uint32_t mipLevelsCount = 1) const;
 
     void GenerateMipLevelsFromLevel0(VkCommandBuffer commandBuffer) const;
 
