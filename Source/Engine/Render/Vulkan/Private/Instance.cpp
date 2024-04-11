@@ -137,6 +137,11 @@ Instance::Instance()
 
     std::vector<const char*> requiredExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
     std::vector<const char*> requiredLayers;
+    
+    if constexpr (platformMac)
+    {
+        requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    }
 
 	if constexpr (VulkanConfig::useValidation)
 	{
@@ -157,6 +162,11 @@ Instance::Instance()
     createInfo.ppEnabledExtensionNames = requiredExtensions.data();
     createInfo.enabledLayerCount = static_cast<uint32_t>(requiredLayers.size());
     createInfo.ppEnabledLayerNames = requiredLayers.data();
+
+    if constexpr (platformMac)
+    {
+        createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    }
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if constexpr (VulkanConfig::useValidation)

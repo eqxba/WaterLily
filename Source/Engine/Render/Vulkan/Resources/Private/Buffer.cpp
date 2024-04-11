@@ -31,8 +31,8 @@ namespace BufferDetails
 }
 
 Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const VulkanContext* aVulkanContext)
-    : description { std::move(aDescription) }
-    , vulkanContext{ aVulkanContext }
+    : vulkanContext{ aVulkanContext }
+    , description { std::move(aDescription) }
 {
     buffer = BufferDetails::CreateBuffer(description, *vulkanContext);
 

@@ -1,10 +1,12 @@
 #pragma once
 
+#include "macros.hpp"
+
 #include <volk.h>
 
-#pragma warning(push, 0)
+DISABLE_WARNINGS_BEGIN
 #include <vk_mem_alloc.h>
-#pragma warning(pop)
+DISABLE_WARNINGS_END
 
 class VulkanContext;
 
@@ -40,8 +42,8 @@ public:
 private:    
     const VulkanContext& vulkanContext;
 
-    VmaAllocator allocator;
+   VmaAllocator allocator;
 
-    std::unordered_map<VkBuffer, VmaAllocation> bufferAllocations;
-    std::unordered_map<VkImage, VmaAllocation> imageAllocations;
+   std::unordered_map<VkBuffer, VmaAllocation> bufferAllocations;
+   std::unordered_map<VkImage, VmaAllocation> imageAllocations;
 };

@@ -224,9 +224,6 @@ void Image::GenerateMipLevelsFromLevel0(VkCommandBuffer cb) const
     int32_t mipWidth = description.extent.width;
     int32_t mipHeight = description.extent.height;
 
-    std::vector<uint32_t> sourceMips(description.mipLevelsCount - 1);
-    std::ranges::iota(sourceMips, 0);
-
     const auto generateNextMipLevel = [&](uint32_t sourceMip) {
         TransitionLayout(cb, ImageLayoutTransitions::dstOptimalToSrcOptimal, sourceMip);
         ImageDetails::BlitMipToNextMip(cb, image, sourceMip, mipWidth, mipHeight);
@@ -235,8 +232,8 @@ void Image::GenerateMipLevelsFromLevel0(VkCommandBuffer cb) const
         mipWidth = std::max(mipWidth / 2, 1);
         mipHeight = std::max(mipHeight / 2, 1);
     };
-
-    std::ranges::for_each(sourceMips, generateNextMipLevel);   
+    
+    std::ranges::for_each(std::views::iota(static_cast<uint32_t>(0), description.mipLevelsCount - 1), generateNextMipLevel);
 
     TransitionLayout(cb, ImageLayoutTransitions::dstOptimalToShaderReadOnlyOptimal, description.mipLevelsCount - 1);
 }

@@ -7,8 +7,14 @@
 namespace GraphicsPipelineDetails
 {
 	// TODO: Add FileSystem and remove absolute paths
-	constexpr const char* vertexShaderPath = "E:/Projects/WaterLily/Source/Shaders/vert.spv";
-	constexpr const char* fragmentShaderPath = "E:/Projects/WaterLily/Source/Shaders/frag.spv";
+    constexpr const char* vertexShaderPathWin = "E:/Projects/WaterLily/Source/Shaders/vert.spv";
+    constexpr const char* fragmentShaderPathWin = "E:/Projects/WaterLily/Source/Shaders/frag.spv";
+
+	constexpr const char* vertexShaderPathMac = "/Users/barboss/Projects/WaterLily/Source/Shaders/vert.spv";
+	constexpr const char* fragmentShaderPathMac = "/Users/barboss/Projects/WaterLily/Source/Shaders/frag.spv";
+
+    constexpr const char* vertexShaderPath = platformWin ? vertexShaderPathWin : vertexShaderPathMac;
+    constexpr const char* fragmentShaderPath = platformWin ? fragmentShaderPathWin : fragmentShaderPathMac;
 
 	static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager)
 	{

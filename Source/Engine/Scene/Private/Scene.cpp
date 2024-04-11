@@ -2,8 +2,9 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
+#include "macros.hpp"
 
-#pragma warning(push, 0)
+DISABLE_WARNINGS_BEGIN
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -11,7 +12,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
-#pragma warning(pop)
+DISABLE_WARNINGS_END
 
 namespace std {
     template<>
@@ -27,8 +28,14 @@ namespace std {
 
 namespace SceneDetails
 {
-    constexpr const char* objPath = "E:/Projects/WaterLily/Assets/model.obj";
-    constexpr const char* imagePath = "E:/Projects/WaterLily/Assets/texture.png";
+    constexpr const char* objPathWin = "E:/Projects/WaterLily/Assets/model.obj";
+    constexpr const char* imagePathWin = "E:/Projects/WaterLily/Assets/texture.png";
+
+    constexpr const char* objPathMac = "/Users/barboss/Projects/WaterLily/Assets/model.obj";
+    constexpr const char* imagePathMac = "/Users/barboss/Projects/WaterLily/Assets/texture.png";
+
+    constexpr const char* objPath = platformWin ? objPathWin : objPathMac;
+    constexpr const char* imagePath = platformWin ? imagePathWin : imagePathMac;
 
     static std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadModel(const std::string& absolutePath)
     {

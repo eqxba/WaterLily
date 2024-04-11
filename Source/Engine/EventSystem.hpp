@@ -108,7 +108,7 @@ void EventSystem::Unsubscribe(void (*function)(const T&))
 template<class T>
 void EventSystem::Unsubscribe(void (*function)())
 {
-   UnsubscribeImpl(typeid(T), function);
+   UnsubscribeImpl(typeid(T), reinterpret_cast<void*>(function));
 }
 
 template<class T>

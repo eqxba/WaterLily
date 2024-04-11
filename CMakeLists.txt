@@ -46,9 +46,11 @@ set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 set_property(TARGET ${TARGET_NAME} PROPERTY CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(MSVC)
+    add_compile_definitions(PLATFORM_WIN)
     target_compile_options(${TARGET_NAME} PRIVATE /W4 /WX /MP)
 else()
-    target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -pedantic -Werror)
+    add_compile_definitions(PLATFORM_MAC)
+    target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)

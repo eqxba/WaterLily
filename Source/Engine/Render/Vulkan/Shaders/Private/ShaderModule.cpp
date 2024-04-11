@@ -24,9 +24,9 @@ namespace ShaderModuleDetails
 
 ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType aShaderType, 
 	const VulkanContext& aVulkanContext)
-	: shaderModule{ aShaderModule }
+    : vulkanContext{ aVulkanContext }
+	, shaderModule{ aShaderModule }
 	, shaderType{ aShaderType }
-	, vulkanContext{ aVulkanContext }
 {}
 
 ShaderModule::~ShaderModule()
@@ -38,9 +38,9 @@ ShaderModule::~ShaderModule()
 }
 
 ShaderModule::ShaderModule(ShaderModule&& other) noexcept
-	: shaderModule{ other.shaderModule }
+    : vulkanContext{ other.vulkanContext }
+	, shaderModule{ other.shaderModule }
 	, shaderType{ other.shaderType }
-	, vulkanContext{ other.vulkanContext }
 {
 	other.shaderModule = VK_NULL_HANDLE;
 }
