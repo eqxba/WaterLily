@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Window.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 
 #include <volk.h>
 
@@ -46,7 +47,7 @@ public:
 		return images;
 	}
 
-	const std::vector<VkImageView>& GetImageViews() const
+	const std::vector<ImageView>& GetImageViews() const
 	{
 		return imageViews;
 	}
@@ -65,5 +66,5 @@ private:
 	VkExtent2D extent;
 
 	std::vector<VkImage> images;
-	std::vector<VkImageView> imageViews;
+	std::vector<ImageView> imageViews;
 };

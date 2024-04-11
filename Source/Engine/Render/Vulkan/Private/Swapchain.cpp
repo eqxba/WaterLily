@@ -2,6 +2,7 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
 
 namespace SwapchainDetails
 {
@@ -167,14 +168,16 @@ namespace SwapchainDetails
 		return images;
 	}
 
-	static std::vector<VkImageView> CreateImageViews(VkDevice device, const std::vector<VkImage>& images, 
-		VkFormat format, VkImageAspectFlags aspectFlags)
+	static std::vector<ImageView> CreateImageViews(const std::vector<VkImage>& images, VkFormat format, 
+		VkImageAspectFlags aspectFlags, const VulkanContext& vulkanContext)
 	{
-		std::vector<VkImageView> imageViews;
+		std::vector<ImageView> imageViews;
 		imageViews.reserve(images.size());
 
-		std::ranges::transform(images, std::back_inserter(imageViews), [format, device, aspectFlags](VkImage image) {
-			return VulkanHelpers::CreateImageView(device, image, format, aspectFlags, 1);
+		const ImageDescription description = { .format = format };
+
+		std::ranges::transform(images, std::back_inserter(imageViews), [&](VkImage image) {
+			return ImageView(image, description, aspectFlags, &vulkanContext);
 		});
 
 		return imageViews;
@@ -214,16 +217,14 @@ void Swapchain::Create(const Extent2D& requiredExtentInPixels)
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 	images = GetSwapchainImages(device, swapchain);
-	imageViews = CreateImageViews(device, images, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
+	imageViews = CreateImageViews(images, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
 }
 
 void Swapchain::Cleanup()
 {
 	const VkDevice vkDevice = vulkanContext.GetDevice().GetVkDevice();
 
-	std::ranges::for_each(imageViews, [vkDevice](VkImageView imageView) {
-		vkDestroyImageView(vkDevice, imageView, nullptr);
-	});	
+	imageViews.clear();
 
 	vkDestroySwapchainKHR(vkDevice, swapchain, nullptr);
 }

@@ -12,6 +12,7 @@ struct ImageDescription
 {
     Extent2D extent = {};
     uint32_t mipLevelsCount = 1;
+    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     VkFormat format = {};
     VkBufferUsageFlags usage = {};
     VkMemoryPropertyFlags memoryProperties = {};
@@ -33,11 +34,14 @@ public:
 
     void FillMipLevel0(const Buffer& buffer, bool generateOtherMipLevels = false) const;
 
-    VkImageView CreateImageView(VkImageAspectFlags aspectFlags) const;
-
     const ImageDescription& GetDescription() const
     {
         return description;
+    }
+
+    const VkImage GetVkImage() const
+    {
+        return image;
     }
 
 private:

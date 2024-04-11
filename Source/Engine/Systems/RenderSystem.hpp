@@ -4,6 +4,8 @@
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
 #include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 #include "Shaders/Common.h"
 
 #include <volk.h>
@@ -18,7 +20,6 @@ class Scene;
 class EventSystem;
 class CommandBufferSync;
 class Buffer;
-class Image;
 
 class RenderSystem : public System
 {
@@ -45,9 +46,15 @@ private:
 
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+
+
+	Image colorAttachment;
+	ImageView colorAttachmentView;
+
+	Image depthAttachment;
+	ImageView depthAttachmentView;
+
 	std::vector<VkFramebuffer> framebuffers;
-	std::unique_ptr<Image> depthAttachment;
-	VkImageView depthImageView = VK_NULL_HANDLE;
 	
 	// Do not have to be recreated, persistent for FrameLoop
 	std::vector<VkCommandBuffer> commandBuffers;

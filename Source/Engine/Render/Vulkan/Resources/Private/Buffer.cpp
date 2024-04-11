@@ -52,11 +52,13 @@ Buffer::~Buffer()
     {
         Assert(persistentMapping);
         vulkanContext->GetMemoryManager().UnmapBufferMemory(buffer);
+        mappedMemory = {};
     }
 
     if (buffer != VK_NULL_HANDLE)
     {
         vulkanContext->GetMemoryManager().DestroyBuffer(buffer);
+        buffer = VK_NULL_HANDLE;
     }
 }
 
@@ -66,9 +68,12 @@ Buffer::Buffer(Buffer&& other) noexcept
     , buffer{ other.buffer }
     , stagingBuffer{ std::move(other.stagingBuffer) }
     , mappedMemory{ other.mappedMemory }
-    , persistentMapping { other.persistentMapping }
+    , persistentMapping{ other.persistentMapping }
 {
+    other.vulkanContext = nullptr;
+    other.description = {};
     other.buffer = VK_NULL_HANDLE;
+    other.stagingBuffer = {};
     other.mappedMemory = {};
     other.persistentMapping = false;
 }
@@ -77,6 +82,16 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept
 {
     if (this != &other)
     {
+        if (!mappedMemory.empty())
+        {
+            vulkanContext->GetMemoryManager().UnmapBufferMemory(buffer);
+        }
+
+        if (buffer != VK_NULL_HANDLE)
+        {
+            vulkanContext->GetMemoryManager().DestroyBuffer(buffer);
+        }
+
         vulkanContext = other.vulkanContext;
         description = other.description;
         buffer = other.buffer;
@@ -84,7 +99,10 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept
         mappedMemory = other.mappedMemory;
         persistentMapping = other.persistentMapping;
 
+        other.vulkanContext = nullptr;
+        other.description = {};
         other.buffer = VK_NULL_HANDLE;
+        other.stagingBuffer = {};
         other.mappedMemory = {};
         other.persistentMapping = false;
     }

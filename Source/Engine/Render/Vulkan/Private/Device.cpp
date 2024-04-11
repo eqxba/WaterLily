@@ -142,6 +142,7 @@ namespace DeviceDetails
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
 		deviceFeatures.samplerAnisotropy = VK_TRUE;
+		// deviceFeatures.sampleRateShading = VK_TRUE;
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -231,3 +232,17 @@ void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands) const
     Assert(result == VK_SUCCESS);
 }
 
+VkSampleCountFlagBits Device::GetMaxSampleCount() const
+{
+	VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+		physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+	std::array countsToConsider = { VK_SAMPLE_COUNT_64_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_16_BIT,
+		VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_2_BIT };
+
+	auto result = std::ranges::find_if(countsToConsider, [=](VkSampleCountFlagBits count) {
+		return counts & count;
+	});
+
+	return result != countsToConsider.end() ? *result : VK_SAMPLE_COUNT_1_BIT;
+}

@@ -21,7 +21,7 @@ namespace ImageDetails
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         imageInfo.usage = description.usage;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.samples = description.samples;
         imageInfo.flags = 0; // Optional
 
         return vulkanContext.GetMemoryManager().CreateImage(imageInfo, description.memoryProperties);
@@ -150,29 +150,36 @@ Image::~Image()
     if (image != VK_NULL_HANDLE)
     {
         vulkanContext->GetMemoryManager().DestroyImage(image);
+        image = VK_NULL_HANDLE;
     }
 }
 
-// TODO: Use custom swap to DRY between 2 below
 Image::Image(Image&& other) noexcept
     : vulkanContext{ other.vulkanContext }
     , description{ other.description }
     , image{ other.image }
 {
+    other.vulkanContext = nullptr;
     other.description = {};
-    other.image = VK_NULL_HANDLE;    
+    other.image = VK_NULL_HANDLE;
 }
 
 Image& Image::operator=(Image&& other) noexcept
 {
     if (this != &other)
     {
+        if (image != VK_NULL_HANDLE)
+        {
+            vulkanContext->GetMemoryManager().DestroyImage(image);
+        }
+
         vulkanContext = other.vulkanContext;
         description = other.description;
         image = other.image;
 
+        other.vulkanContext = nullptr;
         other.description = {};
-        other.image = VK_NULL_HANDLE;       
+        other.image = VK_NULL_HANDLE;
     }
     return *this;
 }
@@ -198,12 +205,6 @@ void Image::FillMipLevel0(const Buffer& buffer, bool generateOtherMipLevels /* =
             TransitionLayout(commandBuffer, ImageLayoutTransitions::dstOptimalToShaderReadOnlyOptimal);
         }
     });
-}
-
-VkImageView Image::CreateImageView(VkImageAspectFlags aspectFlags) const
-{
-    VkDevice device = vulkanContext->GetDevice().GetVkDevice();
-    return VulkanHelpers::CreateImageView(device, image, description.format, aspectFlags, description.mipLevelsCount);
 }
 
 void Image::TransitionLayout(VkCommandBuffer commandBuffer, ImageLayoutTransition transition) const

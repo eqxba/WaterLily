@@ -2,6 +2,7 @@
 
 #include "Engine/Render/Vulkan/Resources/Buffer.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 
 #include <glm/glm.hpp>
 #include <volk.h>
@@ -33,14 +34,14 @@ public:
     Scene(Scene&&) = delete;
     Scene& operator=(Scene&&) = delete;    
 
-    const Buffer* GetVertexBuffer() const
+    const Buffer& GetVertexBuffer() const
     {
-        return vertexBuffer.get();
+        return vertexBuffer;
     }
 
-    const Buffer* GetIndexBuffer() const
+    const Buffer& GetIndexBuffer() const
     {
-        return indexBuffer.get();
+        return indexBuffer;
     }
 
     const std::vector<Vertex>& GetVertices()
@@ -53,12 +54,12 @@ public:
         return indices;
     }
 
-    const Image* GetImage() const
+    const Image& GetImage() const
     {
-        return image.get();
+        return image;
     }
 
-    VkImageView GetImageView() const
+    const ImageView& GetImageView() const
     {
         return imageView;
     }
@@ -71,11 +72,11 @@ public:
 private:
     const VulkanContext& vulkanContext;
 
-    std::unique_ptr<Buffer> vertexBuffer;
-    std::unique_ptr<Buffer> indexBuffer;
+    Buffer vertexBuffer;
+    Buffer indexBuffer;
 
-    std::unique_ptr<Image> image;
-    VkImageView imageView = VK_NULL_HANDLE;
+    Image image;
+    ImageView imageView;
     VkSampler sampler = VK_NULL_HANDLE; // TODO: move away to a proper location, pool or smth
 
     std::vector<Vertex> vertices;

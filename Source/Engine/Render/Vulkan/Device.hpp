@@ -37,6 +37,8 @@ public:
 	VkCommandPool GetCommandPool(CommandBufferType type) const;
 	void ExecuteOneTimeCommandBuffer(DeviceCommands commands) const;
 
+	VkSampleCountFlagBits GetMaxSampleCount() const;
+
 	VkDevice GetVkDevice() const
 	{
 		return device;

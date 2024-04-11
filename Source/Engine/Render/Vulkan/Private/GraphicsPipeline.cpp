@@ -135,12 +135,12 @@ namespace GraphicsPipelineDetails
 		return rasterizer;
 	}
 
-	static VkPipelineMultisampleStateCreateInfo GetMultisampleStateCreateInfo()
+	static VkPipelineMultisampleStateCreateInfo GetMultisampleStateCreateInfo(const VulkanContext& vulkanContext)
 	{
 		VkPipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+		multisampling.rasterizationSamples = vulkanContext.GetDevice().GetMaxSampleCount();
+		multisampling.sampleShadingEnable = VK_FALSE;		
 		multisampling.minSampleShading = 1.0f; 
 		multisampling.pSampleMask = nullptr; 
 		multisampling.alphaToCoverageEnable = VK_FALSE; 
@@ -246,7 +246,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	VkPipelineViewportStateCreateInfo viewportState = GetPipelineViewportStateCreateInfo(1, 1);
 
 	VkPipelineRasterizationStateCreateInfo rasterizer = GetRasterizationStateCreateInfo();
-	VkPipelineMultisampleStateCreateInfo multisampling = GetMultisampleStateCreateInfo();
+	VkPipelineMultisampleStateCreateInfo multisampling = GetMultisampleStateCreateInfo(vulkanContext);
 	
 	VkPipelineDepthStencilStateCreateInfo depthStencil = GetPipelineDepthStencilStateCreateInfo();
 
