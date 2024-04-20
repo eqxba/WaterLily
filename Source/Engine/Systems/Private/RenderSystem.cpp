@@ -6,7 +6,6 @@
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
-#include "Engine/Scene/Scene.hpp"
 #include "Shaders/Common.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -111,8 +110,8 @@ namespace RenderSystemDetails
 	}
 
 	static void EnqueueRenderCommands(const VulkanContext& vulkanContext, VkCommandBuffer commandBuffer, 
-		VkFramebuffer framebuffer, const RenderPass& renderPass, const GraphicsPipeline& graphicsPipeline, Scene& scene,
-		const std::span<const VkDescriptorSet> descriptorSets)
+		VkFramebuffer framebuffer, const RenderPass& renderPass, const GraphicsPipeline& graphicsPipeline, 
+		const Scene& scene, const std::span<const VkDescriptorSet> descriptorSets)
 	{
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -276,12 +275,11 @@ namespace RenderSystemDetails
 	}
 }
 
-RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
+RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
 	: vulkanContext{aVulkanContext}
 	, eventSystem{aEventSystem}
 	, renderPass{std::make_unique<RenderPass>(vulkanContext)}
 	, graphicsPipeline{std::make_unique<GraphicsPipeline>(*renderPass, vulkanContext)}
-    , scene{aScene}
 {
 	using namespace RenderSystemDetails;
 	using namespace VulkanHelpers;
@@ -308,16 +306,16 @@ RenderSystem::RenderSystem(Scene& aScene, EventSystem& aEventSystem, const Vulka
 
 	uniformBuffers = CreateUniformBuffers(vulkanContext, maxFramesInFlight);
 	descriptorPool = CreateDescriptorPool(maxFramesInFlight, maxFramesInFlight, device);
-	descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);	
-
-	PopulateDescriptorSets(descriptorSets, uniformBuffers, scene.GetImageView(), scene.GetSampler(), device);
+	descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);
 
 	eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
+	eventSystem.Subscribe<ES::SceneOpened>(this, &RenderSystem::OnSceneOpen);
 }
 
 RenderSystem::~RenderSystem()
 {
 	eventSystem.Unsubscribe<ES::WindowResized>(this);
+	eventSystem.Unsubscribe<ES::SceneOpened>(this);
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 	
@@ -328,14 +326,20 @@ RenderSystem::~RenderSystem()
 
 void RenderSystem::Process(float deltaSeconds)
 {
+	if (!scene)
+	{
+		return;
+	}
+
+	ubo.view = scene->GetCamera().view;
+
 	// Let this code be here for now
 	constexpr float rotationRate = 20.0f;
 	static float totalAngle = 0.0f;
 
 	totalAngle = std::fmod(totalAngle + deltaSeconds * rotationRate, 360.0f);
 
-	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(totalAngle), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(totalAngle), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	VkExtent2D extent = vulkanContext.GetSwapchain().GetExtent();
 	ubo.projection = glm::perspective(glm::radians(45.0f), extent.width / (float)extent.height, 0.1f, 10.0f);
@@ -346,6 +350,11 @@ void RenderSystem::Render()
 {
 	using namespace RenderSystemDetails;
 	using namespace VulkanHelpers;
+
+	if (!scene)
+	{
+		return;
+	}
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 	const VkSwapchainKHR swapchain = vulkanContext.GetSwapchain().GetVkSwapchainKHR();
@@ -365,7 +374,7 @@ void RenderSystem::Render()
 	const Queues& queues = vulkanContext.GetDevice().GetQueues();
 
 	const auto renderCommands = [&](VkCommandBuffer buffer) {
-		EnqueueRenderCommands(vulkanContext, buffer, framebuffers[imageIndex], *renderPass, *graphicsPipeline, scene,
+		EnqueueRenderCommands(vulkanContext, buffer, framebuffers[imageIndex], *renderPass, *graphicsPipeline, *scene,
 			std::span{ &descriptorSets[currentFrame], 1 });
 	};
 
@@ -413,4 +422,14 @@ void RenderSystem::OnResize(const ES::WindowResized& event)
 
 	framebuffers = CreateFramebuffers(swapchain, colorAttachmentView, depthAttachmentView, 
 		renderPass->GetVkRenderPass(), device.GetVkDevice());
+}
+
+void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
+{
+	using namespace RenderSystemDetails;
+
+	scene = &event.scene;
+
+	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+	PopulateDescriptorSets(descriptorSets, uniformBuffers, scene->GetImageView(), scene->GetSampler(), device);
 }

@@ -3,6 +3,7 @@
 #include "Engine/Render/Vulkan/Resources/Buffer.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
 #include "Engine/Render/Vulkan/Resources/ImageView.hpp"
+#include "Engine/Components/CameraComponent.hpp"
 
 #include <glm/glm.hpp>
 #include <volk.h>
@@ -44,12 +45,12 @@ public:
         return indexBuffer;
     }
 
-    const std::vector<Vertex>& GetVertices()
+    const std::vector<Vertex>& GetVertices() const
     {
         return vertices;
     }
 
-    const std::vector<uint32_t>& GetIndices()
+    const std::vector<uint32_t>& GetIndices() const
     {
         return indices;
     }
@@ -69,7 +70,15 @@ public:
         return sampler;
     }
 
+    CameraComponent& GetCamera()
+    {
+        return camera;
+    }
+
 private:
+    void InitBuffers();
+    void InitTextureResources();
+
     const VulkanContext& vulkanContext;
 
     Buffer vertexBuffer;
@@ -81,4 +90,6 @@ private:
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
+
+    CameraComponent camera = {};
 };

@@ -37,7 +37,8 @@ namespace SceneDetails
     constexpr const char* objPath = platformWin ? objPathWin : objPathMac;
     constexpr const char* imagePath = platformWin ? imagePathWin : imagePathMac;
 
-    static std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadModel(const std::string& absolutePath)
+    static std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadModel(const std::string& absolutePath, 
+        const bool flipYz = false)
     {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
@@ -62,6 +63,12 @@ namespace SceneDetails
                 attributes.vertices[3 * index.vertex_index + 0],
                 attributes.vertices[3 * index.vertex_index + 1],
                 attributes.vertices[3 * index.vertex_index + 2], };
+
+            if (flipYz)
+            {
+                std::swap(vertex.pos.y, vertex.pos.z);
+                vertex.pos.z *= -1;
+            }
 
             vertex.texCoord = {
                 attributes.texcoords[2 * index.texcoord_index + 0],
@@ -125,17 +132,28 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 }
 
 Scene::Scene(const VulkanContext& aVulkanContext)
-    : vulkanContext{aVulkanContext}
+    : vulkanContext{ aVulkanContext }
 {
-    const Device& device = vulkanContext.GetDevice();
+    InitBuffers();
+    InitTextureResources();
+}
 
-    std::tie(vertices, indices) = SceneDetails::LoadModel(SceneDetails::objPath);
+Scene::~Scene()
+{
+    VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+    
+    VulkanHelpers::DestroySampler(device, sampler);
+}
+
+void Scene::InitBuffers()
+{
+    std::tie(vertices, indices) = SceneDetails::LoadModel(SceneDetails::objPath, true);
 
     std::span verticesSpan(std::as_const(vertices));
     std::span indicesSpan(std::as_const(indices));
 
     BufferDescription vertexBufferDescription{ .size = static_cast<VkDeviceSize>(verticesSpan.size_bytes()),
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, &vulkanContext);
@@ -145,13 +163,18 @@ Scene::Scene(const VulkanContext& aVulkanContext)
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, &vulkanContext);
+}
+
+void Scene::InitTextureResources()
+{
+    const Device& device = vulkanContext.GetDevice();
 
     const auto& [buffer, extent] = ResourceHelpers::LoadImageToBuffer(SceneDetails::imagePath, vulkanContext);
 
     const int maxDimension = std::max(extent.width, extent.height);
     const uint32_t mipLevelsCount = static_cast<uint32_t>(std::floor(std::log2(maxDimension))) + 1;
 
-    ImageDescription imageDescription{ .extent = extent, .mipLevelsCount = mipLevelsCount, 
+    ImageDescription imageDescription{ .extent = extent, .mipLevelsCount = mipLevelsCount,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .format = VK_FORMAT_R8G8B8A8_SRGB,
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT ,
@@ -159,15 +182,8 @@ Scene::Scene(const VulkanContext& aVulkanContext)
 
     image = Image(imageDescription, &vulkanContext);
     image.FillMipLevel0(buffer, true);
-       
+
     imageView = ImageView(image, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
 
     sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
-}
-
-Scene::~Scene()
-{
-    VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-    
-    VulkanHelpers::DestroySampler(device, sampler);
 }

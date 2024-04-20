@@ -13,6 +13,7 @@
 namespace ES
 {
 	struct WindowResized;
+	struct SceneOpened;
 }
 
 class VulkanContext;
@@ -24,7 +25,7 @@ class Buffer;
 class RenderSystem : public System
 {
 public:
-	RenderSystem(Scene& aScene, EventSystem& aEventSystem, const VulkanContext& vulkanContext);
+	RenderSystem(EventSystem& aEventSystem, const VulkanContext& vulkanContext);
 	~RenderSystem() override;
 
 	RenderSystem(const RenderSystem&) = delete;
@@ -39,6 +40,7 @@ public:
 
 private:
 	void OnResize(const ES::WindowResized& event);
+	void OnSceneOpen(const ES::SceneOpened& event);
 
 	const VulkanContext& vulkanContext;
 
@@ -46,7 +48,6 @@ private:
 
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
-
 
 	Image colorAttachment;
 	ImageView colorAttachmentView;
@@ -60,7 +61,7 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<CommandBufferSync> syncs;
 
-	gpu::UniformBufferObject ubo = { .model = glm::mat4(), .view = glm::mat4(), .projection = glm::mat4() };
+	gpu::UniformBufferObject ubo = { .model = glm::mat4(1.0f), .view = glm::mat4(), .projection = glm::mat4() };
 
 	std::vector<Buffer> uniformBuffers;
 
@@ -69,5 +70,5 @@ private:
 	
 	size_t currentFrame = 0;
 
-	Scene& scene;
+	Scene* scene = nullptr;
 };

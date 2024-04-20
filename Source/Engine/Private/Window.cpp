@@ -15,6 +15,7 @@ Window::Window(int width, int height, std::string title, EventSystem& aEventSyst
 	
 	glfwSetWindowUserPointer(glfwWindow, this);
 	glfwSetFramebufferSizeCallback(glfwWindow, ResizeCallback);
+	glfwSetKeyCallback(glfwWindow, KeyCallback);
 }
 
 Window::~Window()
@@ -43,5 +44,11 @@ Extent2D Window::GetExtentInPixels() const
 void Window::ResizeCallback(GLFWwindow* glfwWindow, int32_t width, int32_t height)
 {
 	EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;	
-	eventSystem.Fire<ES::WindowResized>({ width, height });
+	eventSystem.Fire<ES::WindowResized>({ .newWidth = width, .newHeight = height });
+}
+
+void Window::KeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int action, int mods)
+{
+	EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
+	eventSystem.Fire<ES::KeyInput>({ .key = static_cast<Key>(key), .action = static_cast<KeyAction>(action)});
 }

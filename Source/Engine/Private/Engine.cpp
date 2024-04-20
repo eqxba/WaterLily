@@ -5,6 +5,7 @@
 #include "Engine/Systems/System.hpp"
 #include "Engine/Systems/RenderSystem.hpp"
 #include "Engine/Scene/Scene.hpp"
+#include "Engine/Systems/CameraSystem.hpp"
 
 namespace EngineDetails
 {
@@ -21,12 +22,13 @@ Engine::Engine()
     eventSystem = std::make_unique<EventSystem>();
     window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName, *eventSystem);
     vulkanContext = std::make_unique<VulkanContext>(*window);
-    scene = std::make_unique<Scene>(*vulkanContext);
-    renderSystem = std::make_unique<RenderSystem>(*scene, *eventSystem, *vulkanContext);
-
-    systems.push_back(renderSystem.get());
 
     eventSystem->Subscribe<ES::WindowResized>(this, &Engine::OnResize);
+
+    CreateSystems();
+
+    scene = std::make_unique<Scene>(*vulkanContext);
+    eventSystem->Fire<ES::SceneOpened>({ *scene });
 }
 
 Engine::~Engine()
@@ -53,7 +55,7 @@ void Engine::Run()
         float deltaSeconds = EngineDetails::GetDeltaSeconds(lastFrameTime, currentTime);
         lastFrameTime = currentTime;
 
-        std::ranges::for_each(systems, [=](System* system) {
+        std::ranges::for_each(systems, [=](const std::unique_ptr<System>& system) {
             system->Process(deltaSeconds);
         });
 
@@ -64,6 +66,15 @@ void Engine::Run()
     }
 
     vulkanContext->GetDevice().WaitIdle();
+}
+
+void Engine::CreateSystems()
+{
+    auto renderSystemPtr = std::make_unique<RenderSystem>(*eventSystem, *vulkanContext);
+    renderSystem = renderSystemPtr.get();
+
+    systems.emplace_back(std::move(renderSystemPtr));
+    systems.emplace_back(std::make_unique<CameraSystem>(*eventSystem));
 }
 
 void Engine::OnResize(const ES::WindowResized& event)
