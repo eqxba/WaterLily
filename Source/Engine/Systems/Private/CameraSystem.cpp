@@ -20,11 +20,9 @@ namespace CameraSystemDetails
     {
         if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
         {
-            const glm::vec3 cameraRight = glm::cross(camera.GetDirection(), camera.GetUp());
-
             const glm::quat yawQuat = glm::angleAxis(-mouseDelta.x, Vector3::unitY);
-            const glm::quat pitchQuat = glm::angleAxis(mouseDelta.y, cameraRight);
-            const glm::quat deltaQuat = glm::normalize(pitchQuat * yawQuat);
+            const glm::quat pitchQuat = glm::angleAxis(mouseDelta.y, camera.GetRight());
+            const glm::quat deltaQuat = yawQuat * pitchQuat;
 
             camera.SetRotationQuat(glm::normalize(deltaQuat * camera.GetRotationQuat()));
 
@@ -71,6 +69,7 @@ void CameraSystem::UpdatePosition(CameraComponent& camera, const float deltaSeco
 
     const glm::vec3 cameraDirection = camera.GetDirection();
     const glm::vec3 cameraUp = camera.GetUp();
+    const glm::vec3 cameraRight = camera.GetRight();
 
     glm::vec3 moveDirection(0.0f);
 
@@ -80,7 +79,7 @@ void CameraSystem::UpdatePosition(CameraComponent& camera, const float deltaSeco
     }
     if (pressedMovementKeys.contains(Key::eA))
     {
-        moveDirection -= glm::normalize(glm::cross(cameraDirection, cameraUp));
+        moveDirection -= cameraRight;
     }
     if (pressedMovementKeys.contains(Key::eS))
     {
@@ -88,7 +87,7 @@ void CameraSystem::UpdatePosition(CameraComponent& camera, const float deltaSeco
     }
     if (pressedMovementKeys.contains(Key::eD))
     {
-        moveDirection += glm::normalize(glm::cross(cameraDirection, cameraUp));
+        moveDirection += cameraRight;
     }
     if (pressedMovementKeys.contains(Key::eQ))
     {

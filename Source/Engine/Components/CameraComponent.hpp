@@ -67,6 +67,11 @@ public:
         return rotationQuat * -Vector3::unitZ;
     }
 
+    glm::vec3 GetRight() const
+    {
+        return rotationQuat * Vector3::unitX;
+    }
+
     glm::vec3 GetUp() const
     {
         return rotationQuat * Vector3::unitY;
