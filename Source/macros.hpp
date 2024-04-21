@@ -1,5 +1,17 @@
 #pragma once
 
+#ifdef PLATFORM_WIN
+constexpr bool platformWin = true;
+#else
+constexpr bool platformWin = false;
+#endif
+
+#ifdef PLATFORM_MAC
+constexpr bool platformMac = true;
+#else
+constexpr bool platformMac = false;
+#endif
+
 #ifdef _MSC_VER // MSVC
 #define DISABLE_WARNINGS_BEGIN \
     __pragma(warning(push, 0))

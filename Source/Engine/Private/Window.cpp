@@ -6,7 +6,7 @@
 #include "Engine/EventSystem.hpp"
 
 Window::Window(int width, int height, std::string title, EventSystem& aEventSystem)
-	: eventSystem(aEventSystem)
+	: eventSystem{ aEventSystem }
 {
 	glfwInit();	
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -14,8 +14,12 @@ Window::Window(int width, int height, std::string title, EventSystem& aEventSyst
 	glfwWindow = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 	
 	glfwSetWindowUserPointer(glfwWindow, this);
+
+	glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 	glfwSetFramebufferSizeCallback(glfwWindow, ResizeCallback);
 	glfwSetKeyCallback(glfwWindow, KeyCallback);
+	glfwSetCursorPosCallback(glfwWindow, MouseCallback);
 }
 
 Window::~Window()
@@ -51,4 +55,10 @@ void Window::KeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int acti
 {
 	EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
 	eventSystem.Fire<ES::KeyInput>({ .key = static_cast<Key>(key), .action = static_cast<KeyAction>(action)});
+}
+
+void Window::MouseCallback(GLFWwindow* glfwWindow, double xPos, double yPos)
+{
+	EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
+	eventSystem.Fire<ES::MouseMoved>({ .newPosition = { static_cast<float>(xPos), static_cast<float>(yPos) } });
 }

@@ -30,6 +30,7 @@ public:
 private:
 	static void ResizeCallback(GLFWwindow* glfwWindow, int32_t width, int32_t height);
 	static void KeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int action, int mods);
+	static void MouseCallback(GLFWwindow* glfwWindow, double xPos, double yPos);
 
 	EventSystem& eventSystem;
 

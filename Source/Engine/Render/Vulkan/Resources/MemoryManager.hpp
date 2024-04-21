@@ -1,7 +1,5 @@
 #pragma once
 
-#include "macros.hpp"
-
 #include <volk.h>
 
 DISABLE_WARNINGS_BEGIN

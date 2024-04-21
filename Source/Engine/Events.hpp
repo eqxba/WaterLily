@@ -21,4 +21,9 @@ namespace ES // Event system
 		Key key;
 		KeyAction action;
 	};
+
+	struct MouseMoved
+	{
+		glm::vec2 newPosition;
+	};
 }

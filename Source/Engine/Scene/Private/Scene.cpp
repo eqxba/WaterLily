@@ -2,7 +2,6 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
-#include "macros.hpp"
 
 DISABLE_WARNINGS_BEGIN
 

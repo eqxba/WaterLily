@@ -22,20 +22,9 @@
 #include <numeric>
 #include <ranges>
 
+#include "macros.hpp"
 #include "Utils/Assert.hpp"
 #include "Utils/Logger.hpp"
-
-#ifdef PLATFORM_WIN
-    constexpr bool platformWin = true;
-#else
-    constexpr bool platformWin = false;
-#endif
-
-#ifdef PLATFORM_MAC
-    constexpr bool platformMac = true;
-#else
-    constexpr bool platformMac = false;
-#endif
 
 #ifdef _MSC_VER // MSVC
 
