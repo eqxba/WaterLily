@@ -7,8 +7,7 @@ namespace ES // Event system
 {
 	struct WindowResized
 	{
-		int newWidth = 0;
-		int newHeight = 0;
+		Extent2D newExtent = {};
 	};
 
 	struct SceneOpened
@@ -25,5 +24,10 @@ namespace ES // Event system
 	struct MouseMoved
 	{
 		glm::vec2 newPosition;
+	};
+
+	struct MouseWheelScrolled
+	{
+		glm::vec2 offset;
 	};
 }

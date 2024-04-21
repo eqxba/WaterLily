@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Systems/System.hpp"
+#include "Utils/DataStructures.hpp"
 #include "Engine/InputHelpers.hpp"
 
 #include <glm/glm.hpp>
@@ -8,8 +9,10 @@
 namespace ES
 {
     struct SceneOpened;
+    struct WindowResized;
     struct KeyInput;
     struct MouseMoved;
+    struct MouseWheelScrolled;
 }
 
 struct CameraComponent;
@@ -19,7 +22,7 @@ class EventSystem;
 class CameraSystem : public System
 {
 public:
-    CameraSystem(EventSystem& aEventSystem);
+    CameraSystem(Extent2D windowExtent, EventSystem& aEventSystem);
     ~CameraSystem() override;
 
     CameraSystem(const CameraSystem&) = delete;
@@ -31,11 +34,17 @@ public:
     void Process(float deltaSeconds) override;
 
 private:
+    void UpdatePosition(CameraComponent& camera, float deltaSeconds) const;
+
     void OnSceneOpen(const ES::SceneOpened& event);
+    void OnResize(const ES::WindowResized& event);
     void OnKeyInput(const ES::KeyInput& event);
     void OnMouseMoved(const ES::MouseMoved& event);
+    void OnMouseWheelScrolled(const ES::MouseWheelScrolled& event);
 
     EventSystem& eventSystem;
+
+    Extent2D windowExtent = {};
 
     CameraComponent* mainCamera = nullptr;
 

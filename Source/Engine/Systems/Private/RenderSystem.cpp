@@ -331,7 +331,10 @@ void RenderSystem::Process(float deltaSeconds)
 		return;
 	}
 
-	ubo.view = scene->GetCamera().view;
+	const CameraComponent& camera = scene->GetCamera();
+
+	ubo.view = camera.view;
+	ubo.projection = camera.projection;
 
 	// Let this code be here for now
 	constexpr float rotationRate = 20.0f;
@@ -340,10 +343,6 @@ void RenderSystem::Process(float deltaSeconds)
 	totalAngle = std::fmod(totalAngle + deltaSeconds * rotationRate, 360.0f);
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(totalAngle), glm::vec3(0.0f, 1.0f, 0.0f));
-
-	VkExtent2D extent = vulkanContext.GetSwapchain().GetExtent();
-	ubo.projection = glm::perspective(glm::radians(45.0f), extent.width / (float)extent.height, 0.1f, 10.0f);
-	ubo.projection[1][1] *= -1;
 }
 
 void RenderSystem::Render()
@@ -409,9 +408,9 @@ void RenderSystem::OnResize(const ES::WindowResized& event)
 
 	Swapchain& swapchain = vulkanContext.GetSwapchain();
 
-	if (event.newWidth != 0 && event.newHeight != 0)
+	if (event.newExtent.width != 0 && event.newExtent.height != 0)
 	{
-		swapchain.Recreate({event.newWidth, event.newHeight});
+		swapchain.Recreate(event.newExtent);
 	}
 
 	colorAttachment = CreateColorAttachment(swapchain.GetExtent(), vulkanContext);

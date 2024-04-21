@@ -74,10 +74,10 @@ void Engine::CreateSystems()
     renderSystem = renderSystemPtr.get();
 
     systems.emplace_back(std::move(renderSystemPtr));
-    systems.emplace_back(std::make_unique<CameraSystem>(*eventSystem));
+    systems.emplace_back(std::make_unique<CameraSystem>(window->GetExtentInPixels(), *eventSystem));
 }
 
 void Engine::OnResize(const ES::WindowResized& event)
 {
-    renderingSuspended = event.newWidth == 0 || event.newHeight == 0;
+    renderingSuspended = event.newExtent.width == 0 || event.newExtent.height == 0;
 }
