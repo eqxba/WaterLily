@@ -333,11 +333,11 @@ void RenderSystem::Process(float deltaSeconds)
 
 	const CameraComponent& camera = scene->GetCamera();
 
-	ubo.view = camera.view;
-	ubo.projection = camera.projection;
+	ubo.view = camera.GetViewMatrix();
+	ubo.projection = camera.GetProjectionMatrix();
 
 	// Let this code be here for now
-	constexpr float rotationRate = 20.0f;
+	constexpr float rotationRate = 00.0f;
 	static float totalAngle = 0.0f;
 
 	totalAngle = std::fmod(totalAngle + deltaSeconds * rotationRate, 360.0f);

@@ -15,7 +15,7 @@ namespace ES
     struct MouseWheelScrolled;
 }
 
-struct CameraComponent;
+class CameraComponent;
 
 class EventSystem;
 
@@ -44,7 +44,7 @@ private:
 
     EventSystem& eventSystem;
 
-    Extent2D windowExtent = {};
+    float mainCameraAspectRatio = 1.0f;
 
     CameraComponent* mainCamera = nullptr;
 

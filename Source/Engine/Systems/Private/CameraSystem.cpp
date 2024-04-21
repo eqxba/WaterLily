@@ -3,10 +3,7 @@
 #include "Engine/Components/CameraComponent.hpp"
 #include "Engine/EventSystem.hpp"
 
-DISABLE_WARNINGS_BEGIN
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
-DISABLE_WARNINGS_END
 
 namespace CameraSystemDetails
 {
@@ -18,49 +15,27 @@ namespace CameraSystemDetails
     static constexpr float minVerticalFov = glm::radians(1.0f);
     static constexpr float maxVerticalFov = glm::radians(45.0f);
 
-    static glm::mat4 CalculateViewMatrix(const CameraComponent& camera)
-    {
-        return glm::lookAt(camera.position, camera.position + camera.direction, camera.up);
-    }
-
-    static glm::mat4 CalculateProjectionMatrix(const CameraComponent& camera, const Extent2D windowExtent)
-    {
-        const float aspectRatio = static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height);
-
-        glm::mat4 projection = glm::perspective(camera.verticalFov, aspectRatio, 0.1f, 100.0f);
-        projection[1][1] *= -1;
-
-        return projection;
-    }
-
     // Resets mouseDelta to (0.0f, 0.0f)
-    static void UpdateDirection(CameraComponent& camera, glm::vec2& mouseDelta)
+    static void UpdateRotation(CameraComponent& camera, glm::vec2& mouseDelta)
     {
         if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
         {
-            auto& direction = camera.direction;
+            const glm::vec3 cameraRight = glm::cross(camera.GetDirection(), camera.GetUp());
 
-            glm::vec2 yawPitch = {
-                glm::atan(direction.x, -direction.z),
-                std::atan2(direction.y, glm::length(glm::vec2(direction.x, direction.z))) };
+            const glm::quat yawQuat = glm::angleAxis(-mouseDelta.x, Vector3::unitY);
+            const glm::quat pitchQuat = glm::angleAxis(mouseDelta.y, cameraRight);
+            const glm::quat deltaQuat = glm::normalize(pitchQuat * yawQuat);
 
-            yawPitch += mouseDelta;
-            yawPitch.y = std::clamp(yawPitch.y, glm::radians(-89.0f), glm::radians(89.0f));
-
-            const glm::quat yawQuat = glm::angleAxis(yawPitch.x, -Vector3::unitY);
-            const glm::quat pitchQuat = glm::angleAxis(yawPitch.y, Vector3::unitX);
-            const glm::quat directionQuat = glm::normalize(yawQuat * pitchQuat);
-
-            direction = directionQuat * -Vector3::unitZ;
+            camera.SetRotationQuat(glm::normalize(deltaQuat * camera.GetRotationQuat()));
 
             mouseDelta = Vector2::zero;
         }
     }
 }
 
-CameraSystem::CameraSystem(const Extent2D aWindowExtent, EventSystem& aEventSystem)
+CameraSystem::CameraSystem(const Extent2D windowExtent, EventSystem& aEventSystem)
     : eventSystem{ aEventSystem }
-    , windowExtent{ aWindowExtent }
+    , mainCameraAspectRatio{ static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height) }
 {
     eventSystem.Subscribe<ES::SceneOpened>(this, &CameraSystem::OnSceneOpen);
     eventSystem.Subscribe<ES::WindowResized>(this, &CameraSystem::OnResize);
@@ -85,11 +60,8 @@ void CameraSystem::Process(const float deltaSeconds)
 
     if (mainCamera)
     {
-        UpdateDirection(*mainCamera, mouseDelta);
+        UpdateRotation(*mainCamera, mouseDelta);
         UpdatePosition(*mainCamera, deltaSeconds);
-
-        mainCamera->view = CalculateViewMatrix(*mainCamera);
-        mainCamera->projection = CalculateProjectionMatrix(*mainCamera, windowExtent);
     }
 }
 
@@ -97,46 +69,53 @@ void CameraSystem::UpdatePosition(CameraComponent& camera, const float deltaSeco
 {
     using namespace CameraSystemDetails;
 
+    const glm::vec3 cameraDirection = camera.GetDirection();
+    const glm::vec3 cameraUp = camera.GetUp();
+
     glm::vec3 moveDirection(0.0f);
 
     if (pressedMovementKeys.contains(Key::eW))
     {
-        moveDirection += camera.direction;
+        moveDirection += cameraDirection;
     }
     if (pressedMovementKeys.contains(Key::eA))
     {
-        moveDirection -= glm::normalize(glm::cross(camera.direction, camera.up));
+        moveDirection -= glm::normalize(glm::cross(cameraDirection, cameraUp));
     }
     if (pressedMovementKeys.contains(Key::eS))
     {
-        moveDirection -= camera.direction;
+        moveDirection -= cameraDirection;
     }
     if (pressedMovementKeys.contains(Key::eD))
     {
-        moveDirection += glm::normalize(glm::cross(camera.direction, camera.up));
+        moveDirection += glm::normalize(glm::cross(cameraDirection, cameraUp));
     }
     if (pressedMovementKeys.contains(Key::eQ))
     {
-        moveDirection -= camera.up;
+        moveDirection -= cameraUp;
     }
     if (pressedMovementKeys.contains(Key::eE))
     {
-        moveDirection += camera.up;
+        moveDirection += cameraUp;
     }
 
-    camera.position += deltaSeconds * cameraSpeed * speedMultiplier * moveDirection;
+    camera.SetPosition(camera.GetPosition() + deltaSeconds * cameraSpeed * speedMultiplier * moveDirection);
 }
 
 void CameraSystem::OnSceneOpen(const ES::SceneOpened& event)
 {
     mainCamera = &event.scene.GetCamera();
-    mainCamera->direction = glm::normalize(mainCamera->direction);
-    mainCamera->up = glm::normalize(mainCamera->up);
+    mainCamera->SetAspectRatio(mainCameraAspectRatio);
 }
 
 void CameraSystem::OnResize(const ES::WindowResized& event)
 {
-    windowExtent = event.newExtent;
+    mainCameraAspectRatio = static_cast<float>(event.newExtent.width) / static_cast<float>(event.newExtent.height);
+
+    if (mainCamera)
+    {
+        mainCamera->SetAspectRatio(mainCameraAspectRatio);
+    }
 }
 
 void CameraSystem::OnKeyInput(const ES::KeyInput& event)
@@ -184,7 +163,9 @@ void CameraSystem::OnMouseWheelScrolled(const ES::MouseWheelScrolled& event)
 
     if (mainCamera)
     {
-        mainCamera->verticalFov -= static_cast<float>(event.offset.y) * mouseScrollSensitivity;
-        mainCamera->verticalFov = std::clamp(mainCamera->verticalFov, minVerticalFov, maxVerticalFov);
+        const float deltaFov = - static_cast<float>(event.offset.y) * mouseScrollSensitivity;
+        const float newFov = std::clamp(mainCamera->GetVerticalFov() + deltaFov, minVerticalFov, maxVerticalFov);
+
+        mainCamera->SetVerticalFov(newFov);
     }
 }
