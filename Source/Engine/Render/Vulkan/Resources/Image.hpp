@@ -39,7 +39,7 @@ public:
         return description;
     }
 
-    const VkImage GetVkImage() const
+    VkImage GetVkImage() const
     {
         return image;
     }

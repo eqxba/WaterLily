@@ -4,6 +4,7 @@
 #include "Utils/Helpers.hpp"
 
 DISABLE_WARNINGS_BEGIN
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 DISABLE_WARNINGS_END

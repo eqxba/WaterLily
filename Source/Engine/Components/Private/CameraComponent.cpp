@@ -26,6 +26,6 @@ CameraComponent::CameraComponent(const glm::vec3 aPosition, const glm::vec3 dire
     const float aVerticalFov, const float aAspectRatio)
     : position{ aPosition }
     , verticalFov{ aVerticalFov }
-    , rotationQuat{ CameraComponentDetails::GetQuat(direction, up) }
     , aspectRatio{ aAspectRatio }
+    , rotationQuat{ CameraComponentDetails::GetQuat(direction, up) }
 {}
