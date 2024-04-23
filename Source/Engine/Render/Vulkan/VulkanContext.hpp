@@ -8,13 +8,19 @@
 #include "Engine/Render/Vulkan/Resources/MemoryManager.hpp"
 #include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
 
+namespace ES
+{
+	struct BeforeWindowRecreated;
+	struct WindowRecreated;
+}
+
 class Window;
 
 class VulkanContext
 {
 public:
-	VulkanContext(const Window& window);
-	~VulkanContext() = default;
+	VulkanContext(const Window& window, EventSystem& eventSystem);
+	~VulkanContext();
 
 	VulkanContext(const VulkanContext&) = delete;
 	VulkanContext& operator=(const VulkanContext&) = delete;
@@ -53,6 +59,11 @@ public:
 	}
 
 private:
+	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
+	void OnWindowRecreated(const ES::WindowRecreated& event);
+
+	EventSystem& eventSystem;
+
 	std::unique_ptr<Instance> instance;
 	std::unique_ptr<Surface> surface;
 	std::unique_ptr<Device> device;

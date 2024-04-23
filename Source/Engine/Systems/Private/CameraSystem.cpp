@@ -37,6 +37,7 @@ CameraSystem::CameraSystem(const Extent2D windowExtent, EventSystem& aEventSyste
 {
     eventSystem.Subscribe<ES::SceneOpened>(this, &CameraSystem::OnSceneOpen);
     eventSystem.Subscribe<ES::WindowResized>(this, &CameraSystem::OnResize);
+    eventSystem.Subscribe<ES::WindowRecreated>(this, &CameraSystem::OnWindowRecreated);
     eventSystem.Subscribe<ES::KeyInput>(this, &CameraSystem::OnKeyInput);
     eventSystem.Subscribe<ES::MouseMoved>(this, &CameraSystem::OnMouseMoved);
     eventSystem.Subscribe<ES::MouseWheelScrolled>(this, &CameraSystem::OnMouseWheelScrolled);
@@ -47,6 +48,7 @@ CameraSystem::~CameraSystem()
     // TODO: UnsubscribeAll implementation
     eventSystem.Unsubscribe<ES::SceneOpened>(this);
     eventSystem.Unsubscribe<ES::WindowResized>(this);
+    eventSystem.Unsubscribe<ES::WindowRecreated>(this);
     eventSystem.Unsubscribe<ES::KeyInput>(this);
     eventSystem.Unsubscribe<ES::MouseMoved>(this);
     eventSystem.Unsubscribe<ES::MouseWheelScrolled>(this);
@@ -101,6 +103,21 @@ void CameraSystem::UpdatePosition(CameraComponent& camera, const float deltaSeco
     camera.SetPosition(camera.GetPosition() + deltaSeconds * cameraSpeed * speedMultiplier * moveDirection);
 }
 
+void CameraSystem::UpdateAspectRatio(const Extent2D newExtent)
+{
+    if (newExtent.width == 0 || newExtent.height == 0)
+    {
+        return;
+    }
+
+    mainCameraAspectRatio = static_cast<float>(newExtent.width) / static_cast<float>(newExtent.height);
+
+    if (mainCamera)
+    {
+        mainCamera->SetAspectRatio(mainCameraAspectRatio);
+    }
+}
+
 void CameraSystem::OnSceneOpen(const ES::SceneOpened& event)
 {
     mainCamera = &event.scene.GetCamera();
@@ -109,12 +126,13 @@ void CameraSystem::OnSceneOpen(const ES::SceneOpened& event)
 
 void CameraSystem::OnResize(const ES::WindowResized& event)
 {
-    mainCameraAspectRatio = static_cast<float>(event.newExtent.width) / static_cast<float>(event.newExtent.height);
+    UpdateAspectRatio(event.newExtent);
+}
 
-    if (mainCamera)
-    {
-        mainCamera->SetAspectRatio(mainCameraAspectRatio);
-    }
+void CameraSystem::OnWindowRecreated(const ES::WindowRecreated& event)
+{
+    lastMousePosition.reset();
+    UpdateAspectRatio(event.window->GetExtentInPixels());
 }
 
 void CameraSystem::OnKeyInput(const ES::KeyInput& event)

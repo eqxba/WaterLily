@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Window.hpp"
 #include "Engine/Scene/Scene.hpp"
 #include "Engine/InputHelpers.hpp"
 
@@ -7,7 +8,14 @@ namespace ES // Event system
 {
 	struct WindowResized
 	{
-		Extent2D newExtent = {};
+		Extent2D newExtent{};
+	};
+
+	struct BeforeWindowRecreated {};
+
+	struct WindowRecreated
+	{
+		const Window* window;
 	};
 
 	struct SceneOpened
@@ -17,17 +25,17 @@ namespace ES // Event system
 
 	struct KeyInput
 	{
-		Key key;
-		KeyAction action;
+		Key key{};
+		KeyAction action{};
 	};
 
 	struct MouseMoved
 	{
-		glm::vec2 newPosition;
+		glm::vec2 newPosition{};
 	};
 
 	struct MouseWheelScrolled
 	{
-		glm::vec2 offset;
+		glm::vec2 offset{};
 	};
 }

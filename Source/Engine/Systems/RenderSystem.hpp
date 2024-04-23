@@ -4,8 +4,6 @@
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
 #include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 #include "Shaders/Common.h"
 
 #include <volk.h>
@@ -13,6 +11,8 @@
 namespace ES
 {
 	struct WindowResized;
+	struct BeforeWindowRecreated;
+	struct WindowRecreated;
 	struct SceneOpened;
 }
 
@@ -21,6 +21,8 @@ class Scene;
 class EventSystem;
 class CommandBufferSync;
 class Buffer;
+class Image;
+class ImageView;
 
 class RenderSystem : public System
 {
@@ -40,7 +42,12 @@ public:
 
 private:
 	void OnResize(const ES::WindowResized& event);
+	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
+	void OnWindowRecreated(const ES::WindowRecreated& event);
 	void OnSceneOpen(const ES::SceneOpened& event);
+
+	void CreateAttachmentsAndFramebuffers();
+	void DestroyAttachmentsAndFramebuffers();
 
 	const VulkanContext& vulkanContext;
 
@@ -49,11 +56,11 @@ private:
 	std::unique_ptr<RenderPass> renderPass;
 	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
 
-	Image colorAttachment;
-	ImageView colorAttachmentView;
+	std::unique_ptr<Image> colorAttachment;
+	std::unique_ptr<ImageView> colorAttachmentView;
 
-	Image depthAttachment;
-	ImageView depthAttachmentView;
+	std::unique_ptr<Image> depthAttachment;
+	std::unique_ptr<ImageView> depthAttachmentView;
 
 	std::vector<VkFramebuffer> framebuffers;
 	

@@ -5,7 +5,8 @@
 
 namespace ES
 {
-    struct WindowResized;   
+    struct WindowResized;
+    struct KeyInput;
 }
 
 class EventSystem;
@@ -35,6 +36,7 @@ private:
     void CreateSystems();
 
     void OnResize(const ES::WindowResized& event);
+    void OnKeyInput(const ES::KeyInput& event);
 	
     std::unique_ptr<EventSystem> eventSystem;
     std::unique_ptr<Window> window;

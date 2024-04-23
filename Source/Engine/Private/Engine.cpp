@@ -20,10 +20,11 @@ namespace EngineDetails
 Engine::Engine()
 {
     eventSystem = std::make_unique<EventSystem>();
-    window = std::make_unique<Window>(EngineConfig::windowWidth, EngineConfig::windowHeight, EngineConfig::engineName, *eventSystem);
-    vulkanContext = std::make_unique<VulkanContext>(*window);
+    window = std::make_unique<Window>(EngineConfig::windowDescription, *eventSystem);
+    vulkanContext = std::make_unique<VulkanContext>(*window, *eventSystem);
 
     eventSystem->Subscribe<ES::WindowResized>(this, &Engine::OnResize);
+    eventSystem->Subscribe<ES::KeyInput>(this, &Engine::OnKeyInput);
 
     CreateSystems();
 
@@ -34,6 +35,7 @@ Engine::Engine()
 Engine::~Engine()
 {
     eventSystem->Unsubscribe<ES::WindowResized>(this);
+    eventSystem->Unsubscribe<ES::KeyInput>(this);
 }
 
 EventSystem& Engine::GetEventSystem() const
@@ -80,4 +82,21 @@ void Engine::CreateSystems()
 void Engine::OnResize(const ES::WindowResized& event)
 {
     renderingSuspended = event.newExtent.width == 0 || event.newExtent.height == 0;
+}
+
+void Engine::OnKeyInput(const ES::KeyInput& event)
+{
+    if (event.key == Key::eF11 && event.action == KeyAction::ePress)
+    {
+        window->SetMode(window->GetMode() == WindowMode::eWindowed 
+            ? WindowMode::eFullscreen
+            : WindowMode::eWindowed);
+    }
+
+    if (event.key == Key::eT && event.action == KeyAction::ePress)
+    {
+        window->SetCursorMode(window->GetCursorMode() == CursorMode::eDisabled
+            ? CursorMode::eEnabled
+            : CursorMode::eDisabled);
+    }
 }

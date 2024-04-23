@@ -6,7 +6,7 @@ EventSystem::~EventSystem()
 }
 
 void EventSystem::SubscribeImpl(std::type_index typeIndex, void* subscriber, 
-    const std::function<void(std::any)> &handler)
+    const std::function<void(std::any)> &handler, ES::Priority priority)
 {
     const auto it = subscriptions.find(typeIndex);
     if (it == subscriptions.end())
@@ -14,13 +14,17 @@ void EventSystem::SubscribeImpl(std::type_index typeIndex, void* subscriber,
         subscriptions.emplace(typeIndex, std::vector<EventHandler>());
     }
 
-    subscriptions[typeIndex].emplace_back(subscriber, handler);
+    const auto insertPos = std::ranges::find_if(subscriptions[typeIndex], [priority](const EventHandler& e) {
+        return static_cast<int>(std::get<2>(e)) < static_cast<int>(priority);
+    });
+
+    subscriptions[typeIndex].insert(insertPos, { subscriber, handler, priority });
 }
 
 void EventSystem::UnsubscribeImpl(std::type_index typeIndex, void* subscriber)
 {
     const auto pred = [subscriber](const EventHandler& handler) {
-        return handler.first == subscriber;
+        return std::get<0>(handler) == subscriber;
     };
 
     std::erase_if(subscriptions[typeIndex], pred);

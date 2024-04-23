@@ -2,12 +2,22 @@
 
 #include "Engine/Events.hpp"
 
+namespace ES
+{
+    enum class Priority
+    {
+        eLow,
+        eDefault,
+        eHigh,
+    };
+}
+
 // TODO: Improve structuring in this class (it looks like shit, i guess, but don't care for now)
 // method implementations are also shit
 class EventSystem
 {
 public:
-    using EventHandler = std::pair<void*, std::function<void(std::any)>>;
+    using EventHandler = std::tuple<void*, std::function<void(std::any)>, ES::Priority>;
 
     EventSystem() = default;
     ~EventSystem();
@@ -19,16 +29,16 @@ public:
     EventSystem& operator=(EventSystem&&) = delete;
 
     template<class T, class S>
-    void Subscribe(S* subscriber, void (S::* function)(const T&));
+    void Subscribe(S* subscriber, void (S::* function)(const T&), ES::Priority priority = ES::Priority::eDefault);
 
     template<class T, class S>
-    void Subscribe(S* subscriber, void (S::* function)());
+    void Subscribe(S* subscriber, void (S::* function)(), ES::Priority priority = ES::Priority::eDefault);
 
     template<class T>
-    void Subscribe(void (*function)(const T&));
+    void Subscribe(void (*function)(const T&), ES::Priority priority = ES::Priority::eDefault);
 
     template<class T>
-    void Subscribe(void (*function)());
+    void Subscribe(void (*function)(), ES::Priority priority = ES::Priority::eDefault);
 
     // TODO: Do i need 3 of these?
     template<class T>
@@ -47,50 +57,52 @@ public:
     void Fire();
 
 private:
-    void SubscribeImpl(std::type_index typeIndex, void* subscriber, const std::function<void(std::any)>& handler);
+    void SubscribeImpl(std::type_index typeIndex, void* subscriber, const std::function<void(std::any)>& handler, 
+        ES::Priority priority);
     void UnsubscribeImpl(std::type_index typeIndex, void* subscriber);
 
     std::unordered_map<std::type_index, std::vector<EventHandler>> subscriptions;
 };
 
 template<class T, class S>
-void EventSystem::Subscribe(S* subscriber, void (S::* function)(const T&))
+void EventSystem::Subscribe(S* subscriber, void (S::* function)(const T&), 
+    ES::Priority priority /* = ES::Priority::eDefault */)
 {
     auto handler = [subscriber, function](std::any argument) {
         (subscriber->*function)(std::any_cast<T>(argument));
     };
 
-    SubscribeImpl(typeid(T), subscriber, handler);
+    SubscribeImpl(typeid(T), subscriber, handler, priority);
 }
 
 template<class T, class S>
-void EventSystem::Subscribe(S* subscriber, void (S::* function)())
+void EventSystem::Subscribe(S* subscriber, void (S::* function)(), ES::Priority priority /* = ES::Priority::eDefault */)
 {
     auto handler = [subscriber, function](std::any argument) {
         (subscriber->*function)();
     };
 
-    SubscribeImpl(typeid(T), subscriber, handler);
+    SubscribeImpl(typeid(T), subscriber, handler, priority);
 }
 
 template<class T>
-void EventSystem::Subscribe(void (*function)(const T&))
+void EventSystem::Subscribe(void (*function)(const T&), ES::Priority priority /* = ES::Priority::eDefault */)
 {
     auto handler = [function](std::any argument) {
         function(std::any_cast<T>(argument));
     };
 
-    SubscribeImpl(typeid(T), function, handler);
+    SubscribeImpl(typeid(T), function, handler, priority);
 }
 
 template<class T>
-void EventSystem::Subscribe(void (*function)())
+void EventSystem::Subscribe(void (*function)(), ES::Priority priority /* = ES::Priority::eDefault */)
 {
     auto handler = [function](std::any argument) {
         function();
     };
 
-    SubscribeImpl(typeid(T), function(), handler);
+    SubscribeImpl(typeid(T), function(), handler, priority);
 }
 
 template<class T>
@@ -116,15 +128,17 @@ void EventSystem::Fire(const T& argument)
 {
     for (const auto& subscription : subscriptions[typeid(T)])
     {
-        subscription.second(argument);
+        std::get<1>(subscription)(argument);
     }
 }
 
 template<class T>
 void EventSystem::Fire()
 {
+    T argument{};
+
     for (const auto& subscription : subscriptions[typeid(T)])
     {
-        subscription.second(std::any());
+        std::get<1>(subscription)(argument);
     }
 }

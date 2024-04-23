@@ -6,6 +6,7 @@
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 #include "Shaders/Common.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -43,7 +44,7 @@ namespace RenderSystemDetails
         return framebuffers;
 	}
 
-	static Image CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
+	static std::unique_ptr<Image> CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
 	{
 		ImageDescription imageDescription{
 			.extent = { static_cast<int>(extent.width), static_cast<int>(extent.height) },
@@ -53,10 +54,10 @@ namespace RenderSystemDetails
 			.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 			.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-		return Image(imageDescription, &vulkanContext);
+		return std::make_unique<Image>(imageDescription, &vulkanContext);
 	}
 
-	static Image CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
+	static std::unique_ptr<Image> CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
 	{
 		ImageDescription imageDescription{ 
 			.extent = { static_cast<int>(extent.width), static_cast<int>(extent.height) },
@@ -66,7 +67,7 @@ namespace RenderSystemDetails
 			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 			.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-		return Image(imageDescription, &vulkanContext);
+		return std::make_unique<Image>(imageDescription, &vulkanContext);
 	}
 
 	static VkViewport GetViewport(const VkExtent2D extent)
@@ -150,11 +151,13 @@ namespace RenderSystemDetails
 		vkCmdEndRenderPass(commandBuffer);
 	}
 
-	static void DestroyFramebuffers(const std::vector<VkFramebuffer>& framebuffers, VkDevice device)
+	static void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, VkDevice device)
 	{
 		std::ranges::for_each(framebuffers, [=](VkFramebuffer framebuffer) {
 			vkDestroyFramebuffer(device, framebuffer, nullptr);
 		});
+
+		framebuffers.clear();
 	}
 
 	static std::vector<Buffer> CreateUniformBuffers(const VulkanContext& vulkanContext, const size_t count)
@@ -288,16 +291,7 @@ RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulk
 	const VkCommandPool longLivedPool = vulkanContext.GetDevice().GetCommandPool(CommandBufferType::eLongLived);
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 
-	const Swapchain& swapchain = vulkanContext.GetSwapchain();
-
-	colorAttachment = CreateColorAttachment(swapchain.GetExtent(), vulkanContext);
-	colorAttachmentView = ImageView(colorAttachment, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
-
-	depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), vulkanContext);
-	depthAttachmentView = ImageView(depthAttachment, VK_IMAGE_ASPECT_DEPTH_BIT, &vulkanContext);
-
-	framebuffers = CreateFramebuffers(swapchain, colorAttachmentView, depthAttachmentView, 
-		renderPass->GetVkRenderPass(), device);
+	CreateAttachmentsAndFramebuffers();
 
 	commandBuffers = CreateCommandBuffers(device, maxFramesInFlight, longLivedPool);
 	syncs = CreateCommandBufferSyncs(maxFramesInFlight, device);
@@ -310,16 +304,20 @@ RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulk
 
 	eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
 	eventSystem.Subscribe<ES::SceneOpened>(this, &RenderSystem::OnSceneOpen);
+	eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &RenderSystem::OnBeforeWindowRecreated, ES::Priority::eHigh);
+	eventSystem.Subscribe<ES::WindowRecreated>(this, &RenderSystem::OnWindowRecreated, ES::Priority::eLow);
 }
 
 RenderSystem::~RenderSystem()
 {
 	eventSystem.Unsubscribe<ES::WindowResized>(this);
 	eventSystem.Unsubscribe<ES::SceneOpened>(this);
+	eventSystem.Unsubscribe<ES::BeforeWindowRecreated>(this);
+	eventSystem.Unsubscribe<ES::WindowRecreated>(this);
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-	
-	RenderSystemDetails::DestroyFramebuffers(framebuffers, device);
+
+	DestroyAttachmentsAndFramebuffers();
 
 	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }
@@ -399,28 +397,24 @@ void RenderSystem::Render()
 
 void RenderSystem::OnResize(const ES::WindowResized& event)
 {
-	using namespace RenderSystemDetails;
-
-	const Device& device = vulkanContext.GetDevice();
-	device.WaitIdle();
-
-	DestroyFramebuffers(framebuffers, device.GetVkDevice());
-
-	Swapchain& swapchain = vulkanContext.GetSwapchain();
-
-	if (event.newExtent.width != 0 && event.newExtent.height != 0)
+	if (event.newExtent.width == 0 || event.newExtent.height == 0)
 	{
-		swapchain.Recreate(event.newExtent);
+		return;
 	}
 
-	colorAttachment = CreateColorAttachment(swapchain.GetExtent(), vulkanContext);
-	colorAttachmentView = ImageView(colorAttachment, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
+	DestroyAttachmentsAndFramebuffers();
+	vulkanContext.GetSwapchain().Recreate(event.newExtent);
+	CreateAttachmentsAndFramebuffers();
+}
 
-	depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), vulkanContext);
-	depthAttachmentView = ImageView(depthAttachment, VK_IMAGE_ASPECT_DEPTH_BIT, &vulkanContext);
+void RenderSystem::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
+{
+	DestroyAttachmentsAndFramebuffers();
+}
 
-	framebuffers = CreateFramebuffers(swapchain, colorAttachmentView, depthAttachmentView, 
-		renderPass->GetVkRenderPass(), device.GetVkDevice());
+void RenderSystem::OnWindowRecreated(const ES::WindowRecreated& event)
+{
+	CreateAttachmentsAndFramebuffers();
 }
 
 void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
@@ -431,4 +425,39 @@ void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 	PopulateDescriptorSets(descriptorSets, uniformBuffers, scene->GetImageView(), scene->GetSampler(), device);
+}
+
+void RenderSystem::CreateAttachmentsAndFramebuffers()
+{
+	using namespace RenderSystemDetails;
+
+	const Device& device = vulkanContext.GetDevice();
+	device.WaitIdle();
+
+	const Swapchain& swapchain = vulkanContext.GetSwapchain();
+
+	colorAttachment = CreateColorAttachment(swapchain.GetExtent(), vulkanContext);
+	colorAttachmentView = std::make_unique<ImageView>(*colorAttachment, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
+
+	depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), vulkanContext);
+	depthAttachmentView = std::make_unique<ImageView>(*depthAttachment, VK_IMAGE_ASPECT_DEPTH_BIT, &vulkanContext);
+
+	framebuffers = CreateFramebuffers(swapchain, *colorAttachmentView, *depthAttachmentView,
+		renderPass->GetVkRenderPass(), device.GetVkDevice());
+}
+
+void RenderSystem::DestroyAttachmentsAndFramebuffers()
+{
+	using namespace RenderSystemDetails;
+
+	const Device& device = vulkanContext.GetDevice();
+	device.WaitIdle();
+
+	DestroyFramebuffers(framebuffers, device.GetVkDevice());
+
+	colorAttachmentView.reset();
+	colorAttachment.reset();
+
+	depthAttachmentView.reset();
+	depthAttachment.reset();
 }

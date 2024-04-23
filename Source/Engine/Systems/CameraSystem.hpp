@@ -10,6 +10,7 @@ namespace ES
 {
     struct SceneOpened;
     struct WindowResized;
+    struct WindowRecreated;
     struct KeyInput;
     struct MouseMoved;
     struct MouseWheelScrolled;
@@ -35,9 +36,11 @@ public:
 
 private:
     void UpdatePosition(CameraComponent& camera, float deltaSeconds) const;
+    void UpdateAspectRatio(Extent2D newExtent);
 
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnResize(const ES::WindowResized& event);
+    void OnWindowRecreated(const ES::WindowRecreated& event);
     void OnKeyInput(const ES::KeyInput& event);
     void OnMouseMoved(const ES::MouseMoved& event);
     void OnMouseWheelScrolled(const ES::MouseWheelScrolled& event);

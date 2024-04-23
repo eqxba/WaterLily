@@ -25,6 +25,7 @@ public:
 	Swapchain(Swapchain&&) = delete;
 	Swapchain& operator=(Swapchain&&) = delete;
 
+	// Call in case of simple resize (not when window's been recreated!)
 	void Recreate(const Extent2D& requiredExtentInPixels);
 
 	VkSwapchainKHR GetVkSwapchainKHR() const
