@@ -14,6 +14,7 @@ namespace ES
     struct KeyInput;
     struct MouseMoved;
     struct MouseWheelScrolled;
+    struct BeforeCursorModeUpdated;
 }
 
 class CameraComponent;
@@ -23,7 +24,7 @@ class EventSystem;
 class CameraSystem : public System
 {
 public:
-    CameraSystem(Extent2D windowExtent, EventSystem& aEventSystem);
+    CameraSystem(Extent2D windowExtent, CursorMode cursorMode, EventSystem& aEventSystem);
     ~CameraSystem() override;
 
     CameraSystem(const CameraSystem&) = delete;
@@ -44,6 +45,7 @@ private:
     void OnKeyInput(const ES::KeyInput& event);
     void OnMouseMoved(const ES::MouseMoved& event);
     void OnMouseWheelScrolled(const ES::MouseWheelScrolled& event);
+    void OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event);
 
     EventSystem& eventSystem;
 
@@ -57,4 +59,6 @@ private:
 
     std::optional<glm::vec2> lastMousePosition = {};
     glm::vec2 mouseDelta = {};
+
+    CursorMode cursorMode = CursorMode::eDisabled;
 };

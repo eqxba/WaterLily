@@ -89,6 +89,8 @@ void Window::SetCursorMode(const CursorMode aCursorMode, const bool force /* = f
 		return;
 	}
 
+	eventSystem.Fire<ES::BeforeCursorModeUpdated>({ aCursorMode });
+
 	cursorMode = aCursorMode;
 
 	if (cursorMode == CursorMode::eDisabled)
@@ -100,6 +102,8 @@ void Window::SetCursorMode(const CursorMode aCursorMode, const bool force /* = f
 	{
 		glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		glfwSetInputMode(glfwWindow, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+
+		CenterCursor();
 	}
 }
 
@@ -174,6 +178,11 @@ void Window::RegisterCallbacks()
 	glfwSetKeyCallback(glfwWindow, KeyCallback);
 	glfwSetCursorPosCallback(glfwWindow, MouseCallback);
 	glfwSetScrollCallback(glfwWindow, ScrollCallback);
+}
+
+void Window::CenterCursor()
+{
+	glfwSetCursorPos(glfwWindow, extent.width / 2.0, extent.height / 2.0);
 }
 
 void Window::OnResize(const ES::WindowResized& event)

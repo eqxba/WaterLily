@@ -17,12 +17,6 @@ enum class WindowMode
 	eFullscreen,
 };
 
-enum class CursorMode
-{
-	eDisabled,
-	eEnabled,
-};
-
 struct WindowDescription
 {
 	Extent2D extent{ 960, 540 };
@@ -81,6 +75,8 @@ private:
 	void Cleanup();
 
 	void RegisterCallbacks();
+
+	void CenterCursor();
 
 	void OnResize(const ES::WindowResized& event);
 

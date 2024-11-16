@@ -76,7 +76,8 @@ void Engine::CreateSystems()
     renderSystem = renderSystemPtr.get();
 
     systems.emplace_back(std::move(renderSystemPtr));
-    systems.emplace_back(std::make_unique<CameraSystem>(window->GetExtentInPixels(), *eventSystem));
+    systems.emplace_back(std::make_unique<CameraSystem>(window->GetExtentInPixels(), window->GetCursorMode(), 
+        *eventSystem));
 }
 
 void Engine::OnResize(const ES::WindowResized& event)

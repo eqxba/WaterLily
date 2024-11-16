@@ -31,9 +31,10 @@ namespace CameraSystemDetails
     }
 }
 
-CameraSystem::CameraSystem(const Extent2D windowExtent, EventSystem& aEventSystem)
+CameraSystem::CameraSystem(const Extent2D windowExtent, CursorMode aCursorMode, EventSystem& aEventSystem)
     : eventSystem{ aEventSystem }
     , mainCameraAspectRatio{ static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height) }
+    , cursorMode{ aCursorMode }
 {
     eventSystem.Subscribe<ES::SceneOpened>(this, &CameraSystem::OnSceneOpen);
     eventSystem.Subscribe<ES::WindowResized>(this, &CameraSystem::OnResize);
@@ -41,6 +42,7 @@ CameraSystem::CameraSystem(const Extent2D windowExtent, EventSystem& aEventSyste
     eventSystem.Subscribe<ES::KeyInput>(this, &CameraSystem::OnKeyInput);
     eventSystem.Subscribe<ES::MouseMoved>(this, &CameraSystem::OnMouseMoved);
     eventSystem.Subscribe<ES::MouseWheelScrolled>(this, &CameraSystem::OnMouseWheelScrolled);
+    eventSystem.Subscribe<ES::BeforeCursorModeUpdated>(this, &CameraSystem::OnBeforeCursorModeUpdated);
 }
 
 CameraSystem::~CameraSystem()
@@ -52,6 +54,7 @@ CameraSystem::~CameraSystem()
     eventSystem.Unsubscribe<ES::KeyInput>(this);
     eventSystem.Unsubscribe<ES::MouseMoved>(this);
     eventSystem.Unsubscribe<ES::MouseWheelScrolled>(this);
+    eventSystem.Unsubscribe<ES::BeforeCursorModeUpdated>(this);
 }
 
 void CameraSystem::Process(const float deltaSeconds)
@@ -164,6 +167,11 @@ void CameraSystem::OnKeyInput(const ES::KeyInput& event)
 
 void CameraSystem::OnMouseMoved(const ES::MouseMoved& event)
 {
+    if (cursorMode == CursorMode::eEnabled)
+    {
+        return;
+    }
+
     if (lastMousePosition)
     {
         mouseDelta = event.newPosition - lastMousePosition.value();
@@ -185,4 +193,11 @@ void CameraSystem::OnMouseWheelScrolled(const ES::MouseWheelScrolled& event)
 
         mainCamera->SetVerticalFov(newFov);
     }
+}
+
+void CameraSystem::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event)
+{
+    lastMousePosition.reset();
+
+    cursorMode = event.newCursorMode;
 }

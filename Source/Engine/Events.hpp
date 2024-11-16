@@ -38,4 +38,9 @@ namespace ES // Event system
 	{
 		glm::vec2 offset{};
 	};
+
+	struct BeforeCursorModeUpdated
+	{
+		CursorMode newCursorMode{};
+	};
 }
