@@ -27,7 +27,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
     External/VulkanMemoryAllocator/include
     External/glm/
     External/volk/
-    External/stb
+    External/tinygltf
     External/tinyobjloader
     Source/
 )
