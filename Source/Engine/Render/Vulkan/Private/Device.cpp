@@ -1,7 +1,6 @@
 #include "Engine/Render/Vulkan/Device.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
 namespace DeviceDetails

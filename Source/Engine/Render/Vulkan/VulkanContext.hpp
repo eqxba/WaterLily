@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
 #include "Engine/Render/Vulkan/Instance.hpp"
 #include "Engine/Render/Vulkan/Surface.hpp"

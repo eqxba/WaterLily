@@ -3,7 +3,6 @@
 #include "Engine/Engine.hpp"
 #include "Engine/EventSystem.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
 #include "Engine/Render/Vulkan/Resources/ImageView.hpp"

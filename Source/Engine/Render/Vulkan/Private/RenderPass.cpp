@@ -1,7 +1,6 @@
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanConfig.hpp"
 
 RenderPass::RenderPass(const VulkanContext& aVulkanContext)
 	: vulkanContext{aVulkanContext}

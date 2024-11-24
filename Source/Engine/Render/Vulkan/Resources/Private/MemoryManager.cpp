@@ -11,7 +11,7 @@ MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)
     vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
 
     VmaAllocatorCreateInfo allocatorInfo{};
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+    allocatorInfo.vulkanApiVersion = VulkanConfig::apiVersion;
     allocatorInfo.physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
     allocatorInfo.device = vulkanContext.GetDevice().GetVkDevice();
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;

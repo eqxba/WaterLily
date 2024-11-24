@@ -4,6 +4,8 @@
 
 namespace VulkanConfig
 {
+	constexpr uint32_t apiVersion = VK_API_VERSION_1_3;
+
 #ifdef NDEBUG
 	constexpr bool useValidation = false;
 #else
