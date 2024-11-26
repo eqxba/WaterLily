@@ -34,16 +34,18 @@ Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const V
     : vulkanContext{ aVulkanContext }
     , description { std::move(aDescription) }
 {
-    buffer = BufferDetails::CreateBuffer(description, *vulkanContext);
-
     if (createStagingBuffer)
     {
-        BufferDescription stagingBufferDescription = { .size = description.size, 
+        description.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        BufferDescription stagingBufferDescription = { .size = description.size,
             .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
         stagingBuffer = std::make_unique<Buffer>(stagingBufferDescription, false, vulkanContext);
-    }   
+    }
+
+    buffer = BufferDetails::CreateBuffer(description, *vulkanContext);
 }
 
 Buffer::~Buffer()

@@ -72,6 +72,17 @@ namespace GraphicsPipelineDetails
 		return { descriptorSetLayout };
 	}
 
+	// TODO: parse from SPIR-V reflection
+	static std::vector<VkPushConstantRange> GetPushConstantRanges()
+	{
+		VkPushConstantRange pushConstantRange{};
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(glm::mat4);
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		return { pushConstantRange };
+	}
+
 	static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
 		  const VkVertexInputBindingDescription& bindingDescription
 		, const std::vector<VkVertexInputAttributeDescription>& attributeDescriptions)
@@ -200,14 +211,15 @@ namespace GraphicsPipelineDetails
 	}
 
 	static VkPipelineLayout CreatePipelineLayout(VkDevice device, 
-		const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
+		const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, 
+		const std::vector<VkPushConstantRange>& pushConstantRanges)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
 		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 0; 
-		pipelineLayoutInfo.pPushConstantRanges = nullptr; 
+		pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size());
+		pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
 
 		VkPipelineLayout pipelineLayout;
 
@@ -229,6 +241,8 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
 
 	descriptorSetLayouts = CreateDescriptorSetLayouts(device);
+
+	const std::vector<VkPushConstantRange> pushConstantRanges = GetPushConstantRanges();
 
 	VkVertexInputBindingDescription bindingDescription = Vertex::GetBindingDescription();
     const std::vector<VkVertexInputAttributeDescription> attributeDescriptions = Vertex::GetAttributeDescriptions();
@@ -253,7 +267,7 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = GetPipelineColorBlendAttachmentState();
 	VkPipelineColorBlendStateCreateInfo colorBlending = GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
-	pipelineLayout = CreatePipelineLayout(device, descriptorSetLayouts);
+	pipelineLayout = CreatePipelineLayout(device, descriptorSetLayouts, pushConstantRanges);
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

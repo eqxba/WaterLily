@@ -1,27 +1,15 @@
 #pragma once
 
+#include "Engine/Scene/SceneDataStructures.hpp"
+#include "Engine/Components/CameraComponent.hpp"
 #include "Engine/Render/Vulkan/Resources/Buffer.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
 #include "Engine/Render/Vulkan/Resources/ImageView.hpp"
-#include "Engine/Components/CameraComponent.hpp"
 
-#include <glm/glm.hpp>
 #include <volk.h>
 
 class VulkanContext;
 class Image;
-
-struct Vertex
-{
-    static VkVertexInputBindingDescription GetBindingDescription();
-    static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
-
-    bool operator==(const Vertex& other) const;
-
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-};
 
 class Scene
 {
@@ -34,6 +22,11 @@ public:
 
     Scene(Scene&&) = delete;
     Scene& operator=(Scene&&) = delete;    
+
+    const SceneNode& GetRoot() const
+    {
+        return *root;
+    }
 
     const Buffer& GetVertexBuffer() const
     {
@@ -76,10 +69,14 @@ public:
     }
 
 private:
+    void InitFromGltfScene();
+
     void InitBuffers();
     void InitTextureResources();
 
     const VulkanContext& vulkanContext;
+
+    std::unique_ptr<SceneNode> root;
 
     Buffer vertexBuffer;
     Buffer indexBuffer;

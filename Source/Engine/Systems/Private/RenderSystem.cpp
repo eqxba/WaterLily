@@ -109,6 +109,40 @@ namespace RenderSystemDetails
 		return syncs;
 	}
 
+	static void DrawSceneNode(const SceneNode& node, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
+	{
+		if (!node.visible)
+		{
+			return;
+		}
+
+		if (!node.mesh.primitives.empty()) 
+		{
+			glm::mat4 nodeTransform = node.transform;
+
+			SceneNode* currentParent = node.parent;
+
+			while (currentParent) 
+			{
+				nodeTransform = currentParent->transform * nodeTransform;
+				currentParent = currentParent->parent;
+			}
+
+			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeTransform);
+
+			std::ranges::for_each(node.mesh.primitives, [&](const auto& primitive) {
+				if (primitive.indexCount > 0)
+				{
+					vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+				}
+			});
+		}
+
+		std::ranges::for_each(node.children, [&](const auto& childNode) {
+			DrawSceneNode(*childNode, commandBuffer, pipelineLayout);
+		});
+	}
+
 	static void EnqueueRenderCommands(const VulkanContext& vulkanContext, VkCommandBuffer commandBuffer, 
 		VkFramebuffer framebuffer, const RenderPass& renderPass, const GraphicsPipeline& graphicsPipeline, 
 		const Scene& scene, const std::span<const VkDescriptorSet> descriptorSets)
@@ -146,7 +180,8 @@ namespace RenderSystemDetails
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 
 			0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(scene.GetIndices().size()), 1, 0, 0, 0);
+		DrawSceneNode(scene.GetRoot(), commandBuffer, graphicsPipeline.GetPipelineLayout());
+
 		vkCmdEndRenderPass(commandBuffer);
 	}
 
@@ -163,11 +198,10 @@ namespace RenderSystemDetails
 	{
 		const auto createBuffer = [&]() {
 			BufferDescription bufferDescription{ static_cast<VkDeviceSize>(sizeof(gpu::UniformBufferObject)),
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
 			auto result = Buffer(bufferDescription, true, &vulkanContext);
-			result.GetStagingBuffer()->MapMemory(true);
+			std::ignore = result.GetStagingBuffer()->MapMemory(true);
 
 			return result;
 		};
@@ -332,14 +366,7 @@ void RenderSystem::Process(float deltaSeconds)
 
 	ubo.view = camera.GetViewMatrix();
 	ubo.projection = camera.GetProjectionMatrix();
-
-	// Let this code be here for now
-	constexpr float rotationRate = 00.0f;
-	static float totalAngle = 0.0f;
-
-	totalAngle = std::fmod(totalAngle + deltaSeconds * rotationRate, 360.0f);
-
-	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(totalAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.viewPos = camera.GetPosition();
 }
 
 void RenderSystem::Render()
@@ -374,7 +401,7 @@ void RenderSystem::Render()
 			std::span{ &descriptorSets[currentFrame], 1 });
 	};
 
-	VulkanHelpers::SubmitCommandBuffer(commandBuffer, queues.graphics, renderCommands, syncs[currentFrame]);
+	SubmitCommandBuffer(commandBuffer, queues.graphics, renderCommands, syncs[currentFrame]);
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

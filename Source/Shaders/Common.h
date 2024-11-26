@@ -12,10 +12,11 @@ namespace gpu
     using namespace glm;
 #endif
 
-struct UniformBufferObject {
-    mat4 model;
+struct UniformBufferObject 
+{
     mat4 view;
     mat4 projection;
+    vec3 viewPos;
 };
 
 #ifdef __cplusplus

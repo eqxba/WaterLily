@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Systems/System.hpp"
+#include "Utils/Constants.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
 #include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
@@ -68,7 +69,8 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<CommandBufferSync> syncs;
 
-	gpu::UniformBufferObject ubo = { .model = glm::mat4(1.0f), .view = glm::mat4(), .projection = glm::mat4() };
+	// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
 
 	std::vector<Buffer> uniformBuffers;
 

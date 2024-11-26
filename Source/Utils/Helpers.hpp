@@ -1,21 +1,23 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <chrono>
 
-namespace Vector2
+class ScopeTimer
 {
-    constexpr auto zero = glm::vec2(0.0f, 0.0f);
-    constexpr auto unitX = glm::vec2(1.0f, 0.0f);
-    constexpr auto unitY = glm::vec2(0.0f, 1.0f);
-}
+public:
+    explicit ScopeTimer(std::string name = "ScopeTimer");
+    ~ScopeTimer();
 
-namespace Vector3
-{
-    constexpr auto zero = glm::vec3(0.0f, 0.0f, 0.0f);
-    constexpr auto unitX = glm::vec3(1.0f, 0.0f, 0.0f);
-    constexpr auto unitY = glm::vec3(0.0f, 1.0f, 0.0f);
-    constexpr auto unitZ = glm::vec3(0.0f, 0.0f, 1.0f);
-}
+    ScopeTimer(const ScopeTimer&) = delete;
+    ScopeTimer& operator=(const ScopeTimer&) = delete;
+
+    ScopeTimer(ScopeTimer&&) = delete;
+    ScopeTimer& operator=(ScopeTimer&&) = delete;
+
+private:
+    std::string name;
+    std::chrono::high_resolution_clock::time_point startTime;
+};
 
 namespace Helpers
 {

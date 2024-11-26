@@ -1,7 +1,7 @@
 #pragma once
 
 #include "macros.hpp"
-#include "Utils/Helpers.hpp"
+#include "Utils/Constants.hpp"
 
 DISABLE_WARNINGS_BEGIN
 #define GLM_ENABLE_EXPERIMENTAL
