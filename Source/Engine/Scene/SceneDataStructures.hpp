@@ -5,6 +5,7 @@
 #include <volk.h>
 
 DISABLE_WARNINGS_BEGIN
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 DISABLE_WARNINGS_END
