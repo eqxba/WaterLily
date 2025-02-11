@@ -131,11 +131,11 @@ namespace SceneHelpersDetails
 
 		for (size_t index = 0; index < vertexCount; ++index)
 		{
-			vertices.emplace_back(
+            vertices.push_back({
 				glm::vec4(glm::make_vec3(&positions[index * 3]), 1.0f),
 				normals.empty() ? Vector3::zero : glm::make_vec3(&normals[index * 3]),
 				uvs.empty() ? Vector2::zero : glm::make_vec2(&uvs[index * 2]),
-				tangents.empty() ? Vector4::zero : glm::make_vec4(&tangents[index * 4]));
+                tangents.empty() ? Vector4::zero : glm::make_vec4(&tangents[index * 4])});
 		}
     }
 
