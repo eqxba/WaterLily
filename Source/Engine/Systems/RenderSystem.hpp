@@ -74,6 +74,9 @@ private:
 
 	std::vector<Buffer> uniformBuffers;
 
+	std::unique_ptr<Buffer> indirectBuffer;
+	uint32_t indirectDrawCount = 0;
+
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
 	

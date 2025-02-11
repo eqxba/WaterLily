@@ -29,6 +29,11 @@ public:
     Buffer(Buffer&& other) noexcept;
     Buffer& operator=(Buffer&& other) noexcept;
 
+    const BufferDescription& GetDescription() const
+    {
+        return description;
+    }
+
     template <typename T>
     void Fill(const std::span<const T> data);
 

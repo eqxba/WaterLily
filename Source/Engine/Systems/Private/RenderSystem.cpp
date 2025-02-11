@@ -109,43 +109,10 @@ namespace RenderSystemDetails
 		return syncs;
 	}
 
-	static void DrawSceneNode(const SceneNode& node, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
-	{
-		if (!node.visible)
-		{
-			return;
-		}
-
-		if (!node.mesh.primitives.empty()) 
-		{
-			glm::mat4 nodeTransform = node.transform;
-
-			SceneNode* currentParent = node.parent;
-
-			while (currentParent) 
-			{
-				nodeTransform = currentParent->transform * nodeTransform;
-				currentParent = currentParent->parent;
-			}
-
-			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeTransform);
-
-			std::ranges::for_each(node.mesh.primitives, [&](const auto& primitive) {
-				if (primitive.indexCount > 0)
-				{
-					vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
-				}
-			});
-		}
-
-		std::ranges::for_each(node.children, [&](const auto& childNode) {
-			DrawSceneNode(*childNode, commandBuffer, pipelineLayout);
-		});
-	}
-
 	static void EnqueueRenderCommands(const VulkanContext& vulkanContext, VkCommandBuffer commandBuffer, 
 		VkFramebuffer framebuffer, const RenderPass& renderPass, const GraphicsPipeline& graphicsPipeline, 
-		const Scene& scene, const std::span<const VkDescriptorSet> descriptorSets)
+		const Scene& scene, const std::span<const VkDescriptorSet> descriptorSets, const Buffer& indirectBuffer,
+		const uint32_t indirectDrawCount)
 	{
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -180,7 +147,8 @@ namespace RenderSystemDetails
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(), 
 			0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
-		DrawSceneNode(scene.GetRoot(), commandBuffer, graphicsPipeline.GetPipelineLayout());
+		vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer.GetVkBuffer(), 0, indirectDrawCount, 
+			sizeof(VkDrawIndexedIndirectCommand));
 
 		vkCmdEndRenderPass(commandBuffer);
 	}
@@ -257,38 +225,35 @@ namespace RenderSystemDetails
 		return descriptorSets;
 	}
 
-	static void PopulateDescriptorSets(const std::vector<VkDescriptorSet>& sets, const std::vector<Buffer>& buffers,
-		const ImageView& imageView, VkSampler sampler, VkDevice device)
+	static VkWriteDescriptorSet CreateBufferWrite(const VkDescriptorSet descriptorSet, 
+		const VkDescriptorBufferInfo& bufferInfo, uint32_t binding, const VkDescriptorType descriptorType)
 	{
-		Assert(sets.size() == buffers.size());
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = descriptorSet;
+		descriptorWrite.dstBinding = binding;
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = descriptorType;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pBufferInfo = &bufferInfo;
+
+		return descriptorWrite;
+	}
+
+	static void PopulateDescriptorSets(const std::vector<VkDescriptorSet>& sets, 
+		const std::vector<Buffer>& uniformBuffers, const Buffer& transformsSSBO, const ImageView& imageView, 
+		VkSampler sampler, VkDevice device)
+	{
+		Assert(sets.size() == uniformBuffers.size());
+
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+		// Samplers
 
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo.imageView = imageView.GetVkImageView();
 		imageInfo.sampler = sampler;
-
-		std::vector<VkDescriptorBufferInfo> bufferInfos;
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-
-		bufferInfos.reserve(sets.size());
-		descriptorWrites.reserve(sets.size() * 2);
-
-		std::ranges::transform(buffers, std::back_inserter(bufferInfos), [](const Buffer& buffer) {
-			return VkDescriptorBufferInfo{ buffer.GetVkBuffer(), 0, sizeof(gpu::UniformBufferObject) };
-		});
-
-		const auto createBufferWrite = [](const VkDescriptorSet& descriptorSet, const VkDescriptorBufferInfo& bufferInfo) {
-			VkWriteDescriptorSet descriptorWrite{};
-			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrite.dstSet = descriptorSet;
-			descriptorWrite.dstBinding = 0;
-			descriptorWrite.dstArrayElement = 0;
-			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrite.descriptorCount = 1;
-			descriptorWrite.pBufferInfo = &bufferInfo;
-
-			return descriptorWrite;
-		};
 
 		const auto createSamplerWrite = [&imageInfo](const VkDescriptorSet& descriptorSet) {
 			VkWriteDescriptorSet descriptorWrite{};
@@ -303,11 +268,74 @@ namespace RenderSystemDetails
 			return descriptorWrite;
 		};
 
-		// TODO: 1 cycle instead of 2?
-		std::ranges::transform(sets, bufferInfos, std::back_inserter(descriptorWrites), createBufferWrite);
 		std::ranges::transform(sets, std::back_inserter(descriptorWrites), createSamplerWrite);
 
+		// Uniform buffers
+
+		std::vector<VkDescriptorBufferInfo> uniformBufferInfos;
+		uniformBufferInfos.reserve(sets.size());
+
+		std::ranges::transform(uniformBuffers, std::back_inserter(uniformBufferInfos), [](const Buffer& buffer) {
+			return VkDescriptorBufferInfo{ buffer.GetVkBuffer(), 0, buffer.GetDescription().size };
+		});
+
+		const auto createUniformBufferWrite = [&](const VkDescriptorSet& descriptorSet,	const VkDescriptorBufferInfo& bufferInfo) {
+			return CreateBufferWrite(descriptorSet, bufferInfo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		};
+
+		std::ranges::transform(sets, uniformBufferInfos, std::back_inserter(descriptorWrites), createUniformBufferWrite);
+
+		// Transforms SSBO
+
+		VkDescriptorBufferInfo transformsSSBOBufferInfo;
+		transformsSSBOBufferInfo.buffer = transformsSSBO.GetVkBuffer();
+		transformsSSBOBufferInfo.offset = 0;
+		transformsSSBOBufferInfo.range = transformsSSBO.GetDescription().size;
+
+		const auto createSSBOWrite = [&transformsSSBOBufferInfo](const VkDescriptorSet& descriptorSet) {
+			return CreateBufferWrite(descriptorSet, transformsSSBOBufferInfo, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		};
+
+		std::ranges::transform(sets, std::back_inserter(descriptorWrites), createSSBOWrite);
+
+		// Do the update
+
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+	}
+
+	static std::tuple<std::unique_ptr<Buffer>, uint32_t> CreateIndirectBuffer(const Scene& scene, 
+		const VulkanContext& vulkanContext)
+	{
+		std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+
+		const auto createDrawCommand = [&](const Primitive& primitive) {
+			VkDrawIndexedIndirectCommand indirectCommand{};
+			indirectCommand.instanceCount = 1;
+			indirectCommand.firstIndex = primitive.firstIndex;
+			indirectCommand.indexCount = primitive.indexCount;
+			indirectCommand.firstInstance = primitive.nodeId; // Using this to access transforms SSBO in shaders
+
+			return indirectCommand;
+		};
+
+		std::ranges::for_each(scene.GetNodes(), [&](const SceneNode* node) {
+
+			if (!node->visible)
+			{
+				return;
+			}
+
+			std::ranges::transform(node->mesh.primitives, std::back_inserter(indirectCommands), createDrawCommand);
+		});
+
+		std::span indirectCommandsSpan(std::as_const(indirectCommands));
+
+		BufferDescription indirectBufferDescription{ .size = static_cast<VkDeviceSize>(indirectCommandsSpan.size_bytes()),
+		    .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		    .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+		return { std::make_unique<Buffer>(indirectBufferDescription, true, indirectCommandsSpan, &vulkanContext),
+		    static_cast<uint32_t>(indirectCommands.size()) };
 	}
 }
 
@@ -398,7 +426,7 @@ void RenderSystem::Render()
 
 	const auto renderCommands = [&](VkCommandBuffer buffer) {
 		EnqueueRenderCommands(vulkanContext, buffer, framebuffers[imageIndex], *renderPass, *graphicsPipeline, *scene,
-			std::span{ &descriptorSets[currentFrame], 1 });
+			std::span{ &descriptorSets[currentFrame], 1 }, *indirectBuffer, indirectDrawCount);
 	};
 
 	SubmitCommandBuffer(commandBuffer, queues.graphics, renderCommands, syncs[currentFrame]);
@@ -450,7 +478,9 @@ void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 	scene = &event.scene;
 
 	const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-	PopulateDescriptorSets(descriptorSets, uniformBuffers, scene->GetImageView(), scene->GetSampler(), device);
+	PopulateDescriptorSets(descriptorSets, uniformBuffers, scene->GetTransformsBuffer(), scene->GetImageView(), scene->GetSampler(), device);
+
+	std::tie(indirectBuffer, indirectDrawCount) = CreateIndirectBuffer(*scene, vulkanContext);
 }
 
 void RenderSystem::CreateAttachmentsAndFramebuffers()

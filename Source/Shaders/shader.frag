@@ -14,7 +14,7 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
     //vec4 color = texture(texSampler, inUv);
-    vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
+    vec4 color = vec4(inColor, 1.0);
     
     vec3 N = normalize(inNormal);
 

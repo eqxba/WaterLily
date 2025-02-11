@@ -94,7 +94,7 @@ void Engine::OnKeyInput(const ES::KeyInput& event)
             : WindowMode::eWindowed);
     }
 
-    if (event.key == Key::eT && event.action == KeyAction::ePress)
+    if (event.key == Key::eEscape && event.action == KeyAction::ePress)
     {
         window->SetCursorMode(window->GetCursorMode() == CursorMode::eDisabled
             ? CursorMode::eEnabled

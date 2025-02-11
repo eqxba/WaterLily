@@ -27,6 +27,7 @@ struct Primitive
 {
     uint32_t firstIndex = 0;
     uint32_t indexCount = 0;
+    uint32_t nodeId = 0; // Id of the parent node in the scene nodes array
 };
 
 struct Mesh
@@ -44,6 +45,11 @@ struct SceneNode
 
 	bool visible = true;
 	std::string name;
+};
+
+struct PushConstants
+{
+    uint32_t tbd;
 };
 
 namespace std

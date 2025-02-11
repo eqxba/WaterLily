@@ -28,6 +28,11 @@ public:
         return *root;
     }
 
+    const std::vector<SceneNode*>& GetNodes() const
+    {
+        return nodes;
+    }
+
     const Buffer& GetVertexBuffer() const
     {
         return vertexBuffer;
@@ -36,6 +41,11 @@ public:
     const Buffer& GetIndexBuffer() const
     {
         return indexBuffer;
+    }
+
+    const Buffer& GetTransformsBuffer() const
+    {
+        return transformsBuffer;
     }
 
     const std::vector<Vertex>& GetVertices() const
@@ -77,9 +87,12 @@ private:
     const VulkanContext& vulkanContext;
 
     std::unique_ptr<SceneNode> root;
+    std::vector<SceneNode*> nodes;
 
     Buffer vertexBuffer;
     Buffer indexBuffer;
+
+    Buffer transformsBuffer;
 
     Image image;
     ImageView imageView;

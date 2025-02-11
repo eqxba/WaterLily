@@ -149,6 +149,26 @@ namespace SceneHelpersDetails
 
 		return static_cast<uint32_t>(accessor.count);
     }
+
+	static void CollectNodes(SceneNode& node, std::vector<SceneNode*>& nodes)
+    {
+		nodes.push_back(&node);
+
+		std::ranges::for_each(node.children, [&](const auto& childNode) {
+			CollectNodes(*childNode, nodes);
+		});
+	}
+
+	static void BakeTransforms(const SceneNode& node, const glm::mat4 &parentTransform,
+		std::vector<glm::mat4>& transforms)
+    {
+		const glm::mat4 nodeTransform = parentTransform * node.transform;
+		transforms.push_back(parentTransform * node.transform);
+
+		std::ranges::for_each(node.children, [&](const auto& childNode) {
+			BakeTransforms(*childNode, nodeTransform, transforms);
+		});
+	}
 }
 
 std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjModel(const std::string& absolutePath,
@@ -268,4 +288,32 @@ std::unique_ptr<SceneNode> SceneHelpers::LoadGltfHierarchy(const tinygltf::Node&
 	}
 
 	return node;
+}
+
+std::vector<SceneNode*> SceneHelpers::GetFlattenNodes(SceneNode& node)
+{
+	std::vector<SceneNode*> flatNodes;
+
+	SceneHelpersDetails::CollectNodes(node, flatNodes);
+
+	return flatNodes;
+}
+
+std::vector<glm::mat4> SceneHelpers::GetBakedTransforms(const SceneNode& node)
+{
+	std::vector<glm::mat4> transforms;
+
+    SceneHelpersDetails::BakeTransforms(node, glm::mat4(1.0f), transforms);
+
+	return transforms;
+}
+
+void SceneHelpers::AssignNodeIdsToPrimitives(const std::vector<SceneNode*>& nodes)
+{
+	for (uint32_t i = 0; i < nodes.size(); ++i)
+	{
+		std::ranges::for_each(nodes[i]->mesh.primitives, [&](Primitive& primitive) {
+			primitive.nodeId = i;
+		});
+	}
 }

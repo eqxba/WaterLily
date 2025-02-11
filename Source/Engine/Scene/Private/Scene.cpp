@@ -50,6 +50,10 @@ void Scene::InitFromGltfScene()
         {
             root->children.emplace_back(LoadGltfHierarchy(gltfModel->nodes[i], *gltfModel, indices, vertices));
         }
+
+        nodes = GetFlattenNodes(*root);
+
+        AssignNodeIdsToPrimitives(nodes);
     }
 }
 
@@ -69,6 +73,15 @@ void Scene::InitBuffers()
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, &vulkanContext);
+
+    const std::vector<glm::mat4> transforms = SceneHelpers::GetBakedTransforms(*root);
+    std::span transformsSpan(std::as_const(transforms));
+
+    BufferDescription transformsBufferDescription{ .size = static_cast<VkDeviceSize>(transformsSpan.size_bytes()),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    transformsBuffer = Buffer(transformsBufferDescription, true, transformsSpan, &vulkanContext);
 }
 
 void Scene::InitTextureResources()
