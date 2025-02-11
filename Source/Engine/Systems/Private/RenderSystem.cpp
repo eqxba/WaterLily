@@ -184,7 +184,7 @@ namespace RenderSystemDetails
 	{
 		VkDescriptorPool descriptorPool;
 
-		std::array<VkDescriptorPoolSize, 2> poolSizes{};
+		std::array<VkDescriptorPoolSize, 3> poolSizes{};
 
 		VkDescriptorPoolSize& uniformBufferPoolSize = poolSizes[0];
 		uniformBufferPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -194,6 +194,10 @@ namespace RenderSystemDetails
 		samplersPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		samplersPoolSize.descriptorCount = descriptorCount;
 
+        VkDescriptorPoolSize& SSBOPoolSize = poolSizes[2];
+        SSBOPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        SSBOPoolSize.descriptorCount = descriptorCount;
+        
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
