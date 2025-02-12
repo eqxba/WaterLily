@@ -4,64 +4,64 @@
 
 namespace ShaderModuleDetails
 {
-	static VkShaderStageFlagBits GetVkShaderStageFlagBits(const ShaderType shaderType)
-	{
-		VkShaderStageFlagBits result{};
-		
-		switch (shaderType)
-		{
-			case ShaderType::eVertex:
-				result = VK_SHADER_STAGE_VERTEX_BIT;
-				break;
-			case ShaderType::eFragment:
-				result = VK_SHADER_STAGE_FRAGMENT_BIT;
-				break;
-		}
+    static VkShaderStageFlagBits GetVkShaderStageFlagBits(const ShaderType shaderType)
+    {
+        VkShaderStageFlagBits result{};
+        
+        switch (shaderType)
+        {
+            case ShaderType::eVertex:
+                result = VK_SHADER_STAGE_VERTEX_BIT;
+                break;
+            case ShaderType::eFragment:
+                result = VK_SHADER_STAGE_FRAGMENT_BIT;
+                break;
+        }
 
-		return result;
-	}
+        return result;
+    }
 }
 
 ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType aShaderType, 
-	const VulkanContext& aVulkanContext)
+    const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
-	, shaderModule{ aShaderModule }
-	, shaderType{ aShaderType }
+    , shaderModule{ aShaderModule }
+    , shaderType{ aShaderType }
 {}
 
 ShaderModule::~ShaderModule()
 {
-	if (shaderModule != VK_NULL_HANDLE)
-	{ 
-		vkDestroyShaderModule(vulkanContext.GetDevice().GetVkDevice(), shaderModule, nullptr);
-	}	
+    if (shaderModule != VK_NULL_HANDLE)
+    { 
+        vkDestroyShaderModule(vulkanContext.GetDevice().GetVkDevice(), shaderModule, nullptr);
+    }    
 }
 
 ShaderModule::ShaderModule(ShaderModule&& other) noexcept
     : vulkanContext{ other.vulkanContext }
-	, shaderModule{ other.shaderModule }
-	, shaderType{ other.shaderType }
+    , shaderModule{ other.shaderModule }
+    , shaderType{ other.shaderType }
 {
-	other.shaderModule = VK_NULL_HANDLE;
+    other.shaderModule = VK_NULL_HANDLE;
 }
 
 ShaderModule& ShaderModule::operator=(ShaderModule&& other) noexcept
 {
-	if (this != &other)
-	{
-		shaderModule = other.shaderModule;
-		other.shaderModule = VK_NULL_HANDLE;
-	}	
-	return *this;
+    if (this != &other)
+    {
+        shaderModule = other.shaderModule;
+        other.shaderModule = VK_NULL_HANDLE;
+    }    
+    return *this;
 }
 
 VkPipelineShaderStageCreateInfo ShaderModule::GetVkPipelineShaderStageCreateInfo() const
 {
-	VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
-	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStageCreateInfo.stage = ShaderModuleDetails::GetVkShaderStageFlagBits(shaderType);
-	shaderStageCreateInfo.module = shaderModule;
-	shaderStageCreateInfo.pName = "main"; // Let's use "main" entry point by default
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
+    shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageCreateInfo.stage = ShaderModuleDetails::GetVkShaderStageFlagBits(shaderType);
+    shaderStageCreateInfo.module = shaderModule;
+    shaderStageCreateInfo.pName = "main"; // Let's use "main" entry point by default
 
-	return shaderStageCreateInfo;
+    return shaderStageCreateInfo;
 }

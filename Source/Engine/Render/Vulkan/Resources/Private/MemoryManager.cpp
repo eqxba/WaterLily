@@ -37,7 +37,7 @@ VkBuffer MemoryManager::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo,
     VmaAllocation allocation;
 
     const VkResult result = vmaCreateBuffer(allocator, &bufferCreateInfo, &allocInfo, &buffer, &allocation, nullptr);
-	Assert(result == VK_SUCCESS);
+    Assert(result == VK_SUCCESS);
 
     bufferAllocations.emplace(buffer, allocation);
 

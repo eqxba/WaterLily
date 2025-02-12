@@ -18,13 +18,13 @@ void main()
     
     vec3 N = normalize(inNormal);
 
-	vec3 L = normalize(inLightVec);
-	vec3 V = normalize(inViewVec);
-	vec3 R = reflect(-L, N);
+    vec3 L = normalize(inLightVec);
+    vec3 V = normalize(inViewVec);
+    vec3 R = reflect(-L, N);
 
     const float ambient = 0.1;
-	vec3 diffuse = max(dot(N, L), ambient).rrr;
-	float specular = pow(max(dot(R, V), 0.0), 32.0);
+    vec3 diffuse = max(dot(N, L), ambient).rrr;
+    float specular = pow(max(dot(R, V), 0.0), 32.0);
 
-	outColor = vec4(diffuse * color.rgb + specular, color.a);
+    outColor = vec4(diffuse * color.rgb + specular, color.a);
 }

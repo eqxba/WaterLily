@@ -6,14 +6,14 @@
 #include <GLFW/glfw3.h>
 
 Surface::Surface(const Window& window, const VulkanContext& aVulkanContext)
-	: vulkanContext{aVulkanContext}
+    : vulkanContext{aVulkanContext}
 {
-	const VkResult result = glfwCreateWindowSurface(vulkanContext.GetInstance().GetVkInstance(), 
-		window.GetGlfwWindow(), nullptr, &surface);
-	Assert(result == VK_SUCCESS);
+    const VkResult result = glfwCreateWindowSurface(vulkanContext.GetInstance().GetVkInstance(), 
+        window.GetGlfwWindow(), nullptr, &surface);
+    Assert(result == VK_SUCCESS);
 }
 
 Surface::~Surface()
 {
-	vkDestroySurfaceKHR(vulkanContext.GetInstance().GetVkInstance(), surface, nullptr);
+    vkDestroySurfaceKHR(vulkanContext.GetInstance().GetVkInstance(), surface, nullptr);
 }

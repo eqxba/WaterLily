@@ -61,10 +61,10 @@ void Engine::Run()
             system->Process(deltaSeconds);
         });
 
-    	if (!renderingSuspended)
-    	{
-			renderSystem->Render();
-    	}        
+        if (!renderingSuspended)
+        {
+            renderSystem->Render();
+        }        
     }
 
     vulkanContext->GetDevice().WaitIdle();

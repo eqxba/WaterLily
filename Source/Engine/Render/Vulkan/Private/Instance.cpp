@@ -75,12 +75,12 @@ namespace InstanceDetails
     {
         std::string message(pCallbackData->pMessage);
         message = message.substr(0, message.find("(http"));
-    	
-    	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-    	{
+        
+        if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        {
             LogE << message << std::endl;
             Assert(false);
-    	}
+        }
         else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
         {
             LogW << message << std::endl;
@@ -88,8 +88,8 @@ namespace InstanceDetails
 
         return VK_FALSE;
     }
-	
-	static VkDebugUtilsMessengerCreateInfoEXT GetDebugMessengerCreateInfo()
+    
+    static VkDebugUtilsMessengerCreateInfoEXT GetDebugMessengerCreateInfo()
     {
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -107,11 +107,11 @@ namespace InstanceDetails
         return createInfo;
     }
 
-	static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance instance)
+    static VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance instance)
     {
         VkDebugUtilsMessengerCreateInfoEXT createInfo = GetDebugMessengerCreateInfo();      
         VkDebugUtilsMessengerEXT debugMessenger;
-    	
+        
         const VkResult result = vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger);
         Assert(result == VK_SUCCESS);
 
@@ -122,8 +122,8 @@ namespace InstanceDetails
 Instance::Instance()
 {
     using namespace InstanceDetails;
-	
-	// It's okay due to value&zero initialization to skip pNext (it's gonna be nullptr)
+    
+    // It's okay due to value&zero initialization to skip pNext (it's gonna be nullptr)
     VkApplicationInfo applicationInfo{};
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     applicationInfo.pApplicationName = EngineConfig::engineName;
@@ -131,7 +131,7 @@ Instance::Instance()
     applicationInfo.pEngineName = EngineConfig::engineName;
     applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     applicationInfo.apiVersion = VK_API_VERSION_1_2;
-	
+    
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
@@ -143,18 +143,18 @@ Instance::Instance()
         requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     }
 
-	if constexpr (VulkanConfig::useValidation)
-	{
+    if constexpr (VulkanConfig::useValidation)
+    {
         requiredExtensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         requiredLayers.emplace_back("VK_LAYER_KHRONOS_validation");
-	}
-	
+    }
+    
     const bool extensionsSupported = ExtensionsSupported(requiredExtensions);
     Assert(extensionsSupported);
-	
+    
     const bool layersSupported = LayersSupported(requiredLayers);
     Assert(layersSupported);
-	
+    
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &applicationInfo;
@@ -170,11 +170,11 @@ Instance::Instance()
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if constexpr (VulkanConfig::useValidation)
-	{
+    {
         debugCreateInfo = GetDebugMessengerCreateInfo();
         createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
     }
-	
+    
     // A debug messenger can be enabled for this call as well but YAGNI
     VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
     Assert(result == VK_SUCCESS);
@@ -189,10 +189,10 @@ Instance::Instance()
 
 Instance::~Instance()
 {
-	if (debugMessenger != VK_NULL_HANDLE)
-	{
+    if (debugMessenger != VK_NULL_HANDLE)
+    {
         vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-	}
-	
+    }
+    
     vkDestroyInstance(instance, nullptr);
 }

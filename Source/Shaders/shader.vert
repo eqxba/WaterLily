@@ -36,8 +36,8 @@ vec3 hashColor(uint seed)
 void main() 
 {
     outUv = inUv;
-	outColor = hashColor(gl_InstanceIndex);
-	outTangent = inTangent;
+    outColor = hashColor(gl_InstanceIndex);
+    outTangent = inTangent;
 
     mat4 transform = transforms[gl_InstanceIndex];
     
@@ -45,10 +45,10 @@ void main()
 
     outNormal = mat3(transform) * inNormal;
 
-	gl_Position = pos;
-	
+    gl_Position = pos;
+    
     vec3 lightPos = vec3(0.0, 1000.0, 0.0);
 
-	outLightVec = lightPos - pos.xyz;
+    outLightVec = lightPos - pos.xyz;
     outViewVec = ubo.viewPos.xyz - pos.xyz;
 }

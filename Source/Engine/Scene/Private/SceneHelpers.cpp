@@ -22,153 +22,153 @@ namespace SceneHelpersDetails
 {
     static glm::mat4 GetTransform(const tinygltf::Node& node)
     {
-		glm::mat4 transform = Matrix4::identity;
+        glm::mat4 transform = Matrix4::identity;
 
-		if (node.matrix.size() == 16)
-		{
-			transform = glm::make_mat4x4(node.matrix.data());
-		}
-		else
-		{
-			if (node.translation.size() == 3)
-			{
-				transform = glm::translate(transform, glm::vec3(glm::make_vec3(node.translation.data())));
-			}
+        if (node.matrix.size() == 16)
+        {
+            transform = glm::make_mat4x4(node.matrix.data());
+        }
+        else
+        {
+            if (node.translation.size() == 3)
+            {
+                transform = glm::translate(transform, glm::vec3(glm::make_vec3(node.translation.data())));
+            }
 
-			if (node.rotation.size() == 4)
-			{
-				const glm::quat q = glm::make_quat(node.rotation.data());
-				transform *= glm::mat4(q);
-			}
+            if (node.rotation.size() == 4)
+            {
+                const glm::quat q = glm::make_quat(node.rotation.data());
+                transform *= glm::mat4(q);
+            }
 
-			if (node.scale.size() == 3)
-			{
-				transform = glm::scale(transform, glm::vec3(glm::make_vec3(node.scale.data())));
-			}
-		}
+            if (node.scale.size() == 3)
+            {
+                transform = glm::scale(transform, glm::vec3(glm::make_vec3(node.scale.data())));
+            }
+        }
 
-		return transform;
+        return transform;
     }
 
-	static const unsigned char* GetAttributeData(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
-	{
-		const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
-		const std::vector<unsigned char>& data = model.buffers[view.buffer].data;
-		const size_t offset = accessor.byteOffset + view.byteOffset;
-
-		const unsigned char* bufferPtr = &data[offset];
-
-		return bufferPtr;
-	}
-
-	static std::span<const float> GetAttributeData(const tinygltf::Model& model, const tinygltf::Primitive& primitive, 
-		const char* attributeName, const size_t floatsPerAttribute)
+    static const unsigned char* GetAttributeData(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
     {
-		std::span<const float> result;
+        const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+        const std::vector<unsigned char>& data = model.buffers[view.buffer].data;
+        const size_t offset = accessor.byteOffset + view.byteOffset;
 
-		if (const auto attribute = primitive.attributes.find(attributeName); attribute != primitive.attributes.end())
-		{
-			const tinygltf::Accessor& accessor = model.accessors[attribute->second];
-			const unsigned char* bufferPtr = GetAttributeData(model, accessor);
-			result = std::span(reinterpret_cast<const float*>(bufferPtr), accessor.count * floatsPerAttribute);
-		}
+        const unsigned char* bufferPtr = &data[offset];
 
-		return result;
+        return bufferPtr;
     }
 
-	static std::vector<uint32_t> GetIndices(const int componentType, const unsigned char* bufferPtr, 
-		const size_t count, const uint32_t customIndexOffset)
+    static std::span<const float> GetAttributeData(const tinygltf::Model& model, const tinygltf::Primitive& primitive, 
+        const char* attributeName, const size_t floatsPerAttribute)
     {
-		std::vector<uint32_t> result;
+        std::span<const float> result;
 
-		switch (componentType)
-		{
-		case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
-		{
-			const auto* buf32 = reinterpret_cast<const uint32_t*>(bufferPtr);
-			for (size_t index = 0; index < count; ++index)
-			{
-				result.push_back(buf32[index] + customIndexOffset);
-			}
-			break;
-		}
-		case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
-		{
-			const auto* buf16 = reinterpret_cast<const uint16_t*>(bufferPtr);
-			for (size_t index = 0; index < count; index++)
-			{
-				result.push_back(buf16[index] + customIndexOffset);
-			}
-			break;
-		}
-		case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
-		{
-			const auto* buf8 = reinterpret_cast<const uint8_t*>(bufferPtr);
-			for (size_t index = 0; index < count; index++) 
-			{
-				result.push_back(buf8[index] + customIndexOffset);
-			}
-			break;
-		}
-		default:
-			Assert(false);
-		}
+        if (const auto attribute = primitive.attributes.find(attributeName); attribute != primitive.attributes.end())
+        {
+            const tinygltf::Accessor& accessor = model.accessors[attribute->second];
+            const unsigned char* bufferPtr = GetAttributeData(model, accessor);
+            result = std::span(reinterpret_cast<const float*>(bufferPtr), accessor.count * floatsPerAttribute);
+        }
 
-		return result;
+        return result;
     }
 
-	static void ProcessPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primitive& primitive, 
-		std::vector<Vertex>& vertices)
+    static std::vector<uint32_t> GetIndices(const int componentType, const unsigned char* bufferPtr, 
+        const size_t count, const uint32_t customIndexOffset)
     {
-		std::span<const float> positions = GetAttributeData(model, primitive, "POSITION", 3);
-		std::span<const float> normals = GetAttributeData(model, primitive, "NORMAL", 3);
-		std::span<const float> uvs = GetAttributeData(model, primitive, "TEXCOORD_0", 2);
-		std::span<const float> tangents = GetAttributeData(model, primitive, "TANGENT", 4);
+        std::vector<uint32_t> result;
 
-		Assert(!positions.empty());
+        switch (componentType)
+        {
+        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
+        {
+            const auto* buf32 = reinterpret_cast<const uint32_t*>(bufferPtr);
+            for (size_t index = 0; index < count; ++index)
+            {
+                result.push_back(buf32[index] + customIndexOffset);
+            }
+            break;
+        }
+        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
+        {
+            const auto* buf16 = reinterpret_cast<const uint16_t*>(bufferPtr);
+            for (size_t index = 0; index < count; index++)
+            {
+                result.push_back(buf16[index] + customIndexOffset);
+            }
+            break;
+        }
+        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
+        {
+            const auto* buf8 = reinterpret_cast<const uint8_t*>(bufferPtr);
+            for (size_t index = 0; index < count; index++) 
+            {
+                result.push_back(buf8[index] + customIndexOffset);
+            }
+            break;
+        }
+        default:
+            Assert(false);
+        }
 
-		const size_t vertexCount = positions.size() / 3;
+        return result;
+    }
 
-		for (size_t index = 0; index < vertexCount; ++index)
-		{
+    static void ProcessPrimitiveVertices(const tinygltf::Model& model, const tinygltf::Primitive& primitive, 
+        std::vector<Vertex>& vertices)
+    {
+        std::span<const float> positions = GetAttributeData(model, primitive, "POSITION", 3);
+        std::span<const float> normals = GetAttributeData(model, primitive, "NORMAL", 3);
+        std::span<const float> uvs = GetAttributeData(model, primitive, "TEXCOORD_0", 2);
+        std::span<const float> tangents = GetAttributeData(model, primitive, "TANGENT", 4);
+
+        Assert(!positions.empty());
+
+        const size_t vertexCount = positions.size() / 3;
+
+        for (size_t index = 0; index < vertexCount; ++index)
+        {
             vertices.push_back({
-				glm::vec4(glm::make_vec3(&positions[index * 3]), 1.0f),
-				normals.empty() ? Vector3::zero : glm::make_vec3(&normals[index * 3]),
-				uvs.empty() ? Vector2::zero : glm::make_vec2(&uvs[index * 2]),
+                glm::vec4(glm::make_vec3(&positions[index * 3]), 1.0f),
+                normals.empty() ? Vector3::zero : glm::make_vec3(&normals[index * 3]),
+                uvs.empty() ? Vector2::zero : glm::make_vec2(&uvs[index * 2]),
                 tangents.empty() ? Vector4::zero : glm::make_vec4(&tangents[index * 4])});
-		}
+        }
     }
 
-	static uint32_t ProcessPrimitiveIndices(const tinygltf::Model& model, const tinygltf::Primitive& primitive,
-		std::vector<uint32_t>& indices, const uint32_t firstVertex)
+    static uint32_t ProcessPrimitiveIndices(const tinygltf::Model& model, const tinygltf::Primitive& primitive,
+        std::vector<uint32_t>& indices, const uint32_t firstVertex)
     {
-		const tinygltf::Accessor& accessor = model.accessors[primitive.indices];
-		const unsigned char* bufferPtr = GetAttributeData(model, accessor);
+        const tinygltf::Accessor& accessor = model.accessors[primitive.indices];
+        const unsigned char* bufferPtr = GetAttributeData(model, accessor);
 
-		indices.insert_range(indices.end(), GetIndices(accessor.componentType, bufferPtr, accessor.count, firstVertex));
+        indices.insert_range(indices.end(), GetIndices(accessor.componentType, bufferPtr, accessor.count, firstVertex));
 
-		return static_cast<uint32_t>(accessor.count);
+        return static_cast<uint32_t>(accessor.count);
     }
 
-	static void CollectNodes(SceneNode& node, std::vector<SceneNode*>& nodes)
+    static void CollectNodes(SceneNode& node, std::vector<SceneNode*>& nodes)
     {
-		nodes.push_back(&node);
+        nodes.push_back(&node);
 
-		std::ranges::for_each(node.children, [&](const auto& childNode) {
-			CollectNodes(*childNode, nodes);
-		});
-	}
+        std::ranges::for_each(node.children, [&](const auto& childNode) {
+            CollectNodes(*childNode, nodes);
+        });
+    }
 
-	static void BakeTransforms(const SceneNode& node, const glm::mat4 &parentTransform,
-		std::vector<glm::mat4>& transforms)
+    static void BakeTransforms(const SceneNode& node, const glm::mat4 &parentTransform,
+        std::vector<glm::mat4>& transforms)
     {
-		const glm::mat4 nodeTransform = parentTransform * node.transform;
-		transforms.push_back(parentTransform * node.transform);
+        const glm::mat4 nodeTransform = parentTransform * node.transform;
+        transforms.push_back(parentTransform * node.transform);
 
-		std::ranges::for_each(node.children, [&](const auto& childNode) {
-			BakeTransforms(*childNode, nodeTransform, transforms);
-		});
-	}
+        std::ranges::for_each(node.children, [&](const auto& childNode) {
+            BakeTransforms(*childNode, nodeTransform, transforms);
+        });
+    }
 }
 
 std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjModel(const std::string& absolutePath,
@@ -204,14 +204,14 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjMode
             vertex.pos.z *= -1;
         }
 
-		vertex.normal = Vector3::zero;
+        vertex.normal = Vector3::zero;
 
         vertex.uv = {
             attributes.texcoords[2 * index.texcoord_index + 0],
             1.0f - attributes.texcoords[2 * index.texcoord_index + 1], };
 
-		vertex.color = Vector3::allOnes;
-		vertex.tangent = Vector4::allOnes;
+        vertex.color = Vector3::allOnes;
+        vertex.tangent = Vector4::allOnes;
 
         if (uniqueVertices.count(vertex) == 0)
         {
@@ -231,7 +231,7 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjMode
 
 std::unique_ptr<tinygltf::Model> SceneHelpers::LoadGltfScene(const std::string& absolutePath)
 {
-	ScopeTimer timer("Load gltf scene");
+    ScopeTimer timer("Load gltf scene");
 
     auto model = std::make_unique<tinygltf::Model>();
     tinygltf::TinyGLTF loader;
@@ -245,75 +245,75 @@ std::unique_ptr<tinygltf::Model> SceneHelpers::LoadGltfScene(const std::string& 
 }
 
 std::unique_ptr<SceneNode> SceneHelpers::LoadGltfHierarchy(const tinygltf::Node& gltfNode, const tinygltf::Model& model,
-	std::vector<uint32_t>& indices, std::vector<Vertex>& vertices)
+    std::vector<uint32_t>& indices, std::vector<Vertex>& vertices)
 {
-	using namespace SceneHelpersDetails;
+    using namespace SceneHelpersDetails;
 
-	auto node = std::make_unique<SceneNode>();
+    auto node = std::make_unique<SceneNode>();
 
-	node->name = gltfNode.name;
-	node->transform = GetTransform(gltfNode);
+    node->name = gltfNode.name;
+    node->transform = GetTransform(gltfNode);
 
-	if (!gltfNode.children.empty())
-	{
-		const auto loadChild = [&](const int childIndex) {
-			std::unique_ptr<SceneNode> child = LoadGltfHierarchy(model.nodes[childIndex], model, indices, vertices);
-			child->parent = node.get();
+    if (!gltfNode.children.empty())
+    {
+        const auto loadChild = [&](const int childIndex) {
+            std::unique_ptr<SceneNode> child = LoadGltfHierarchy(model.nodes[childIndex], model, indices, vertices);
+            child->parent = node.get();
 
-			return child;
-		};
+            return child;
+        };
 
-		std::ranges::transform(gltfNode.children, std::back_inserter(node->children), loadChild);
-	}
+        std::ranges::transform(gltfNode.children, std::back_inserter(node->children), loadChild);
+    }
 
-	if (gltfNode.mesh > -1) 
-	{
-		const auto producePrimitive = [&](const auto& gltfPrimitive) {
-			const auto firstIndex = static_cast<uint32_t>(indices.size());
-			const auto firstVertex = static_cast<uint32_t>(vertices.size());
+    if (gltfNode.mesh > -1) 
+    {
+        const auto producePrimitive = [&](const auto& gltfPrimitive) {
+            const auto firstIndex = static_cast<uint32_t>(indices.size());
+            const auto firstVertex = static_cast<uint32_t>(vertices.size());
 
-			const uint32_t indexCount = ProcessPrimitiveIndices(model, gltfPrimitive, indices, firstVertex);
-			ProcessPrimitiveVertices(model, gltfPrimitive, vertices);
+            const uint32_t indexCount = ProcessPrimitiveIndices(model, gltfPrimitive, indices, firstVertex);
+            ProcessPrimitiveVertices(model, gltfPrimitive, vertices);
 
-			Primitive primitive{};
-			primitive.firstIndex = firstIndex;
-			primitive.indexCount = indexCount;
+            Primitive primitive{};
+            primitive.firstIndex = firstIndex;
+            primitive.indexCount = indexCount;
 
-			return primitive;
-		};
+            return primitive;
+        };
 
-		const tinygltf::Mesh mesh = model.meshes[gltfNode.mesh];
+        const tinygltf::Mesh mesh = model.meshes[gltfNode.mesh];
 
-		std::ranges::transform(mesh.primitives, std::back_inserter(node->mesh.primitives), producePrimitive);
-	}
+        std::ranges::transform(mesh.primitives, std::back_inserter(node->mesh.primitives), producePrimitive);
+    }
 
-	return node;
+    return node;
 }
 
 std::vector<SceneNode*> SceneHelpers::GetFlattenNodes(SceneNode& node)
 {
-	std::vector<SceneNode*> flatNodes;
+    std::vector<SceneNode*> flatNodes;
 
-	SceneHelpersDetails::CollectNodes(node, flatNodes);
+    SceneHelpersDetails::CollectNodes(node, flatNodes);
 
-	return flatNodes;
+    return flatNodes;
 }
 
 std::vector<glm::mat4> SceneHelpers::GetBakedTransforms(const SceneNode& node)
 {
-	std::vector<glm::mat4> transforms;
+    std::vector<glm::mat4> transforms;
 
     SceneHelpersDetails::BakeTransforms(node, glm::mat4(1.0f), transforms);
 
-	return transforms;
+    return transforms;
 }
 
 void SceneHelpers::AssignNodeIdsToPrimitives(const std::vector<SceneNode*>& nodes)
 {
-	for (uint32_t i = 0; i < nodes.size(); ++i)
-	{
-		std::ranges::for_each(nodes[i]->mesh.primitives, [&](Primitive& primitive) {
-			primitive.nodeId = i;
-		});
-	}
+    for (uint32_t i = 0; i < nodes.size(); ++i)
+    {
+        std::ranges::for_each(nodes[i]->mesh.primitives, [&](Primitive& primitive) {
+            primitive.nodeId = i;
+        });
+    }
 }

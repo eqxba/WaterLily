@@ -33,9 +33,9 @@ void VulkanHelpers::SubmitCommandBuffer(VkCommandBuffer commandBuffer, VkQueue q
     // FYI: vkBeginCommandBuffer if buffer was created with VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag
     // implicitly resets the buffer to the initial state
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
-	commands(commandBuffer);
+    commands(commandBuffer);
     VkResult result = vkEndCommandBuffer(commandBuffer);
-	Assert(result == VK_SUCCESS);
+    Assert(result == VK_SUCCESS);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -48,18 +48,18 @@ void VulkanHelpers::SubmitCommandBuffer(VkCommandBuffer commandBuffer, VkQueue q
     submitInfo.pSignalSemaphores = signalSemaphores.data();
 
     result = vkQueueSubmit(queue, 1, &submitInfo, fence);
-	Assert(result == VK_SUCCESS);
+    Assert(result == VK_SUCCESS);
 }
 
 VkFence VulkanHelpers::CreateFence(VkDevice device, VkFenceCreateFlags flags)
 {
     VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = flags;
 
     VkFence fence;
-	const VkResult result = vkCreateFence(device, &fenceInfo, nullptr, &fence);
-	Assert(result == VK_SUCCESS);
+    const VkResult result = vkCreateFence(device, &fenceInfo, nullptr, &fence);
+    Assert(result == VK_SUCCESS);
 
     return fence;
 }
@@ -72,7 +72,7 @@ std::vector<VkFence> VulkanHelpers::CreateFences(VkDevice device, VkFenceCreateF
         return CreateFence(device, flags);
     });
 
-	return fences;
+    return fences;
 }
 
 std::vector<VkSemaphore> VulkanHelpers::CreateSemaphores(VkDevice device, size_t count)
