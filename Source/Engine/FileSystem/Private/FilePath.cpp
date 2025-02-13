@@ -20,6 +20,8 @@ FilePath::FilePath(std::string_view aPath)
     path = aPath.find("~/") == 0
         ? *FilePathDetails::executableDir / aPath.substr(2)
         : std::filesystem::path(aPath);
+
+    path.make_preferred();
 }
 
 std::string FilePath::GetAbsolute() const
