@@ -57,4 +57,16 @@ endif()
 
 target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)
 
-# TODO: Make CMake compile shaders for us with a custom command
+add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${PROJECT_SOURCE_DIR}/Source/Shaders
+        $<TARGET_FILE_DIR:${TARGET_NAME}>/Shaders
+    COMMENT "Creating symlink to Shaders directory..."
+)
+
+add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${PROJECT_SOURCE_DIR}/Assets
+        $<TARGET_FILE_DIR:${TARGET_NAME}>/Assets
+    COMMENT "Creating symlink to Assets directory..."
+)

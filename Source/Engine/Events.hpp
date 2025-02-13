@@ -23,10 +23,13 @@ namespace ES // Event system
 		Scene& scene;
 	};
 
+    struct SceneClosed {};
+
 	struct KeyInput
 	{
 		Key key{};
 		KeyAction action{};
+        KeyMods mods{};
 	};
 
 	struct MouseMoved

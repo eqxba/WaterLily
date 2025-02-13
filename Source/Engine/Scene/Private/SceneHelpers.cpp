@@ -171,7 +171,7 @@ namespace SceneHelpersDetails
     }
 }
 
-std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjModel(const std::string& absolutePath,
+std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjModel(const FilePath& path,
     const bool flipYz /* = false */)
 {
     std::vector<Vertex> vertices;
@@ -183,7 +183,7 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjMode
 
     std::string warn, err;
 
-    if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &warn, &err, absolutePath.c_str()))
+    if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &warn, &err, path.GetAbsolute().c_str()))
     {
         Assert(false);
     }
@@ -229,7 +229,7 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> SceneHelpers::LoadObjMode
     return { std::move(vertices), std::move(indices) };
 }
 
-std::unique_ptr<tinygltf::Model> SceneHelpers::LoadGltfScene(const std::string& absolutePath)
+std::unique_ptr<tinygltf::Model> SceneHelpers::LoadGltfScene(const FilePath& path)
 {
     ScopeTimer timer("Load gltf scene");
 
@@ -238,7 +238,7 @@ std::unique_ptr<tinygltf::Model> SceneHelpers::LoadGltfScene(const std::string& 
     std::string err;
     std::string warn;
 
-    const bool success = loader.LoadASCIIFromFile(model.get(), &err, &warn, absolutePath);
+    const bool success = loader.LoadASCIIFromFile(model.get(), &err, &warn, path.GetAbsolute());
     Assert(success);
 
     return model;

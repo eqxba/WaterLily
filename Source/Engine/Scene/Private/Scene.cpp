@@ -3,6 +3,7 @@
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
+#include "Engine/FileSystem/FileSystem.hpp"
 #include "Utils/Helpers.hpp"
 
 DISABLE_WARNINGS_BEGIN
@@ -11,19 +12,13 @@ DISABLE_WARNINGS_END
 
 namespace SceneDetails
 {
-    constexpr const char* scenePathWin = "E:/Projects/WaterLily/Assets/Scenes/Sponza/glTF/Sponza.gltf";
-    constexpr const char* imagePathWin = "E:/Projects/WaterLily/Assets/texture.png";
-
-    constexpr const char* scenePathMac = "/Users/barboss/Projects/WaterLily/Assets/Scenes/Sponza/glTF/Sponza.gltf";
-    constexpr const char* imagePathMac = "/Users/barboss/Projects/WaterLily/Assets/texture.png";
-
-    constexpr const char* scenePath = platformWin ? scenePathWin : scenePathMac;
-    constexpr const char* imagePath = platformWin ? imagePathWin : imagePathMac;
+    static constexpr std::string_view imagePath = "~/Assets/texture.png";
 }
 
-Scene::Scene(const VulkanContext& aVulkanContext)
+Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
     , root{ std::make_unique<SceneNode>() }
+    , path{ std::move(aPath) }
 {
     InitFromGltfScene();
     InitBuffers();
@@ -41,7 +36,7 @@ void Scene::InitFromGltfScene()
 {
     using namespace SceneHelpers;
 
-    std::unique_ptr<tinygltf::Model> gltfModel = LoadGltfScene(SceneDetails::scenePath);
+    std::unique_ptr<tinygltf::Model> gltfModel = LoadGltfScene(path);
 
     {
         ScopeTimer timer("Convert gltf scene");
@@ -88,7 +83,7 @@ void Scene::InitTextureResources()
 {
     const Device& device = vulkanContext.GetDevice();
 
-    const auto& [buffer, extent] = ResourceHelpers::LoadImageToBuffer(SceneDetails::imagePath, vulkanContext);
+    const auto& [buffer, extent] = ResourceHelpers::LoadImageToBuffer(FilePath(SceneDetails::imagePath), vulkanContext);
 
     const int maxDimension = std::max(extent.width, extent.height);
     const uint32_t mipLevelsCount = static_cast<uint32_t>(std::floor(std::log2(maxDimension))) + 1;

@@ -361,14 +361,12 @@ RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulk
     commandBuffers = CreateCommandBuffers(device, maxFramesInFlight, longLivedPool);
     syncs = CreateCommandBufferSyncs(maxFramesInFlight, device);
 
-    VkDescriptorSetLayout layout = graphicsPipeline->GetDescriptorSetLayouts()[0];
-
     uniformBuffers = CreateUniformBuffers(vulkanContext, maxFramesInFlight);
     descriptorPool = CreateDescriptorPool(maxFramesInFlight, maxFramesInFlight, device);
-    descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);
 
     eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
     eventSystem.Subscribe<ES::SceneOpened>(this, &RenderSystem::OnSceneOpen);
+    eventSystem.Subscribe<ES::SceneClosed>(this, &RenderSystem::OnSceneClose);
     eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &RenderSystem::OnBeforeWindowRecreated, ES::Priority::eHigh);
     eventSystem.Subscribe<ES::WindowRecreated>(this, &RenderSystem::OnWindowRecreated, ES::Priority::eLow);
 }
@@ -377,6 +375,7 @@ RenderSystem::~RenderSystem()
 {
     eventSystem.Unsubscribe<ES::WindowResized>(this);
     eventSystem.Unsubscribe<ES::SceneOpened>(this);
+    eventSystem.Unsubscribe<ES::SceneClosed>(this);
     eventSystem.Unsubscribe<ES::BeforeWindowRecreated>(this);
     eventSystem.Unsubscribe<ES::WindowRecreated>(this);
 
@@ -478,13 +477,28 @@ void RenderSystem::OnWindowRecreated(const ES::WindowRecreated& event)
 void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 {
     using namespace RenderSystemDetails;
+    using namespace VulkanConfig;
 
     scene = &event.scene;
 
     const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+    VkDescriptorSetLayout layout = graphicsPipeline->GetDescriptorSetLayouts()[0];
+    
+    descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, device);
     PopulateDescriptorSets(descriptorSets, uniformBuffers, scene->GetTransformsBuffer(), scene->GetImageView(), scene->GetSampler(), device);
 
     std::tie(indirectBuffer, indirectDrawCount) = CreateIndirectBuffer(*scene, vulkanContext);
+}
+
+void RenderSystem::OnSceneClose(const ES::SceneClosed& event)
+{
+    const Device& device = vulkanContext.GetDevice();
+    
+    device.WaitIdle();
+    
+    vkResetDescriptorPool(device.GetVkDevice(), descriptorPool, 0);
+    
+    scene = nullptr;
 }
 
 void RenderSystem::CreateAttachmentsAndFramebuffers()

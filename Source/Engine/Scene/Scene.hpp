@@ -5,6 +5,7 @@
 #include "Engine/Render/Vulkan/Resources/Buffer.hpp"
 #include "Engine/Render/Vulkan/Resources/Image.hpp"
 #include "Engine/Render/Vulkan/Resources/ImageView.hpp"
+#include "Engine/FileSystem/FilePath.hpp"
 
 #include <volk.h>
 
@@ -14,7 +15,7 @@ class Image;
 class Scene
 {
 public:
-    Scene(const VulkanContext& vulkanContext);
+    Scene(FilePath path, const VulkanContext& vulkanContext);
     ~Scene();
 
     Scene(const Scene&) = delete;
@@ -102,4 +103,6 @@ private:
     std::vector<uint32_t> indices;
 
     CameraComponent camera = {};
+    
+    FilePath path;
 };

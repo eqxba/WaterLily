@@ -3,26 +3,20 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Scene/Scene.hpp"
+#include "Engine/FileSystem/FilePath.hpp"
 
 namespace GraphicsPipelineDetails
 {
-    // TODO: Add FileSystem and remove absolute paths
-    constexpr const char* vertexShaderPathWin = "E:/Projects/WaterLily/Source/Shaders/vert.spv";
-    constexpr const char* fragmentShaderPathWin = "E:/Projects/WaterLily/Source/Shaders/frag.spv";
-
-    constexpr const char* vertexShaderPathMac = "/Users/barboss/Projects/WaterLily/Source/Shaders/vert.spv";
-    constexpr const char* fragmentShaderPathMac = "/Users/barboss/Projects/WaterLily/Source/Shaders/frag.spv";
-
-    constexpr const char* vertexShaderPath = platformWin ? vertexShaderPathWin : vertexShaderPathMac;
-    constexpr const char* fragmentShaderPath = platformWin ? fragmentShaderPathWin : fragmentShaderPathMac;
+    static constexpr std::string_view vertexShaderPath = "~/Shaders/vert.spv";
+    static constexpr std::string_view fragmentShaderPath = "~/Shaders/frag.spv";
 
     static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager)
     {
         std::vector<ShaderModule> shaderModules;
         shaderModules.reserve(2);
         
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(vertexShaderPath, ShaderType::eVertex));
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(fragmentShaderPath, ShaderType::eFragment));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), ShaderType::eVertex));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), ShaderType::eFragment));
         
         return shaderModules;
     }

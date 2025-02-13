@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/FileSystem/FileSystem.hpp"
+
 #include <glm/glm.hpp>
 
 namespace Vector2

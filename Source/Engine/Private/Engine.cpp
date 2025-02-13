@@ -6,9 +6,12 @@
 #include "Engine/Systems/RenderSystem.hpp"
 #include "Engine/Scene/Scene.hpp"
 #include "Engine/Systems/CameraSystem.hpp"
+#include "Engine/FileSystem/FileSystem.hpp"
 
 namespace EngineDetails
 {
+    constexpr KeyMods openSceneKeyMods = platformMac ? KeyMods::eSuper : KeyMods::eCtrl;
+
     static float GetDeltaSeconds(std::chrono::time_point<std::chrono::high_resolution_clock> start,
         std::chrono::time_point<std::chrono::high_resolution_clock> end)
     {
@@ -17,10 +20,14 @@ namespace EngineDetails
     }
 }
 
-Engine::Engine()
+Engine::Engine(const std::string_view executablePath)
 {
+    using namespace EngineConfig;
+    
+    FilePath::SetExecutablePath(executablePath);
+    
     eventSystem = std::make_unique<EventSystem>();
-    window = std::make_unique<Window>(EngineConfig::windowDescription, *eventSystem);
+    window = std::make_unique<Window>(windowDescription, *eventSystem);
     vulkanContext = std::make_unique<VulkanContext>(*window, *eventSystem);
 
     eventSystem->Subscribe<ES::WindowResized>(this, &Engine::OnResize);
@@ -28,7 +35,7 @@ Engine::Engine()
 
     CreateSystems();
 
-    scene = std::make_unique<Scene>(*vulkanContext);
+    scene = std::make_unique<Scene>(FilePath(defaultScenePath), *vulkanContext);
     eventSystem->Fire<ES::SceneOpened>({ *scene });
 }
 
@@ -87,6 +94,8 @@ void Engine::OnResize(const ES::WindowResized& event)
 
 void Engine::OnKeyInput(const ES::KeyInput& event)
 {
+    using namespace EngineDetails;
+    
     if (event.key == Key::eF11 && event.action == KeyAction::ePress)
     {
         window->SetMode(window->GetMode() == WindowMode::eWindowed 
@@ -99,5 +108,29 @@ void Engine::OnKeyInput(const ES::KeyInput& event)
         window->SetCursorMode(window->GetCursorMode() == CursorMode::eDisabled
             ? CursorMode::eEnabled
             : CursorMode::eDisabled);
+    }
+    
+    if (event.key == Key::eO && event.action == KeyAction::ePress &&
+        HasMod(event.mods, openSceneKeyMods))
+    {
+        TryOpenScene();
+    }
+}
+
+void Engine::TryOpenScene()
+{
+    FileSystem::DialogDescription dialogDescription {
+        .title = "Open scene",
+        .folder = FilePath("~/Assets/Scenes/"),
+        .filters = { FileFilters::gltf },
+    };
+    
+    const FilePath newScenePath = FileSystem::ShowOpenFileDialog(dialogDescription);
+    
+    if (newScenePath.Exists())
+    {
+        eventSystem->Fire<ES::SceneClosed>();
+        scene = std::make_unique<Scene>(newScenePath, *vulkanContext);
+        eventSystem->Fire<ES::SceneOpened>({ *scene });
     }
 }

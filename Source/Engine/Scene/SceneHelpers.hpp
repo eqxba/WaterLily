@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Scene/SceneDataStructures.hpp"
+#include "Engine/FileSystem/FilePath.hpp"
 
 namespace tinygltf
 {
@@ -12,10 +13,9 @@ struct SceneNode;
 
 namespace SceneHelpers
 {
-    std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadObjModel(const std::string& absolutePath, 
-        bool flipYz = false);
+    std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadObjModel(const FilePath& path, bool flipYz = false);
 
-    std::unique_ptr<tinygltf::Model> LoadGltfScene(const std::string& absolutePath);
+    std::unique_ptr<tinygltf::Model> LoadGltfScene(const FilePath& path);
 
     std::unique_ptr<SceneNode> LoadGltfHierarchy(const tinygltf::Node& node, const tinygltf::Model& model, 
         std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);

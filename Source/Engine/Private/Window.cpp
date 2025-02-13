@@ -127,8 +127,28 @@ void Window::WindowSizeCallback(GLFWwindow* glfwWindow, const int32_t width, con
 
 void Window::KeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int action, int mods)
 {
+    KeyMods keyMods = KeyMods::eNone;
+    
+    if (mods & GLFW_MOD_SHIFT)
+    {
+        keyMods = keyMods | KeyMods::eShift;
+    }
+    if (mods & GLFW_MOD_CONTROL)
+    {
+        keyMods = keyMods | KeyMods::eCtrl;
+    }
+    if (mods & GLFW_MOD_ALT)
+    {
+        keyMods = keyMods | KeyMods::eAlt;
+    }
+    if (mods & GLFW_MOD_SUPER)
+    {
+        keyMods = keyMods | KeyMods::eSuper;
+    }
+    
     EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
-    eventSystem.Fire<ES::KeyInput>({ .key = static_cast<Key>(key), .action = static_cast<KeyAction>(action)});
+    eventSystem.Fire<ES::KeyInput>({ .key = static_cast<Key>(key),
+        .action = static_cast<KeyAction>(action), .mods = keyMods});
 }
 
 void Window::MouseCallback(GLFWwindow* glfwWindow, const double xPos, const double yPos)

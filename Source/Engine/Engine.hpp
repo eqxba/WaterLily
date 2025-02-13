@@ -19,7 +19,7 @@ class CameraSystem;
 class Engine
 {
 public:   
-    Engine();
+    Engine(const std::string_view executablePath);
     ~Engine();
 
     Engine(const Engine&) = delete;
@@ -37,6 +37,8 @@ private:
 
     void OnResize(const ES::WindowResized& event);
     void OnKeyInput(const ES::KeyInput& event);
+    
+    void TryOpenScene();
 	
     std::unique_ptr<EventSystem> eventSystem;
     std::unique_ptr<Window> window;

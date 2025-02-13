@@ -2,14 +2,14 @@
 
 #include <stb_image.h>
 
-std::tuple<Buffer, Extent2D> ResourceHelpers::LoadImageToBuffer(const std::string& absolutePath, const VulkanContext& vulkanContext)
+std::tuple<Buffer, Extent2D> ResourceHelpers::LoadImageToBuffer(const FilePath& path, const VulkanContext& vulkanContext)
 {
-    Assert(!absolutePath.empty());
+    Assert(path.Exists());
 
     Extent2D extent{};
     int texChannels;
 
-    stbi_uc* pixels = stbi_load(absolutePath.c_str(), &extent.width, &extent.height, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(path.GetAbsolute().c_str(), &extent.width, &extent.height, &texChannels, STBI_rgb_alpha);
     Assert(pixels != nullptr);
 
     const auto imageSize = static_cast<VkDeviceSize>(extent.width * extent.height * 4);

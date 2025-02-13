@@ -8,9 +8,9 @@ ShaderManager::ShaderManager(const VulkanContext& aVulkanContext)
 {}
 
 // TODO: Deduct shader type from SPIR-V bytecode
-ShaderModule ShaderManager::CreateShaderModule(const std::string& filePath, const ShaderType shaderType) const
-{    
-    const std::vector<char> shaderCode = Helpers::ReadFile(filePath);
+ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const ShaderType shaderType) const
+{
+    const std::vector<char> shaderCode = FileSystem::ReadFile(path);
     
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

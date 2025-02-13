@@ -15,6 +15,7 @@ namespace ES
 	struct BeforeWindowRecreated;
 	struct WindowRecreated;
 	struct SceneOpened;
+    struct SceneClosed;
 }
 
 class VulkanContext;
@@ -46,6 +47,7 @@ private:
 	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
 	void OnWindowRecreated(const ES::WindowRecreated& event);
 	void OnSceneOpen(const ES::SceneOpened& event);
+    void OnSceneClose(const ES::SceneClosed& event);
 
 	void CreateAttachmentsAndFramebuffers();
 	void DestroyAttachmentsAndFramebuffers();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Window.hpp"
+#include "Engine/FileSystem/FilePath.hpp"
 
 // Struct instead of constant values in a namespace to make configs easy swappable? Don't care rn
 namespace EngineConfig
@@ -12,4 +13,6 @@ namespace EngineConfig
 		.title = engineName,
 		.mode = WindowMode::eWindowed,
 		.cursorMode = CursorMode::eDisabled };
+
+    constexpr std::string_view defaultScenePath = "~/Assets/Scenes/Sponza/glTF/Sponza.gltf";
 }

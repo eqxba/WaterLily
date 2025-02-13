@@ -138,3 +138,28 @@ enum class KeyAction
     ePress,
     eRepeat
 };
+
+// TODO: another data structure to handle masks
+enum class KeyMods : uint8_t
+{
+    eNone   = 0,
+    eShift  = 1 << 0,
+    eCtrl   = 1 << 1,
+    eAlt    = 1 << 2,
+    eSuper  = 1 << 3
+};
+
+constexpr KeyMods operator|(KeyMods lhs, KeyMods rhs)
+{
+    return static_cast<KeyMods>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
+}
+
+constexpr KeyMods operator&(KeyMods lhs, KeyMods rhs)
+{
+    return static_cast<KeyMods>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
+}
+
+constexpr bool HasMod(KeyMods mods, KeyMods flag)
+{
+    return (mods & flag) != KeyMods::eNone;
+}
