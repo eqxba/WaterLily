@@ -16,3 +16,6 @@
 [submodule "External/tinygltf"]
 	path = External/tinygltf
 	url = https://github.com/syoyo/tinygltf.git
+[submodule "External/portable-file-dialogs"]
+	path = External/portable-file-dialogs
+	url = https://github.com/samhocevar/portable-file-dialogs.git

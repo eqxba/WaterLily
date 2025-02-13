@@ -29,6 +29,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
     External/volk/
     External/tinygltf
     External/tinyobjloader
+    External/portable-file-dialogs
     Source/
 )
 
