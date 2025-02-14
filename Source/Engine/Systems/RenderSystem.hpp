@@ -4,7 +4,7 @@
 #include "Utils/Constants.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
-#include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
+#include "Engine/Render/Vulkan/Frame.hpp"
 #include "Shaders/Common.h"
 
 #include <volk.h>
@@ -66,23 +66,16 @@ private:
 	std::unique_ptr<ImageView> depthAttachmentView;
 
 	std::vector<VkFramebuffer> framebuffers;
-	
-	// Do not have to be recreated, persistent for FrameLoop
-	std::vector<VkCommandBuffer> commandBuffers;
-	std::vector<CommandBufferSync> syncs;
-
-	// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    std::vector<Frame> frames;
+    size_t currentFrame = 0;
+    
 	gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
-
-	std::vector<Buffer> uniformBuffers;
 
 	std::unique_ptr<Buffer> indirectBuffer;
 	uint32_t indirectDrawCount = 0;
 
 	VkDescriptorPool descriptorPool;
-	std::vector<VkDescriptorSet> descriptorSets;
-	
-	size_t currentFrame = 0;
 
 	Scene* scene = nullptr;
 };
