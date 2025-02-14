@@ -221,7 +221,7 @@ VkCommandPool Device::GetCommandPool(CommandBufferType type) const
     return commandPools[type];
 }
 
-void Device::ExecuteOneTimeCommandBuffer(DeviceCommands commands) const
+void Device::ExecuteOneTimeCommandBuffer(const DeviceCommands&) const
 {
     VulkanHelpers::SubmitCommandBuffer(oneTimeCommandBuffer, queues.graphics, commands, oneTimeCommandBufferSync);
 

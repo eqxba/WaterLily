@@ -35,7 +35,7 @@ public:
 	void WaitIdle() const;
 
 	VkCommandPool GetCommandPool(CommandBufferType type) const;
-	void ExecuteOneTimeCommandBuffer(DeviceCommands commands) const;
+	void ExecuteOneTimeCommandBuffer(const DeviceCommands& commands) const;
 
 	VkSampleCountFlagBits GetMaxSampleCount() const;
 

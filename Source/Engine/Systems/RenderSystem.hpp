@@ -19,6 +19,7 @@ namespace ES
 }
 
 class VulkanContext;
+class Device;
 class Scene;
 class EventSystem;
 class CommandBufferSync;
@@ -43,16 +44,21 @@ public:
 	void Render();
 
 private:
+	uint32_t AcquireNextImage(const Frame& frame) const;
+	void RenderScene(const Frame& frame, VkFramebuffer framebuffer) const;
+	void Present(const Frame& frame, uint32_t imageIndex) const;
+
+	void CreateAttachmentsAndFramebuffers();
+	void DestroyAttachmentsAndFramebuffers();
+
 	void OnResize(const ES::WindowResized& event);
 	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
 	void OnWindowRecreated(const ES::WindowRecreated& event);
 	void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose(const ES::SceneClosed& event);
 
-	void CreateAttachmentsAndFramebuffers();
-	void DestroyAttachmentsAndFramebuffers();
-
 	const VulkanContext& vulkanContext;
+	const Device& device;
 
 	EventSystem& eventSystem;
 
