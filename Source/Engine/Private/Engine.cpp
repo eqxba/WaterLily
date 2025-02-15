@@ -130,6 +130,8 @@ void Engine::TryOpenScene()
     if (newScenePath.Exists())
     {
         eventSystem->Fire<ES::SceneClosed>();
+        scene.reset();
+
         scene = std::make_unique<Scene>(newScenePath, *vulkanContext);
         eventSystem->Fire<ES::SceneOpened>({ *scene });
     }

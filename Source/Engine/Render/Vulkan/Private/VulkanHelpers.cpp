@@ -158,91 +158,6 @@ void VulkanHelpers::DestroySampler(VkDevice device, VkSampler sampler)
     }
 }
 
-std::vector<VkDescriptorSet> VulkanHelpers::CreateDescriptorSets(VkDescriptorPool descriptorPool,
-    VkDescriptorSetLayout layout, size_t count, VkDevice device)
-{
-    std::vector<VkDescriptorSet> descriptorSets(count);
-
-    std::vector<VkDescriptorSetLayout> layouts(count, layout);
-
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(count);
-    allocInfo.pSetLayouts = layouts.data();
-
-    const VkResult result = vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data());
-    Assert(result == VK_SUCCESS);
-
-    return descriptorSets;
-}
-
-void VulkanHelpers::PopulateDescriptorSet(const VkDescriptorSet set, const Buffer& uniformBuffer, const Scene& scene,
-    VkDevice device)
-{
-    std::vector<VkWriteDescriptorSet> descriptorWrites;
-    
-    // Sampler
-
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = scene.GetImageView().GetVkImageView();
-    imageInfo.sampler = scene.GetSampler();
-    
-    VkWriteDescriptorSet samplerWrite{};
-    samplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    samplerWrite.dstSet = set;
-    samplerWrite.dstBinding = 1;
-    samplerWrite.dstArrayElement = 0;
-    samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerWrite.descriptorCount = 1;
-    samplerWrite.pImageInfo = &imageInfo;
-    
-    descriptorWrites.push_back(samplerWrite);
-
-    // Uniform buffer
-    
-    VkDescriptorBufferInfo uniformBufferInfo{};
-    uniformBufferInfo.buffer = uniformBuffer.GetVkBuffer();
-    uniformBufferInfo.offset = 0;
-    uniformBufferInfo.range = uniformBuffer.GetDescription().size;
-    
-    VkWriteDescriptorSet uniformBufferWrite{};
-    uniformBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    uniformBufferWrite.dstSet = set;
-    uniformBufferWrite.dstBinding = 0;
-    uniformBufferWrite.dstArrayElement = 0;
-    uniformBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformBufferWrite.descriptorCount = 1;
-    uniformBufferWrite.pBufferInfo = &uniformBufferInfo;
-    
-    descriptorWrites.push_back(uniformBufferWrite);
-
-    // Transforms SSBO
-
-    const Buffer& transformsSSBO = scene.GetTransformsBuffer();
-    
-    VkDescriptorBufferInfo transformsSSBOBufferInfo;
-    transformsSSBOBufferInfo.buffer = transformsSSBO.GetVkBuffer();
-    transformsSSBOBufferInfo.offset = 0;
-    transformsSSBOBufferInfo.range = transformsSSBO.GetDescription().size;
-    
-    VkWriteDescriptorSet transformsSSBOWrite{};
-    transformsSSBOWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    transformsSSBOWrite.dstSet = set;
-    transformsSSBOWrite.dstBinding = 2;
-    transformsSSBOWrite.dstArrayElement = 0;
-    transformsSSBOWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    transformsSSBOWrite.descriptorCount = 1;
-    transformsSSBOWrite.pBufferInfo = &transformsSSBOBufferInfo;
-
-    descriptorWrites.push_back(transformsSSBOWrite);
-
-    // Do the update
-
-    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-}
-
 std::vector<VkFramebuffer> VulkanHelpers::CreateFramebuffers(const Swapchain& swapchain, 
     const ImageView& colorAttachmentView, const ImageView& depthAttachmentView, VkRenderPass renderPass, VkDevice device)
 {
@@ -283,17 +198,6 @@ void VulkanHelpers::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers
     framebuffers.clear();
 }
 
-std::vector<Frame> VulkanHelpers::CreateFrames(const size_t count, const VulkanContext& vulkanContext)
-{
-    std::vector<Frame> frames(count);
-
-    std::ranges::generate(frames, [&]() {
-        return Frame(&vulkanContext);
-    });
-
-    return frames;
-}
-
 std::unique_ptr<Image> VulkanHelpers::CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
 {
     ImageDescription imageDescription{
@@ -318,36 +222,6 @@ std::unique_ptr<Image> VulkanHelpers::CreateDepthAttachment(VkExtent2D extent, c
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     return std::make_unique<Image>(imageDescription, &vulkanContext);
-}
-
-VkDescriptorPool VulkanHelpers::CreateDescriptorPool(const uint32_t descriptorCount, const uint32_t maxSets, VkDevice device)
-{
-    VkDescriptorPool descriptorPool;
-
-    std::array<VkDescriptorPoolSize, 3> poolSizes{};
-
-    VkDescriptorPoolSize& uniformBufferPoolSize = poolSizes[0];
-    uniformBufferPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformBufferPoolSize.descriptorCount = descriptorCount;
-
-    VkDescriptorPoolSize& samplersPoolSize = poolSizes[1];
-    samplersPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplersPoolSize.descriptorCount = descriptorCount;
-
-    VkDescriptorPoolSize& SSBOPoolSize = poolSizes[2];
-    SSBOPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    SSBOPoolSize.descriptorCount = descriptorCount;
-
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = maxSets;
-
-    const VkResult result = vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool);
-    Assert(result == VK_SUCCESS);
-
-    return descriptorPool;
 }
 
 std::tuple<std::unique_ptr<Buffer>, uint32_t> VulkanHelpers::CreateIndirectBuffer(const Scene& scene,
@@ -405,4 +279,26 @@ VkRect2D VulkanHelpers::GetScissor(const VkExtent2D extent)
     scissor.extent = extent;
 
     return scissor;
+}
+
+std::vector<VkDescriptorSetLayout> VulkanHelpers::GetUniqueVkDescriptorSetLayouts(const std::vector<Descriptor>& descriptors)
+{
+    std::set<VkDescriptorSetLayout> layouts;
+
+    std::ranges::transform(descriptors, std::inserter(layouts, layouts.end()), [](const Descriptor& descriptor) {
+        return descriptor.layout;
+    });
+
+    return { layouts.begin(), layouts.end() };
+}
+
+std::vector<VkDescriptorSet> VulkanHelpers::GetVkDescriptorSets(const std::vector<Descriptor>& descriptors)
+{
+    std::vector<VkDescriptorSet> sets;
+
+    std::ranges::transform(descriptors, std::back_inserter(sets), [](const Descriptor& descriptor) {
+        return descriptor.set;
+    });
+
+    return sets;
 }

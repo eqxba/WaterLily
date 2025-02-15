@@ -43,6 +43,11 @@ Frame::Frame(const VulkanContext* aVulkanContext)
     sync = CreateSync(device.GetVkDevice());
     
     uniformBuffer = CreateUniformBuffer(*vulkanContext);
+
+    // TODO: Parse from SPIR-V reflection
+    descriptors.push_back(vulkanContext->GetDescriptorManager().GetDescriptorBuilder()
+        .Bind(0, uniformBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+        .Build());
 }
 
 Frame::~Frame() = default;
@@ -52,7 +57,7 @@ Frame::Frame(Frame&& other) noexcept
     , commandBuffer{ other.commandBuffer }
     , sync{ std::move(other.sync) }
     , uniformBuffer{ std::move(other.uniformBuffer) }
-    , descriptorSet{ other.descriptorSet }
+    , descriptors{ std::move(other.descriptors) }
 {
     other.vulkanContext = nullptr;
     other.commandBuffer = VK_NULL_HANDLE;
@@ -68,13 +73,12 @@ Frame& Frame::operator=(Frame&& other) noexcept
         commandBuffer = other.commandBuffer;
         sync = std::move(other.sync);
         uniformBuffer = std::move(other.uniformBuffer);
-        descriptorSet = other.descriptorSet;
+        descriptors = std::move(other.descriptors);
         
         other.vulkanContext = nullptr;
         other.commandBuffer = VK_NULL_HANDLE;
         other.sync = {};
         other.uniformBuffer = {};
-        other.descriptorSet = VK_NULL_HANDLE;
     }
     return *this;
 }

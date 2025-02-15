@@ -2,6 +2,7 @@
 
 #include "Engine/Render/Resources/CommandBufferSync.hpp"
 #include "Engine/Render/Resources/Buffer.hpp"
+#include "Engine/Render/Resources/Descriptor.hpp"
 
 class VulkanContext;
 
@@ -33,16 +34,11 @@ public:
         return uniformBuffer;
     }
     
-    VkDescriptorSet GetDescriptorSet() const
+    const std::vector<Descriptor>& GetDescriptors() const
     {
-        return descriptorSet;
+        return descriptors;
     }
-    
-    void SetDescriptorSet(VkDescriptorSet aDescriptorSet)
-    {
-        descriptorSet = aDescriptorSet;
-    }
-    
+
 private:
     const VulkanContext* vulkanContext;
     
@@ -51,6 +47,6 @@ private:
     CommandBufferSync sync;
     
     Buffer uniformBuffer;
-    
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+    std::vector<Descriptor> descriptors;
 };

@@ -20,16 +20,14 @@ RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulk
     , device{vulkanContext.GetDevice()}
     , eventSystem{aEventSystem}
     , renderPass{std::make_unique<RenderPass>(vulkanContext)}
-    , graphicsPipeline{std::make_unique<GraphicsPipeline>(*renderPass, vulkanContext)}
 {
     using namespace VulkanHelpers;
     using namespace VulkanConfig;
 
     CreateAttachmentsAndFramebuffers();
-    
-    frames = CreateFrames(maxFramesInFlight, vulkanContext);
 
-    descriptorPool = CreateDescriptorPool(maxFramesInFlight, maxFramesInFlight, device.GetVkDevice());
+    frames.resize(maxFramesInFlight);
+    std::ranges::generate(frames, [&]() { return Frame(&vulkanContext); });
 
     eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
     eventSystem.Subscribe<ES::SceneOpened>(this, &RenderSystem::OnSceneOpen);
@@ -47,8 +45,6 @@ RenderSystem::~RenderSystem()
     eventSystem.Unsubscribe<ES::WindowRecreated>(this);
 
     DestroyAttachmentsAndFramebuffers();
-
-    vkDestroyDescriptorPool(device.GetVkDevice(), descriptorPool, nullptr);
 }
 
 void RenderSystem::Process(float deltaSeconds)
@@ -117,7 +113,6 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
     using namespace VulkanHelpers;
 
     const VkCommandBuffer commandBuffer = frame.GetCommandBuffer();
-    const VkDescriptorSet descriptorSet = frame.GetDescriptorSet();
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -149,8 +144,13 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
 
     vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
+    const std::vector<VkDescriptorSet> globalDescriptors = GetVkDescriptorSets(scene->GetGlobalDescriptors());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
-        0, 1, &descriptorSet, 0, nullptr);
+        1, static_cast<uint32_t>(globalDescriptors.size()), globalDescriptors.data(), 0, nullptr);
+
+    const std::vector<VkDescriptorSet> frameDescriptors = GetVkDescriptorSets(frame.GetDescriptors());
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
+        0, static_cast<uint32_t>(frameDescriptors.size()), frameDescriptors.data(), 0, nullptr);
 
     vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->GetVkBuffer(), 0, indirectDrawCount,
         sizeof(VkDrawIndexedIndirectCommand));
@@ -239,30 +239,19 @@ void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 
     scene = &event.scene;
 
-    VkDescriptorSetLayout layout = graphicsPipeline->GetDescriptorSetLayouts()[0];
-    
-    std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(descriptorPool, layout, maxFramesInFlight, 
-        device.GetVkDevice());
-    
-    for (size_t i = 0; i < maxFramesInFlight; ++i)
-    {
-        PopulateDescriptorSet(descriptorSets[i], frames[i].GetUniformBuffer(), *scene, device.GetVkDevice());
-        frames[i].SetDescriptorSet(descriptorSets[i]);
-    }
+    // TODO: Do this in a proper place
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    descriptorSetLayouts.reserve(frames[0].GetDescriptors().size() + scene->GetGlobalDescriptors().size());
+
+    std::ranges::copy(GetUniqueVkDescriptorSetLayouts(frames[0].GetDescriptors()), std::back_inserter(descriptorSetLayouts));
+    std::ranges::copy(GetUniqueVkDescriptorSetLayouts(scene->GetGlobalDescriptors()), std::back_inserter(descriptorSetLayouts));
+
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(*renderPass, descriptorSetLayouts, vulkanContext);
 
     std::tie(indirectBuffer, indirectDrawCount) = CreateIndirectBuffer(*scene, vulkanContext);
 }
 
 void RenderSystem::OnSceneClose(const ES::SceneClosed& event)
-{    
-    device.WaitIdle();
-    
-    for (Frame& frame : frames)
-    {
-        frame.SetDescriptorSet(VK_NULL_HANDLE);
-    }
-    
-    vkResetDescriptorPool(device.GetVkDevice(), descriptorPool, 0);
-    
+{        
     scene = nullptr;
 }

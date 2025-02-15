@@ -81,7 +81,5 @@ private:
 	std::unique_ptr<Buffer> indirectBuffer;
 	uint32_t indirectDrawCount = 0;
 
-	VkDescriptorPool descriptorPool;
-
 	Scene* scene = nullptr;
 };

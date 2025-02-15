@@ -9,7 +9,8 @@ class GraphicsPipeline
 {
 public:
 	// TODO: Pass shaders (an probably other things) as parameters
-	GraphicsPipeline(const RenderPass& renderPass, const VulkanContext& aVulkanContext);
+	GraphicsPipeline(const RenderPass& renderPass, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
+		const VulkanContext& aVulkanContext);
 	~GraphicsPipeline();
 
 	GraphicsPipeline(const GraphicsPipeline&) = delete;
@@ -28,17 +29,10 @@ public:
 		return pipelineLayout;
 	}
 
-	const std::vector<VkDescriptorSetLayout>& GetDescriptorSetLayouts() const 
-	{ 
-		return descriptorSetLayouts; 
-	}
-
 private:
 	const VulkanContext& vulkanContext;
 
 	VkPipelineLayout pipelineLayout;
 
 	VkPipeline pipeline;
-
-	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 };

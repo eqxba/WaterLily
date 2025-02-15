@@ -25,6 +25,7 @@ VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
 
     memoryManager = std::make_unique<MemoryManager>(*this);
     shaderManager = std::make_unique<ShaderManager>(*this);
+    descriptorManager = std::make_unique<DescriptorManager>(*this);
 
     eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &VulkanContext::OnBeforeWindowRecreated);
     eventSystem.Subscribe<ES::WindowRecreated>(this, &VulkanContext::OnWindowRecreated);

@@ -23,13 +23,16 @@ Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
     InitFromGltfScene();
     InitBuffers();
     InitTextureResources();
+    InitGlobalDescriptors();
 }
 
 Scene::~Scene()
 {
-    VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-    
-    VulkanHelpers::DestroySampler(device, sampler);
+    vulkanContext.GetDevice().WaitIdle();
+
+    vulkanContext.GetDescriptorManager().ResetDescriptors(DescriptorScope::eScene);
+
+    VulkanHelpers::DestroySampler(vulkanContext.GetDevice().GetVkDevice(), sampler);
 }
 
 void Scene::InitFromGltfScene()
@@ -62,12 +65,14 @@ void Scene::InitBuffers()
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, &vulkanContext);
+    vertexBuffer.DestroyStagingBuffer();
 
     BufferDescription indexBufferDescription{ .size = static_cast<VkDeviceSize>(indicesSpan.size_bytes()),
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, &vulkanContext);
+    indexBuffer.DestroyStagingBuffer();
 
     const std::vector<glm::mat4> transforms = SceneHelpers::GetBakedTransforms(*root);
     std::span transformsSpan(std::as_const(transforms));
@@ -77,6 +82,7 @@ void Scene::InitBuffers()
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     transformsBuffer = Buffer(transformsBufferDescription, true, transformsSpan, &vulkanContext);
+    transformsBuffer.DestroyStagingBuffer();
 }
 
 void Scene::InitTextureResources()
@@ -100,4 +106,14 @@ void Scene::InitTextureResources()
     imageView = ImageView(image, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
 
     sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
+}
+
+void Scene::InitGlobalDescriptors()
+{
+    // TODO: Parse from SPIR-V reflection
+    globalDescriptors.push_back(vulkanContext.GetDescriptorManager().GetDescriptorBuilder(DescriptorScope::eScene)
+        .Bind(0, transformsBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+        .Bind(1, imageView, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Bind(2, sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Build());
 }

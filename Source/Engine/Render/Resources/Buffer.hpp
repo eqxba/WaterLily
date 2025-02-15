@@ -29,6 +29,9 @@ public:
     Buffer(Buffer&& other) noexcept;
     Buffer& operator=(Buffer&& other) noexcept;
 
+    void CreateStagingBuffer();
+    void DestroyStagingBuffer();
+
     const BufferDescription& GetDescription() const
     {
         return description;

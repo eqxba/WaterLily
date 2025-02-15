@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/Frame.hpp"
-
 #include <volk.h>
+
+#include "Engine/Render/Resources/Descriptor.hpp"
 
 class VulkanContext;
 class CommandBufferSync;
@@ -38,23 +38,18 @@ namespace VulkanHelpers
     VkSampler CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties, uint32_t mipLevelsCount);
     void DestroySampler(VkDevice device, VkSampler sampler);
 
-    std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout layout,
-        size_t count, VkDevice device);
-    void PopulateDescriptorSet(const VkDescriptorSet set, const Buffer& uniformBuffer, const Scene& scene, VkDevice device);
-
     std::vector<VkFramebuffer> CreateFramebuffers(const Swapchain& swapchain, const ImageView& colorAttachmentView,
         const ImageView& depthAttachmentView, VkRenderPass renderPass, VkDevice device);
     void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, VkDevice device);
 
-    std::vector<Frame> CreateFrames(const size_t count, const VulkanContext& vulkanContext);
-
     std::unique_ptr<Image> CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext);
     std::unique_ptr<Image> CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext);
-
-    VkDescriptorPool CreateDescriptorPool(const uint32_t descriptorCount, const uint32_t maxSets, VkDevice device);
 
     std::tuple<std::unique_ptr<Buffer>, uint32_t> CreateIndirectBuffer(const Scene& scene, const VulkanContext& vulkanContext);
 
     VkViewport GetViewport(const VkExtent2D extent);
     VkRect2D GetScissor(const VkExtent2D extent);
+
+    std::vector<VkDescriptorSetLayout> GetUniqueVkDescriptorSetLayouts(const std::vector<Descriptor>& descriptors);
+    std::vector<VkDescriptorSet> GetVkDescriptorSets(const std::vector<Descriptor>& descriptors);
 }

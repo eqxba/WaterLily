@@ -34,45 +34,6 @@ namespace GraphicsPipelineDetails
         return shaderStages;
     }
 
-    // TODO: parse from SPIR-V reflection, create in manager and cache by description
-    static std::vector<VkDescriptorSetLayout> CreateDescriptorSetLayouts(VkDevice device)
-    {
-        std::array<VkDescriptorSetLayoutBinding, 3> bindings{};
-
-        VkDescriptorSetLayoutBinding& uboLayoutBinding = bindings[0];
-        uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-        uboLayoutBinding.pImmutableSamplers = nullptr;
-
-        VkDescriptorSetLayoutBinding& samplerLayoutBinding = bindings[1];
-        samplerLayoutBinding.binding = 1;
-        samplerLayoutBinding.descriptorCount = 1;
-        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;        
-        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-        samplerLayoutBinding.pImmutableSamplers = nullptr;
-
-        VkDescriptorSetLayoutBinding& transformsSSBOLayoutBinding = bindings[2];
-        transformsSSBOLayoutBinding.binding = 2;
-        transformsSSBOLayoutBinding.descriptorCount = 1;
-        transformsSSBOLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        transformsSSBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-        transformsSSBOLayoutBinding.pImmutableSamplers = nullptr;
-
-        VkDescriptorSetLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-        layoutInfo.pBindings = bindings.data();
-
-        VkDescriptorSetLayout descriptorSetLayout;
-
-        const VkResult result = vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout);
-        Assert(result == VK_SUCCESS);
-
-        return { descriptorSetLayout };
-    }
-
     // TODO: parse from SPIR-V reflection
     static std::vector<VkPushConstantRange> GetPushConstantRanges()
     {
@@ -231,7 +192,8 @@ namespace GraphicsPipelineDetails
     }
 }
 
-GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanContext& aVulkanContext)
+GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, 
+    const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {
     using namespace GraphicsPipelineDetails;
@@ -240,8 +202,6 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 
     std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager());    
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
-
-    descriptorSetLayouts = CreateDescriptorSetLayouts(device);
 
     const std::vector<VkPushConstantRange> pushConstantRanges = GetPushConstantRanges();
 
@@ -297,10 +257,6 @@ GraphicsPipeline::GraphicsPipeline(const RenderPass& renderPass, const VulkanCon
 GraphicsPipeline::~GraphicsPipeline()
 {
     const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-
-    std::ranges::for_each(descriptorSetLayouts, [=](VkDescriptorSetLayout descriptorSetLayout) {
-        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-    });
 
     vkDestroyPipeline(device, pipeline, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);

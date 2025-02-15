@@ -37,12 +37,7 @@ Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const V
     if (createStagingBuffer)
     {
         description.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-        BufferDescription stagingBufferDescription = { .size = description.size,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
-
-        stagingBuffer = std::make_unique<Buffer>(stagingBufferDescription, false, vulkanContext);
+        CreateStagingBuffer();
     }
 
     buffer = BufferDetails::CreateBuffer(description, *vulkanContext);
@@ -109,6 +104,20 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept
         other.persistentMapping = false;
     }
     return *this;
+}
+
+void Buffer::CreateStagingBuffer()
+{
+    BufferDescription stagingBufferDescription = { .size = description.size,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+
+    stagingBuffer = std::make_unique<Buffer>(stagingBufferDescription, false, vulkanContext);
+}
+
+void Buffer::DestroyStagingBuffer()
+{
+    stagingBuffer.reset();
 }
 
 std::span<std::byte> Buffer::MapMemory(bool aPersistentMapping /* = false */) const

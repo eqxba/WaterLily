@@ -5,6 +5,7 @@
 #include "Engine/Render/Resources/Buffer.hpp"
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
+#include "Engine/Render/Resources/Descriptor.hpp"
 #include "Engine/FileSystem/FilePath.hpp"
 
 #include <volk.h>
@@ -49,6 +50,11 @@ public:
         return transformsBuffer;
     }
 
+    const std::vector<Descriptor>& GetGlobalDescriptors() const
+    {
+        return globalDescriptors;
+    }
+
     const std::vector<Vertex>& GetVertices() const
     {
         return vertices;
@@ -84,6 +90,7 @@ private:
 
     void InitBuffers();
     void InitTextureResources();
+    void InitGlobalDescriptors();
 
     const VulkanContext& vulkanContext;
 
@@ -98,6 +105,8 @@ private:
     Image image;
     ImageView imageView;
     VkSampler sampler = VK_NULL_HANDLE; // TODO: move away to a proper location, pool or smth
+
+    std::vector<Descriptor> globalDescriptors;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

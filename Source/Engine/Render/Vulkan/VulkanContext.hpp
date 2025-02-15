@@ -8,6 +8,7 @@
 #include "Engine/Render/Vulkan/Swapchain.hpp"
 #include "Engine/Render/Resources/MemoryManager.hpp"
 #include "Engine/Render/Shaders/ShaderManager.hpp"
+#include "Engine/Render/Resources/DescriptorManager.hpp"
 
 namespace ES
 {
@@ -59,6 +60,11 @@ public:
 		return *shaderManager;
 	}
 
+	DescriptorManager& GetDescriptorManager() const
+	{
+		return *descriptorManager;
+	}
+
 private:
 	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
 	void OnWindowRecreated(const ES::WindowRecreated& event);
@@ -72,4 +78,5 @@ private:
 
 	std::unique_ptr<MemoryManager> memoryManager;
 	std::unique_ptr<ShaderManager> shaderManager;
+	std::unique_ptr<DescriptorManager> descriptorManager;
 };
