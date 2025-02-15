@@ -1,4 +1,4 @@
-#include "Engine/Render/Vulkan/Shaders/ShaderManager.hpp"
+#include "Engine/Render/Shaders/ShaderManager.hpp"
 
 #include "Utils/Helpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"

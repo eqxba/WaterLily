@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Utils/DataStructures.hpp"
-#include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
+#include "Engine/Render/Resources/ResourceHelpers.hpp"
 
 #include <volk.h>
 

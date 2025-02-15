@@ -2,7 +2,7 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Resources/Image.hpp"
 
 namespace SwapchainDetails
 {

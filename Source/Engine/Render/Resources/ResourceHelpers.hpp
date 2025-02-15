@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
+#include "Engine/Render/Resources/Buffer.hpp"
 #include "Engine/FileSystem/FileSystem.hpp"
 #include "Utils/DataStructures.hpp"
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Window.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
+#include "Engine/Render/Resources/ImageView.hpp"
 
 #include <volk.h>
 

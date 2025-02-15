@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
-#include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
+#include "Engine/Render/Resources/CommandBufferSync.hpp"
 
 #include <volk.h>
 

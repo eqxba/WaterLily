@@ -2,7 +2,7 @@
 
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
+#include "Engine/Render/Resources/ResourceHelpers.hpp"
 #include "Engine/FileSystem/FileSystem.hpp"
 #include "Utils/Helpers.hpp"
 

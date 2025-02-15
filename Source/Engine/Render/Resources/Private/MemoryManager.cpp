@@ -1,6 +1,6 @@
 #define VMA_IMPLEMENTATION
 
-#include "Engine/Render/Vulkan/Resources/MemoryManager.hpp"
+#include "Engine/Render/Resources/MemoryManager.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
 MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)

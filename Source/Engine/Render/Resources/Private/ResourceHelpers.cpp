@@ -1,4 +1,4 @@
-#include "Engine/Render/Vulkan/Resources/ResourceHelpers.hpp"
+#include "Engine/Render/Resources/ResourceHelpers.hpp"
 
 #include <stb_image.h>
 

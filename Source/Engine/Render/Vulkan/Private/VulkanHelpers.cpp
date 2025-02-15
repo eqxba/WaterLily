@@ -1,10 +1,10 @@
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Resources/CommandBufferSync.hpp"
-#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Resources/CommandBufferSync.hpp"
+#include "Engine/Render/Resources/Buffer.hpp"
+#include "Engine/Render/Resources/ImageView.hpp"
+#include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Scene/Scene.hpp"
 
 std::vector<VkCommandBuffer> VulkanHelpers::CreateCommandBuffers(VkDevice device, const size_t count, 
