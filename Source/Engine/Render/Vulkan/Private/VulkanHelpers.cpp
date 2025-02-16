@@ -281,24 +281,33 @@ VkRect2D VulkanHelpers::GetScissor(const VkExtent2D extent)
     return scissor;
 }
 
-std::vector<VkDescriptorSetLayout> VulkanHelpers::GetUniqueVkDescriptorSetLayouts(const std::vector<Descriptor>& descriptors)
+std::vector<VkPipelineShaderStageCreateInfo> VulkanHelpers::GetShaderStageCreateInfos(
+    const std::vector<ShaderModule>& shaders)
 {
-    std::set<VkDescriptorSetLayout> layouts;
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    shaderStages.reserve(shaders.size());
 
-    std::ranges::transform(descriptors, std::inserter(layouts, layouts.end()), [](const Descriptor& descriptor) {
-        return descriptor.layout;
+    std::ranges::transform(shaders, std::back_inserter(shaderStages), [](const ShaderModule& shader) {
+        return shader.GetVkPipelineShaderStageCreateInfo();
     });
 
-    return { layouts.begin(), layouts.end() };
+    return shaderStages;
 }
 
-std::vector<VkDescriptorSet> VulkanHelpers::GetVkDescriptorSets(const std::vector<Descriptor>& descriptors)
+VkPipelineLayout VulkanHelpers::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
+    const std::vector<VkPushConstantRange>& pushConstantRanges, const VkDevice device)
 {
-    std::vector<VkDescriptorSet> sets;
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size());
+    pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
 
-    std::ranges::transform(descriptors, std::back_inserter(sets), [](const Descriptor& descriptor) {
-        return descriptor.set;
-    });
+    VkPipelineLayout pipelineLayout;
 
-    return sets;
+    const VkResult result = vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
+    Assert(result == VK_SUCCESS);
+
+    return pipelineLayout;
 }

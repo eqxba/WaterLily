@@ -35,11 +35,11 @@ class DescriptorBuilder
 public:
 	DescriptorBuilder(const VulkanContext& vulkanContext, DescriptorLayoutCache& cache, DescriptorAllocator& allocator);
 
+	Descriptor Build();
+
 	DescriptorBuilder& Bind(uint32_t binding, const Buffer& buffer, VkDescriptorType type, VkShaderStageFlags shaderStages);
 	DescriptorBuilder& Bind(uint32_t binding, const ImageView& imageView, VkDescriptorType type, VkShaderStageFlags shaderStages);
 	DescriptorBuilder& Bind(uint32_t binding, VkSampler sampler, VkShaderStageFlags shaderStages);
-
-	Descriptor Build();
 
 private:
 	VkWriteDescriptorSet& UpdateLayoutAndCreateWrite(uint32_t binding, VkDescriptorType type,

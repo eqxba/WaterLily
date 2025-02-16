@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include "Engine/Render/Resources/Descriptor.hpp"
+#include "Engine/Render/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
 class CommandBufferSync;
@@ -50,6 +51,44 @@ namespace VulkanHelpers
     VkViewport GetViewport(const VkExtent2D extent);
     VkRect2D GetScissor(const VkExtent2D extent);
 
-    std::vector<VkDescriptorSetLayout> GetUniqueVkDescriptorSetLayouts(const std::vector<Descriptor>& descriptors);
-    std::vector<VkDescriptorSet> GetVkDescriptorSets(const std::vector<Descriptor>& descriptors);
+    std::vector<VkPipelineShaderStageCreateInfo> GetShaderStageCreateInfos(const std::vector<ShaderModule>& shaders);
+
+    VkPipelineLayout CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
+        const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device);
+
+    template <typename... Args>
+    std::vector<VkDescriptorSetLayout> GetUniqueVkDescriptorSetLayouts(const Args&... descriptorVectors)
+    {
+        std::vector<VkDescriptorSetLayout> layouts;
+        std::unordered_set<VkDescriptorSetLayout> uniqueLayouts;
+
+        const auto insertLayout = [&](const Descriptor& descriptor) {
+            if (uniqueLayouts.insert(descriptor.layout).second)
+            {
+                layouts.push_back(descriptor.layout);
+            }
+        };
+
+        const auto insertLayouts = [&](const auto& descriptors) { std::ranges::for_each(descriptors, insertLayout); };
+
+        (insertLayouts(descriptorVectors), ...);
+
+        return layouts;
+    }
+
+    template <typename... Args>
+    std::vector<VkDescriptorSet> GetVkDescriptorSets(const Args&... descriptorVectors)
+    {
+        std::vector<VkDescriptorSet> sets;
+
+        auto insertSets = [&sets](const auto& descriptors) {
+            std::ranges::transform(descriptors, std::back_inserter(sets), [](const Descriptor& descriptor) {
+                return descriptor.set;
+            });
+        };
+
+        (insertSets(descriptorVectors), ...);
+
+        return sets;
+    }
 }

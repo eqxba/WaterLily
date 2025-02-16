@@ -38,6 +38,32 @@ DescriptorBuilder::DescriptorBuilder(const VulkanContext& aVulkanContext, Descri
 	, allocator{ &aAllocator }
 {}
 
+Descriptor DescriptorBuilder::Build()
+{
+	const VkDescriptorSetLayout setLayout = cache->CreateLayout(layout);
+	const VkDescriptorSet set = allocator->Allocate(setLayout);
+
+	// Hack: resolve index to pointers (see appropriate bind functions)
+	std::ranges::for_each(descriptorWrites, [&](VkWriteDescriptorSet& descriptorWrite) {
+		descriptorWrite.dstSet = set;
+
+		if (const auto bufferInfosIndex = reinterpret_cast<size_t>(descriptorWrite.pBufferInfo); bufferInfosIndex != 0)
+		{
+			descriptorWrite.pBufferInfo = &bufferInfos[bufferInfosIndex - 1];
+		}
+
+		if (const auto imageInfosIndex = reinterpret_cast<size_t>(descriptorWrite.pImageInfo); imageInfosIndex != 0)
+		{
+			descriptorWrite.pImageInfo = &imageInfos[imageInfosIndex - 1];
+		}
+		});
+
+	vkUpdateDescriptorSets(vulkanContext->GetDevice().GetVkDevice(), static_cast<uint32_t>(descriptorWrites.size()),
+		descriptorWrites.data(), 0, nullptr);
+
+	return { setLayout, set };
+}
+
 DescriptorBuilder& DescriptorBuilder::Bind(const uint32_t binding, const Buffer& buffer, const VkDescriptorType type,
 	const VkShaderStageFlags shaderStages)
 {
@@ -76,32 +102,6 @@ DescriptorBuilder& DescriptorBuilder::Bind(const uint32_t binding, const VkSampl
 	imageWrite.pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(imageInfos.size());
 
 	return *this;
-}
-
-Descriptor DescriptorBuilder::Build()
-{
-	const VkDescriptorSetLayout setLayout = cache->CreateLayout(layout);
-	const VkDescriptorSet set = allocator->Allocate(setLayout);
-
-	// Hack: resolve index to pointers (see appropriate bind functions)
-	std::ranges::for_each(descriptorWrites, [&](VkWriteDescriptorSet& descriptorWrite) {
-		descriptorWrite.dstSet = set;
-
-		if (const auto bufferInfosIndex = reinterpret_cast<size_t>(descriptorWrite.pBufferInfo); bufferInfosIndex != 0)
-		{
-			descriptorWrite.pBufferInfo = &bufferInfos[bufferInfosIndex - 1];
-		}
-
-		if (const auto imageInfosIndex = reinterpret_cast<size_t>(descriptorWrite.pImageInfo); imageInfosIndex != 0)
-		{
-			descriptorWrite.pImageInfo = &imageInfos[imageInfosIndex - 1];
-		}
-	});
-
-	vkUpdateDescriptorSets(vulkanContext->GetDevice().GetVkDevice(), static_cast<uint32_t>(descriptorWrites.size()),
-		descriptorWrites.data(), 0, nullptr);
-
-	return { setLayout, set };
 }
 
 VkWriteDescriptorSet& DescriptorBuilder::UpdateLayoutAndCreateWrite(const uint32_t binding, const VkDescriptorType type,

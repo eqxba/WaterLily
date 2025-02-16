@@ -12,7 +12,19 @@
 
 namespace RenderSystemDetails
 {
+    static constexpr std::string_view vertexShaderPath = "~/Shaders/vert.spv";
+    static constexpr std::string_view fragmentShaderPath = "~/Shaders/frag.spv";
 
+    static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager)
+    {
+        std::vector<ShaderModule> shaderModules;
+        shaderModules.reserve(2);
+
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), ShaderType::eVertex));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), ShaderType::eFragment));
+
+        return shaderModules;
+    }
 }
 
 RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
@@ -135,7 +147,7 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
     VkViewport viewport = GetViewport(extent);
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-    VkRect2D scissor = GetScissor(extent);
+    const VkRect2D scissor = GetScissor(extent);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     VkBuffer vertexBuffers[] = { scene->GetVertexBuffer().GetVkBuffer() };
@@ -144,13 +156,10 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
 
     vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    const std::vector<VkDescriptorSet> globalDescriptors = GetVkDescriptorSets(scene->GetGlobalDescriptors());
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
-        1, static_cast<uint32_t>(globalDescriptors.size()), globalDescriptors.data(), 0, nullptr);
+    const auto descriptors = GetVkDescriptorSets(frame.GetDescriptors(), scene->GetGlobalDescriptors());
 
-    const std::vector<VkDescriptorSet> frameDescriptors = GetVkDescriptorSets(frame.GetDescriptors());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
-        0, static_cast<uint32_t>(frameDescriptors.size()), frameDescriptors.data(), 0, nullptr);
+        0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
     vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->GetVkBuffer(), 0, indirectDrawCount,
         sizeof(VkDrawIndexedIndirectCommand));
@@ -234,19 +243,29 @@ void RenderSystem::OnWindowRecreated(const ES::WindowRecreated& event)
 
 void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 {
+    using namespace RenderSystemDetails;
     using namespace VulkanConfig;
     using namespace VulkanHelpers;
 
     scene = &event.scene;
 
     // TODO: Do this in a proper place
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-    descriptorSetLayouts.reserve(frames[0].GetDescriptors().size() + scene->GetGlobalDescriptors().size());
+    if (!graphicsPipeline)
+    {
+        std::vector<VkDescriptorSetLayout> descriptorSetLayouts
+            = GetUniqueVkDescriptorSetLayouts(frames[0].GetDescriptors(), scene->GetGlobalDescriptors());
 
-    std::ranges::copy(GetUniqueVkDescriptorSetLayouts(frames[0].GetDescriptors()), std::back_inserter(descriptorSetLayouts));
-    std::ranges::copy(GetUniqueVkDescriptorSetLayouts(scene->GetGlobalDescriptors()), std::back_inserter(descriptorSetLayouts));
-
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(*renderPass, descriptorSetLayouts, vulkanContext);
+        graphicsPipeline = std::make_unique<GraphicsPipeline>(GraphicsPipelineBuilder(vulkanContext)
+            .SetDescriptorSetLayouts(descriptorSetLayouts)
+            .SetShaderModules(GetShaderModules(vulkanContext.GetShaderManager()))
+            .SetInputTopology(InputTopology::eTriangleList)
+            .SetPolygonMode(PolygonMode::eFill)
+            .SetCullMode(CullMode::eBack, false)
+            .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
+            .EnableDepthTest()
+            .SetRenderPass(*renderPass)
+            .Build());
+    }
 
     std::tie(indirectBuffer, indirectDrawCount) = CreateIndirectBuffer(*scene, vulkanContext);
 }
