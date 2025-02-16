@@ -172,8 +172,8 @@ GraphicsPipeline::~GraphicsPipeline()
 
 GraphicsPipeline::GraphicsPipeline(GraphicsPipeline&& other) noexcept
     : vulkanContext{other.vulkanContext}
-    , pipeline{other.pipeline}
     , pipelineLayout{other.pipelineLayout}
+    , pipeline{other.pipeline}
 {
     other.vulkanContext = nullptr;
     other.pipeline = VK_NULL_HANDLE;
@@ -185,12 +185,12 @@ GraphicsPipeline& GraphicsPipeline::operator=(GraphicsPipeline&& other) noexcept
     if (this != &other)
     {
         vulkanContext = other.vulkanContext;
-        pipeline = other.pipeline;
         pipelineLayout = other.pipelineLayout;
+        pipeline = other.pipeline;
 
         other.vulkanContext = nullptr;
-        other.pipeline = VK_NULL_HANDLE;
         other.pipelineLayout = VK_NULL_HANDLE;
+        other.pipeline = VK_NULL_HANDLE;
     }
 
     return *this;
