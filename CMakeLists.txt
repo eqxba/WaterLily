@@ -5,8 +5,8 @@ set(ENV{CMAKE_BUILD_PARALLEL_LEVEL} 8)
 set(TARGET_NAME WaterLily)
 project(${TARGET_NAME})
 
+# sources
 set(SOURCE_DIR ${PROJECT_SOURCE_DIR}/Source)
-# TODO: GLOB sometimes is thought as a bad solution to add source files (change this to a better way?)
 file(GLOB_RECURSE SOURCE_FILES LIST_DIRECTORIES false
     "${SOURCE_DIR}/*.cpp"
     "${SOURCE_DIR}/*.hpp"
@@ -14,15 +14,43 @@ file(GLOB_RECURSE SOURCE_FILES LIST_DIRECTORIES false
     "${SOURCE_DIR}/*.h"
 )
 
-add_executable(${TARGET_NAME} ${SOURCE_FILES})
-
+# vulkan
 find_package(Vulkan REQUIRED)
 
+# glfw
 add_subdirectory(External/glfw)
+
+# glslang
+option(ENABLE_SPVREMAPPER "" OFF)
+option(ENABLE_GLSLANG_BINARIES "" OFF)
+option(ENABLE_CTEST "" OFF)
+option(ENABLE_HLSL "" OFF)
+add_subdirectory(External/glslang)
+
+# imgui
+set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/External/imgui")
+
+file(GLOB IMGUI_HEADERS LIST_DIRECTORIES false
+    "${IMGUI_DIR}/misc/cpp/*.h"
+    "${IMGUI_DIR}/examples/*glfw*.h"
+    "${IMGUI_DIR}/examples/*vulkan*.h"
+)
+file(GLOB IMGUI_SOURCES LIST_DIRECTORIES false
+    "${IMGUI_DIR}/*.cpp"
+    "${IMGUI_DIR}/misc/cpp/*.cpp"
+    "${IMGUI_DIR}/backends/*glfw*.cpp"
+    "${IMGUI_DIR}/backends/*vulkan*.cpp"
+)
+
+add_executable(${TARGET_NAME} ${SOURCE_FILES} ${IMGUI_HEADERS} ${IMGUI_SOURCES})
 
 target_include_directories(${TARGET_NAME} PRIVATE
     ${Vulkan_INCLUDE_DIRS}
     External/glfw/include/
+    External/imgui/
+    External/glslang/
+    External/glslang/glslang/Include
+    External/glslang/glslang/Public
     # This ones are header only :)
     External/VulkanMemoryAllocator/include
     External/glm/
@@ -33,15 +61,13 @@ target_include_directories(${TARGET_NAME} PRIVATE
     Source/
 )
 
-target_link_libraries(${TARGET_NAME} ${Vulkan_LIBRARIES} glfw)
+target_link_libraries(${TARGET_NAME} 
+    PRIVATE ${Vulkan_LIBRARIES} 
+    PRIVATE glfw
+    PRIVATE glslang
+)
 
-# IDE structuring
-# TODO: Still not sure about naming (case & ...)
-foreach(source IN ITEMS ${SOURCE_FILES})
-    cmake_path(GET source PARENT_PATH parent_folder)
-    cmake_path(RELATIVE_PATH parent_folder BASE_DIRECTORY "${PROJECT_SOURCE_DIR}" OUTPUT_VARIABLE group_path)
-    source_group("${group_path}" FILES "${source}")
-endforeach()
+target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)
 
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 set_property(TARGET ${TARGET_NAME} PROPERTY CMAKE_CXX_STANDARD_REQUIRED True)
@@ -55,18 +81,17 @@ else()
     target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)
-
 add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${PROJECT_SOURCE_DIR}/Source/Shaders
-        $<TARGET_FILE_DIR:${TARGET_NAME}>/Shaders
-    COMMENT "Creating symlink to Shaders directory..."
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/Source/Shaders $<TARGET_FILE_DIR:${TARGET_NAME}>/Shaders
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/Assets $<TARGET_FILE_DIR:${TARGET_NAME}>/Assets
+    COMMENT "Creating symlinks to Shaders and Assets directories..."
 )
 
-add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${PROJECT_SOURCE_DIR}/Assets
-        $<TARGET_FILE_DIR:${TARGET_NAME}>/Assets
-    COMMENT "Creating symlink to Assets directory..."
-)
+# IDE structuring
+source_group("Source\\External\\Imgui" FILES ${IMGUI_HEADERS})
+source_group("Source\\External\\Imgui\\Private" FILES ${IMGUI_SOURCES})
+foreach(SOURCE IN ITEMS ${SOURCE_FILES})
+    cmake_path(GET SOURCE PARENT_PATH PARENT_FOLDER)
+    cmake_path(RELATIVE_PATH PARENT_FOLDER BASE_DIRECTORY "${PROJECT_SOURCE_DIR}" OUTPUT_VARIABLE GROUP_PATH)
+    source_group("${GROUP_PATH}" FILES "${SOURCE}")
+endforeach()
