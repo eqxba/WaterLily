@@ -1,4 +1,4 @@
-#include "Engine/Render/Shaders/ShaderManager.hpp"
+#include "Engine/Render/Resources/Shaders/ShaderManager.hpp"
 
 #include "Utils/Helpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
@@ -7,19 +7,26 @@ ShaderManager::ShaderManager(const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {}
 
-// TODO: Deduct shader type from SPIR-V bytecode
 ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const ShaderType shaderType) const
 {
-    const std::vector<char> shaderCode = FileSystem::ReadFile(path);
+    const std::vector<char> glslCode = FileSystem::ReadFile(path);
+
+    const std::vector<uint32_t> spirvCode = ShaderCompiler::Compile(std::string_view(glslCode.data(), glslCode.size()), 
+        shaderType, FilePath("~/Shaders"));
+
+    if (spirvCode.empty())
+    {
+        return { VK_NULL_HANDLE, shaderType, vulkanContext };
+    }
     
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = shaderCode.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
+    createInfo.codeSize = spirvCode.size() * sizeof(uint32_t);
+    createInfo.pCode = spirvCode.data();
 
     VkShaderModule shaderModule;
     const VkResult result = vkCreateShaderModule(vulkanContext.GetDevice().GetVkDevice(), &createInfo, nullptr, &shaderModule);
     Assert(result == VK_SUCCESS);
 
-    return ShaderModule(shaderModule, shaderType, vulkanContext);
+    return { shaderModule, shaderType, vulkanContext };
 }

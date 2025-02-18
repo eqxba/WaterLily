@@ -2,8 +2,7 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Resources/Descriptor.hpp"
-#include "Engine/Render/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Resources/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
 class CommandBufferSync;
@@ -56,39 +55,20 @@ namespace VulkanHelpers
     VkPipelineLayout CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device);
 
-    template <typename... Args>
-    std::vector<VkDescriptorSetLayout> GetUniqueVkDescriptorSetLayouts(const Args&... descriptorVectors)
-    {
-        std::vector<VkDescriptorSetLayout> layouts;
-        std::unordered_set<VkDescriptorSetLayout> uniqueLayouts;
-
-        const auto insertLayout = [&](const Descriptor& descriptor) {
-            if (uniqueLayouts.insert(descriptor.layout).second)
-            {
-                layouts.push_back(descriptor.layout);
-            }
-        };
-
-        const auto insertLayouts = [&](const auto& descriptors) { std::ranges::for_each(descriptors, insertLayout); };
-
-        (insertLayouts(descriptorVectors), ...);
-
-        return layouts;
-    }
-
-    template <typename... Args>
-    std::vector<VkDescriptorSet> GetVkDescriptorSets(const Args&... descriptorVectors)
-    {
-        std::vector<VkDescriptorSet> sets;
-
-        auto insertSets = [&sets](const auto& descriptors) {
-            std::ranges::transform(descriptors, std::back_inserter(sets), [](const Descriptor& descriptor) {
-                return descriptor.set;
-            });
-        };
-
-        (insertSets(descriptorVectors), ...);
-
-        return sets;
-    }
+    const VkDescriptorSetLayoutBinding& GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, uint32_t index);
 }
+
+template <>
+struct std::hash<VkDescriptorSetLayoutBinding>
+{
+    std::size_t operator()(const VkDescriptorSetLayoutBinding& binding) const noexcept
+    {
+        const std::size_t h1 = std::hash<uint32_t>{}(binding.binding);
+        const std::size_t h2 = std::hash<uint32_t>{}(binding.descriptorType);
+        const std::size_t h3 = std::hash<uint32_t>{}(binding.descriptorCount);
+        const std::size_t h4 = std::hash<uint32_t>{}(binding.stageFlags);
+        const std::size_t h5 = std::hash<const void*>{}(binding.pImmutableSamplers);
+
+        return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3) ^ (h5 << 4);
+    }
+};

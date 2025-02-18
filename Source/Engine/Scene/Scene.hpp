@@ -5,8 +5,8 @@
 #include "Engine/Render/Resources/Buffer.hpp"
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
-#include "Engine/Render/Resources/Descriptor.hpp"
 #include "Engine/FileSystem/FilePath.hpp"
+#include "Engine/Render/Resources/DescriptorSets/DescriptorSetLayout.hpp"
 
 #include <volk.h>
 
@@ -16,6 +16,8 @@ class Image;
 class Scene
 {
 public:
+    static DescriptorSetLayout GetGlobalDescriptorSetLayout(const VulkanContext& vulkanContext);
+
     Scene(FilePath path, const VulkanContext& vulkanContext);
     ~Scene();
 
@@ -50,7 +52,7 @@ public:
         return transformsBuffer;
     }
 
-    const std::vector<Descriptor>& GetGlobalDescriptors() const
+    const std::vector<VkDescriptorSet>& GetGlobalDescriptors() const
     {
         return globalDescriptors;
     }
@@ -106,7 +108,8 @@ private:
     ImageView imageView;
     VkSampler sampler = VK_NULL_HANDLE; // TODO: move away to a proper location, pool or smth
 
-    std::vector<Descriptor> globalDescriptors;
+    std::vector<VkDescriptorSet> globalDescriptors;
+    DescriptorSetLayout globalDescriptorSetLayout;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

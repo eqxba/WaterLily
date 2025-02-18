@@ -8,13 +8,13 @@ namespace FileSystem
     {
         if (!path.Exists())
         {
-            LogE << "Path does not exist: " << path.GetAbsolute() << std::endl;
+            LogE << "Path does not exist: " << path.GetAbsolute() << '\n';
             Assert(false);
         }
         
         std::ifstream file(path.GetAbsolute(), std::ios::binary | std::ios::ate);
 
-        std::streamsize fileSize = file.tellg();
+        const std::streamsize fileSize = file.tellg();
         file.seekg(0, std::ios::beg);
 
         std::vector<char> buffer(fileSize);

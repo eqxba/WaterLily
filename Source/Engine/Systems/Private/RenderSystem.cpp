@@ -12,8 +12,8 @@
 
 namespace RenderSystemDetails
 {
-    static constexpr std::string_view vertexShaderPath = "~/Shaders/vert.spv";
-    static constexpr std::string_view fragmentShaderPath = "~/Shaders/frag.spv";
+    static constexpr std::string_view vertexShaderPath = "~/Shaders/shader.vert";
+    static constexpr std::string_view fragmentShaderPath = "~/Shaders/shader.frag";
 
     static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager)
     {
@@ -46,6 +46,7 @@ RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulk
     eventSystem.Subscribe<ES::SceneClosed>(this, &RenderSystem::OnSceneClose);
     eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &RenderSystem::OnBeforeWindowRecreated, ES::Priority::eHigh);
     eventSystem.Subscribe<ES::WindowRecreated>(this, &RenderSystem::OnWindowRecreated, ES::Priority::eLow);
+    eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
 
 RenderSystem::~RenderSystem()
@@ -55,6 +56,7 @@ RenderSystem::~RenderSystem()
     eventSystem.Unsubscribe<ES::SceneClosed>(this);
     eventSystem.Unsubscribe<ES::BeforeWindowRecreated>(this);
     eventSystem.Unsubscribe<ES::WindowRecreated>(this);
+    eventSystem.Unsubscribe<ES::KeyInput>(this);
 
     DestroyAttachmentsAndFramebuffers();
 }
@@ -156,7 +158,8 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
 
     vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    const auto descriptors = GetVkDescriptorSets(frame.GetDescriptors(), scene->GetGlobalDescriptors());
+    std::vector<VkDescriptorSet> descriptors = frame.GetDescriptors();
+    std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
@@ -219,6 +222,39 @@ void RenderSystem::DestroyAttachmentsAndFramebuffers()
     depthAttachment.reset();
 }
 
+// TODO: Do this in a proper place
+void RenderSystem::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
+{
+    using namespace VulkanHelpers;
+
+    device.WaitIdle();
+
+    std::vector descriptorSetLayouts = { frames[0].GetDescriptorSetLayout().GetVkDescriptorSetLayout(),
+        Scene::GetGlobalDescriptorSetLayout(vulkanContext).GetVkDescriptorSetLayout() };
+
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(GraphicsPipelineBuilder(vulkanContext)
+        .SetDescriptorSetLayouts(std::move(descriptorSetLayouts))
+        .SetShaderModules(std::move(shaderModules))
+        .SetInputTopology(InputTopology::eTriangleList)
+        .SetPolygonMode(PolygonMode::eFill)
+        .SetCullMode(CullMode::eBack, false)
+        .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
+        .EnableDepthTest()
+        .SetRenderPass(*renderPass)
+        .Build());
+}
+
+void RenderSystem::TryReloadShaders()
+{
+    using namespace RenderSystemDetails;
+
+    if (std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager()); 
+        std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
+    {
+        CreateGraphicsPipeline(std::move(shaderModules));
+    }
+}
+
 void RenderSystem::OnResize(const ES::WindowResized& event)
 {
     if (event.newExtent.width == 0 || event.newExtent.height == 0)
@@ -244,27 +280,18 @@ void RenderSystem::OnWindowRecreated(const ES::WindowRecreated& event)
 void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 {
     using namespace RenderSystemDetails;
-    using namespace VulkanConfig;
     using namespace VulkanHelpers;
 
     scene = &event.scene;
 
-    // TODO: Do this in a proper place
     if (!graphicsPipeline)
     {
-        std::vector<VkDescriptorSetLayout> descriptorSetLayouts
-            = GetUniqueVkDescriptorSetLayouts(frames[0].GetDescriptors(), scene->GetGlobalDescriptors());
+        std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager());
 
-        graphicsPipeline = std::make_unique<GraphicsPipeline>(GraphicsPipelineBuilder(vulkanContext)
-            .SetDescriptorSetLayouts(descriptorSetLayouts)
-            .SetShaderModules(GetShaderModules(vulkanContext.GetShaderManager()))
-            .SetInputTopology(InputTopology::eTriangleList)
-            .SetPolygonMode(PolygonMode::eFill)
-            .SetCullMode(CullMode::eBack, false)
-            .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
-            .EnableDepthTest()
-            .SetRenderPass(*renderPass)
-            .Build());
+        const bool allValid = std::ranges::all_of(shaderModules, &ShaderModule::IsValid);
+        Assert(allValid);
+
+        CreateGraphicsPipeline(std::move(shaderModules));
     }
 
     std::tie(indirectBuffer, indirectDrawCount) = CreateIndirectBuffer(*scene, vulkanContext);
@@ -273,4 +300,13 @@ void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 void RenderSystem::OnSceneClose(const ES::SceneClosed& event)
 {        
     scene = nullptr;
+}
+
+void RenderSystem::OnKeyInput(const ES::KeyInput& event)
+{
+    if (event.key == Key::eR && event.action == KeyAction::ePress &&
+        HasMod(event.mods, ctrlKeyMod))
+    {
+        TryReloadShaders();
+    }
 }

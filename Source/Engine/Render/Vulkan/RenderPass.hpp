@@ -7,7 +7,7 @@ class VulkanContext;
 class RenderPass
 {
 public:
-	RenderPass(const VulkanContext& aVulkanContext);
+    RenderPass(const VulkanContext& aVulkanContext);
 	~RenderPass();
 
     RenderPass(const RenderPass&) = delete;
@@ -24,5 +24,5 @@ public:
 private:
     const VulkanContext& vulkanContext;
 
-	VkRenderPass renderPass;
+    VkRenderPass renderPass;
 };

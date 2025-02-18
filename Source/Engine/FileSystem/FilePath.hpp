@@ -14,8 +14,9 @@ public:
     std::string GetDirectory() const;
     std::string GetFileName() const;
     std::string GetExtension() const;
-    
+
     bool Exists() const;
+    bool IsDirectory() const;
     
     friend std::ostream& operator<<(std::ostream& os, const FilePath& fp);
     

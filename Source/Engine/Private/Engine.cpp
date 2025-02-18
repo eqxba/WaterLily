@@ -10,8 +10,6 @@
 
 namespace EngineDetails
 {
-    constexpr KeyMods openSceneKeyMods = platformMac ? KeyMods::eSuper : KeyMods::eCtrl;
-
     static float GetDeltaSeconds(std::chrono::time_point<std::chrono::high_resolution_clock> start,
         std::chrono::time_point<std::chrono::high_resolution_clock> end)
     {
@@ -111,7 +109,7 @@ void Engine::OnKeyInput(const ES::KeyInput& event)
     }
     
     if (event.key == Key::eO && event.action == KeyAction::ePress &&
-        HasMod(event.mods, openSceneKeyMods))
+        HasMod(event.mods, ctrlKeyMod))
     {
         TryOpenScene();
     }

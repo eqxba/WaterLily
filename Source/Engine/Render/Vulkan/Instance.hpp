@@ -22,5 +22,5 @@ public:
 private:	
     VkInstance instance;
 
-	VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 };

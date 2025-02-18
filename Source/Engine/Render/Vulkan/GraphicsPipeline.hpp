@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Resources/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
 class RenderPass;
@@ -25,65 +25,65 @@ enum class CullMode
 class GraphicsPipeline
 {
 public:
-	GraphicsPipeline(VkPipelineLayout pipelineLayout, VkPipeline pipeline, const VulkanContext& vulkanContext);
+    GraphicsPipeline(VkPipelineLayout pipelineLayout, VkPipeline pipeline, const VulkanContext& vulkanContext);
 	~GraphicsPipeline();
 
-	GraphicsPipeline(const GraphicsPipeline&) = delete;
-	GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
+    GraphicsPipeline(const GraphicsPipeline&) = delete;
+    GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
 
-	GraphicsPipeline(GraphicsPipeline&& other) noexcept;
-	GraphicsPipeline& operator=(GraphicsPipeline&& other) noexcept;
+    GraphicsPipeline(GraphicsPipeline&& other) noexcept;
+    GraphicsPipeline& operator=(GraphicsPipeline&& other) noexcept;
 
-	VkPipeline GetVkPipeline() const
+    VkPipeline GetVkPipeline() const
 	{
-		return pipeline;
+	    return pipeline;
 	}
 
-	VkPipelineLayout GetPipelineLayout() const
+    VkPipelineLayout GetPipelineLayout() const
 	{
-		return pipelineLayout;
+	    return pipelineLayout;
 	}
 
 private:
-	const VulkanContext* vulkanContext;
+    const VulkanContext* vulkanContext;
 
-	VkPipelineLayout pipelineLayout;
-	VkPipeline pipeline;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
 };
 
 class GraphicsPipelineBuilder
 {
 public:
 	// TODO: Add pipeline cache and manager
-	GraphicsPipelineBuilder(const VulkanContext& vulkanContext);
+    GraphicsPipelineBuilder(const VulkanContext& vulkanContext);
 
-	GraphicsPipeline Build() const;
+    GraphicsPipeline Build() const;
 
 	// TODO: Get set layouts and push constants from reflection
-	GraphicsPipelineBuilder& SetDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> descriptorSetLayouts); // Temp!
+    GraphicsPipelineBuilder& SetDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> descriptorSetLayouts); // Temp!
 
-	GraphicsPipelineBuilder& SetShaderModules(std::vector<ShaderModule>&& shaderModules);
-	GraphicsPipelineBuilder& SetInputTopology(InputTopology topology);
-	GraphicsPipelineBuilder& SetPolygonMode(PolygonMode polygonMode);
-	GraphicsPipelineBuilder& SetCullMode(CullMode cullMode, bool clockwise = true);
-	GraphicsPipelineBuilder& SetMultisampling(VkSampleCountFlagBits sampleCount);
-	GraphicsPipelineBuilder& EnableDepthTest();
-	GraphicsPipelineBuilder& SetRenderPass(const RenderPass& renderPass, uint32_t subpass = 0);
+    GraphicsPipelineBuilder& SetShaderModules(std::vector<ShaderModule>&& shaderModules);
+    GraphicsPipelineBuilder& SetInputTopology(InputTopology topology);
+    GraphicsPipelineBuilder& SetPolygonMode(PolygonMode polygonMode);
+    GraphicsPipelineBuilder& SetCullMode(CullMode cullMode, bool clockwise = true);
+    GraphicsPipelineBuilder& SetMultisampling(VkSampleCountFlagBits sampleCount);
+    GraphicsPipelineBuilder& EnableDepthTest();
+    GraphicsPipelineBuilder& SetRenderPass(const RenderPass& renderPass, uint32_t subpass = 0);
 
 private:
-	const VulkanContext* vulkanContext;
+    const VulkanContext* vulkanContext;
 
-	std::vector<VkDescriptorSetLayout> descriptorSetLayouts; // Temp!
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts; // Temp!
 
-	std::vector<ShaderModule> shaderModules;
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly;
-	VkPipelineViewportStateCreateInfo viewportState;
-	VkPipelineRasterizationStateCreateInfo rasterizer;
-	VkPipelineColorBlendAttachmentState colorBlendAttachment;
-	VkPipelineColorBlendStateCreateInfo colorBlending;
-	std::vector<VkDynamicState> dynamicStates;
-	VkPipelineMultisampleStateCreateInfo multisamplingState;
-	VkPipelineDepthStencilStateCreateInfo depthStencil;
-	const RenderPass* renderPass = nullptr;
-	uint32_t subpass = 0;
+    std::vector<ShaderModule> shaderModules;
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly;
+    VkPipelineViewportStateCreateInfo viewportState;
+    VkPipelineRasterizationStateCreateInfo rasterizer;
+    VkPipelineColorBlendAttachmentState colorBlendAttachment;
+    VkPipelineColorBlendStateCreateInfo colorBlending;
+    std::vector<VkDynamicState> dynamicStates;
+    VkPipelineMultisampleStateCreateInfo multisamplingState;
+    VkPipelineDepthStencilStateCreateInfo depthStencil;
+    const RenderPass* renderPass = nullptr;
+    uint32_t subpass = 0;
 };

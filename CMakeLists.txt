@@ -49,8 +49,6 @@ target_include_directories(${TARGET_NAME} PRIVATE
     External/glfw/include/
     External/imgui/
     External/glslang/
-    External/glslang/glslang/Include
-    External/glslang/glslang/Public
     # This ones are header only :)
     External/VulkanMemoryAllocator/include
     External/glm/
@@ -65,6 +63,7 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE ${Vulkan_LIBRARIES} 
     PRIVATE glfw
     PRIVATE glslang
+    PRIVATE glslang-default-resource-limits
 )
 
 target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)

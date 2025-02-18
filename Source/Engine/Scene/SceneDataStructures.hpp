@@ -12,15 +12,15 @@ DISABLE_WARNINGS_END
 
 struct Vertex
 {
-	static VkVertexInputBindingDescription GetBindingDescription();
-	static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
+    static VkVertexInputBindingDescription GetBindingDescription();
+    static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 
-	bool operator==(const Vertex& other) const;
+    bool operator==(const Vertex& other) const;
 
-	glm::vec3 pos = Vector3::zero;
-	glm::vec3 normal = Vector3::zero;
-	glm::vec2 uv = Vector2::zero;
-	glm::vec3 color = Vector3::zero;
+    glm::vec3 pos = Vector3::zero;
+    glm::vec3 normal = Vector3::zero;
+    glm::vec2 uv = Vector2::zero;
+    glm::vec3 color = Vector3::zero;
     glm::vec4 tangent = Vector4::zero;
 };
 
@@ -38,14 +38,14 @@ struct Mesh
 
 struct SceneNode
 {
-	SceneNode* parent = nullptr;
-	std::vector<std::unique_ptr<SceneNode>> children;
+    SceneNode* parent = nullptr;
+    std::vector<std::unique_ptr<SceneNode>> children;
 
-	Mesh mesh;
-	glm::mat4 transform = Matrix4::identity;
+    Mesh mesh;
+    glm::mat4 transform = Matrix4::identity;
 
-	bool visible = true;
-	std::string name;
+    bool visible = true;
+    std::string name;
 };
 
 struct PushConstants

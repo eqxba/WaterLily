@@ -6,44 +6,44 @@
 
 namespace ES // Event system
 {
-	struct WindowResized
+    struct WindowResized
 	{
-		Extent2D newExtent{};
+	    Extent2D newExtent{};
 	};
 
-	struct BeforeWindowRecreated {};
+    struct BeforeWindowRecreated {};
 
-	struct WindowRecreated
+    struct WindowRecreated
 	{
-		const Window* window;
+	    const Window* window;
 	};
 
-	struct SceneOpened
+    struct SceneOpened
 	{
-		Scene& scene;
+	    Scene& scene;
 	};
 
     struct SceneClosed {};
 
-	struct KeyInput
+    struct KeyInput
 	{
-		Key key{};
-		KeyAction action{};
+	    Key key{};
+	    KeyAction action{};
         KeyMods mods{};
 	};
 
-	struct MouseMoved
+    struct MouseMoved
 	{
-		glm::vec2 newPosition{};
+	    glm::vec2 newPosition{};
 	};
 
-	struct MouseWheelScrolled
+    struct MouseWheelScrolled
 	{
-		glm::vec2 offset{};
+	    glm::vec2 offset{};
 	};
 
-	struct BeforeCursorModeUpdated
+    struct BeforeCursorModeUpdated
 	{
-		CursorMode newCursorMode{};
+	    CursorMode newCursorMode{};
 	};
 }

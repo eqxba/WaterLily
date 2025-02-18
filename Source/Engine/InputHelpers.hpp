@@ -163,3 +163,5 @@ constexpr bool HasMod(KeyMods mods, KeyMods flag)
 {
     return (mods & flag) != KeyMods::eNone;
 }
+
+constexpr KeyMods ctrlKeyMod = platformMac ? KeyMods::eSuper : KeyMods::eCtrl;

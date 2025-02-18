@@ -6,9 +6,9 @@
 // Struct instead of constant values in a namespace to make configs easy swappable? Don't care rn
 namespace EngineConfig
 {
-	constexpr const char *engineName = "WaterLily";
+    constexpr const char *engineName = "WaterLily";
 
-	constexpr WindowDescription windowDescription = {
+    constexpr WindowDescription windowDescription = {
 	    .extent = { 1980 / 2, 1080 / 2},
 		.title = engineName,
 		.mode = WindowMode::eWindowed,

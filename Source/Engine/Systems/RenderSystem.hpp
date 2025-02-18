@@ -11,11 +11,12 @@
 
 namespace ES
 {
-	struct WindowResized;
-	struct BeforeWindowRecreated;
-	struct WindowRecreated;
-	struct SceneOpened;
+    struct WindowResized;
+    struct BeforeWindowRecreated;
+    struct WindowRecreated;
+    struct SceneOpened;
     struct SceneClosed;
+    struct KeyInput;
 }
 
 class VulkanContext;
@@ -30,56 +31,60 @@ class ImageView;
 class RenderSystem : public System
 {
 public:
-	RenderSystem(EventSystem& aEventSystem, const VulkanContext& vulkanContext);
+    RenderSystem(EventSystem& aEventSystem, const VulkanContext& vulkanContext);
 	~RenderSystem() override;
 
-	RenderSystem(const RenderSystem&) = delete;
-	RenderSystem& operator=(const RenderSystem&) = delete;
+    RenderSystem(const RenderSystem&) = delete;
+    RenderSystem& operator=(const RenderSystem&) = delete;
 
-	RenderSystem(RenderSystem&&) = delete;
-	RenderSystem& operator=(RenderSystem&&) = delete;
+    RenderSystem(RenderSystem&&) = delete;
+    RenderSystem& operator=(RenderSystem&&) = delete;
 
-	void Process(float deltaSeconds) override;
+    void Process(float deltaSeconds) override;
 
-	void Render();
+    void Render();
 
 private:
-	uint32_t AcquireNextImage(const Frame& frame) const;
-	void RenderScene(const Frame& frame, VkFramebuffer framebuffer) const;
-	void Present(const Frame& frame, uint32_t imageIndex) const;
+    uint32_t AcquireNextImage(const Frame& frame) const;
+    void RenderScene(const Frame& frame, VkFramebuffer framebuffer) const;
+    void Present(const Frame& frame, uint32_t imageIndex) const;
 
-	void CreateAttachmentsAndFramebuffers();
-	void DestroyAttachmentsAndFramebuffers();
+    void CreateAttachmentsAndFramebuffers();
+    void DestroyAttachmentsAndFramebuffers();
 
-	void OnResize(const ES::WindowResized& event);
-	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
-	void OnWindowRecreated(const ES::WindowRecreated& event);
-	void OnSceneOpen(const ES::SceneOpened& event);
+    void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
+    void TryReloadShaders();
+
+    void OnResize(const ES::WindowResized& event);
+    void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
+    void OnWindowRecreated(const ES::WindowRecreated& event);
+    void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose(const ES::SceneClosed& event);
+    void OnKeyInput(const ES::KeyInput& event);
 
-	const VulkanContext& vulkanContext;
-	const Device& device;
+    const VulkanContext& vulkanContext;
+    const Device& device;
 
-	EventSystem& eventSystem;
+    EventSystem& eventSystem;
 
-	std::unique_ptr<RenderPass> renderPass;
-	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+    std::unique_ptr<RenderPass> renderPass;
+    std::unique_ptr<GraphicsPipeline> graphicsPipeline;
 
-	std::unique_ptr<Image> colorAttachment;
-	std::unique_ptr<ImageView> colorAttachmentView;
+    std::unique_ptr<Image> colorAttachment;
+    std::unique_ptr<ImageView> colorAttachmentView;
 
-	std::unique_ptr<Image> depthAttachment;
-	std::unique_ptr<ImageView> depthAttachmentView;
+    std::unique_ptr<Image> depthAttachment;
+    std::unique_ptr<ImageView> depthAttachmentView;
 
-	std::vector<VkFramebuffer> framebuffers;
+    std::vector<VkFramebuffer> framebuffers;
     
     std::vector<Frame> frames;
     size_t currentFrame = 0;
     
-	gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
+    gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
 
-	std::unique_ptr<Buffer> indirectBuffer;
-	uint32_t indirectDrawCount = 0;
+    std::unique_ptr<Buffer> indirectBuffer;
+    uint32_t indirectDrawCount = 0;
 
-	Scene* scene = nullptr;
+    Scene* scene = nullptr;
 };

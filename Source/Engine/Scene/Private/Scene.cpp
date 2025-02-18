@@ -15,6 +15,16 @@ namespace SceneDetails
     static constexpr std::string_view imagePath = "~/Assets/texture.png";
 }
 
+DescriptorSetLayout Scene::GetGlobalDescriptorSetLayout(const VulkanContext& vulkanContext)
+{
+    // TODO: Parse from SPIR-V reflection
+    return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
+        .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+        .AddBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .AddBinding(2, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Build();
+}
+
 Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
     , root{ std::make_unique<SceneNode>() }
@@ -30,7 +40,7 @@ Scene::~Scene()
 {
     vulkanContext.GetDevice().WaitIdle();
 
-    vulkanContext.GetDescriptorManager().ResetDescriptors(DescriptorScope::eScene);
+    vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eScene);
 
     VulkanHelpers::DestroySampler(vulkanContext.GetDevice().GetVkDevice(), sampler);
 }
@@ -110,10 +120,13 @@ void Scene::InitTextureResources()
 
 void Scene::InitGlobalDescriptors()
 {
-    // TODO: Parse from SPIR-V reflection
-    globalDescriptors.push_back(vulkanContext.GetDescriptorManager().GetDescriptorBuilder(DescriptorScope::eScene)
-        .Bind(0, transformsBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-        .Bind(1, imageView, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .Bind(2, sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .Build());
+    globalDescriptorSetLayout = GetGlobalDescriptorSetLayout(vulkanContext);
+
+    const auto [descriptor, layout] = vulkanContext.GetDescriptorSetsManager().GetDescriptorSetBuilder(globalDescriptorSetLayout)
+        .Bind(0, transformsBuffer)
+        .Bind(1, imageView)
+        .Bind(2, sampler)
+        .Build();
+
+    globalDescriptors.push_back(descriptor);
 }

@@ -3,7 +3,7 @@
 class System
 {
 public:
-	virtual ~System() = default;
+    virtual ~System() = default;
 	
-	virtual void Process(float deltaSeconds) = 0;
+    virtual void Process(float deltaSeconds) = 0;
 };

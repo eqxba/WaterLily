@@ -1,19 +1,19 @@
 #pragma once
 
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
-#include "Engine/Render/Shaders/ShaderManager.hpp"
+#include "Engine/Render/Resources/Shaders/ShaderManager.hpp"
 #include "Engine/Render/Vulkan/Instance.hpp"
 #include "Engine/Render/Vulkan/Surface.hpp"
 #include "Engine/Render/Vulkan/Device.hpp"
 #include "Engine/Render/Vulkan/Swapchain.hpp"
 #include "Engine/Render/Resources/MemoryManager.hpp"
-#include "Engine/Render/Shaders/ShaderManager.hpp"
-#include "Engine/Render/Resources/DescriptorManager.hpp"
+#include "Engine/Render/Resources/Shaders/ShaderManager.hpp"
+#include "Engine/Render/Resources/DescriptorSets/DescriptorSetManager.hpp"
 
 namespace ES
 {
-	struct BeforeWindowRecreated;
-	struct WindowRecreated;
+    struct BeforeWindowRecreated;
+    struct WindowRecreated;
 }
 
 class Window;
@@ -21,62 +21,62 @@ class Window;
 class VulkanContext
 {
 public:
-	VulkanContext(const Window& window, EventSystem& eventSystem);
+    VulkanContext(const Window& window, EventSystem& eventSystem);
 	~VulkanContext();
 
-	VulkanContext(const VulkanContext&) = delete;
-	VulkanContext& operator=(const VulkanContext&) = delete;
+    VulkanContext(const VulkanContext&) = delete;
+    VulkanContext& operator=(const VulkanContext&) = delete;
 
-	VulkanContext(VulkanContext&&) = delete;
-	VulkanContext& operator=(VulkanContext&&) = delete;
+    VulkanContext(VulkanContext&&) = delete;
+    VulkanContext& operator=(VulkanContext&&) = delete;
 
-	const Instance& GetInstance() const
+    const Instance& GetInstance() const
 	{
-		return *instance;
+	    return *instance;
 	}
 
-	const Surface& GetSurface() const
+    const Surface& GetSurface() const
 	{
-		return *surface;
+	    return *surface;
 	}
 
-	const Device& GetDevice() const
+    const Device& GetDevice() const
 	{
-		return *device;
+	    return *device;
 	}
 
-	Swapchain& GetSwapchain() const
+    Swapchain& GetSwapchain() const
 	{
-		return *swapchain;
+	    return *swapchain;
 	}
 
-	MemoryManager& GetMemoryManager() const
+    MemoryManager& GetMemoryManager() const
 	{
-		return *memoryManager;
+	    return *memoryManager;
 	}
 
-	const ShaderManager& GetShaderManager() const
+    const ShaderManager& GetShaderManager() const
 	{
-		return *shaderManager;
+	    return *shaderManager;
 	}
 
-	DescriptorManager& GetDescriptorManager() const
+    DescriptorSetManager& GetDescriptorSetsManager() const
 	{
-		return *descriptorManager;
+	    return *descriptorSetsManager;
 	}
 
 private:
-	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
-	void OnWindowRecreated(const ES::WindowRecreated& event);
+    void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
+    void OnWindowRecreated(const ES::WindowRecreated& event);
 
-	EventSystem& eventSystem;
+    EventSystem& eventSystem;
 
-	std::unique_ptr<Instance> instance;
-	std::unique_ptr<Surface> surface;
-	std::unique_ptr<Device> device;
-	std::unique_ptr<Swapchain> swapchain;
+    std::unique_ptr<Instance> instance;
+    std::unique_ptr<Surface> surface;
+    std::unique_ptr<Device> device;
+    std::unique_ptr<Swapchain> swapchain;
 
-	std::unique_ptr<MemoryManager> memoryManager;
-	std::unique_ptr<ShaderManager> shaderManager;
-	std::unique_ptr<DescriptorManager> descriptorManager;
+    std::unique_ptr<MemoryManager> memoryManager;
+    std::unique_ptr<ShaderManager> shaderManager;
+    std::unique_ptr<DescriptorSetManager> descriptorSetsManager;
 };

@@ -49,6 +49,11 @@ bool FilePath::Exists() const
     return std::filesystem::exists(path);
 }
 
+bool FilePath::IsDirectory() const
+{
+    return std::filesystem::is_directory(path);
+}
+
 std::ostream& operator<<(std::ostream& os, const FilePath& fp)
 {
     os << fp.path.string();

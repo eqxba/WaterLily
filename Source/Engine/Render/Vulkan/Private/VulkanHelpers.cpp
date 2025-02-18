@@ -311,3 +311,13 @@ VkPipelineLayout VulkanHelpers::CreatePipelineLayout(const std::vector<VkDescrip
 
     return pipelineLayout;
 }
+
+const VkDescriptorSetLayoutBinding& VulkanHelpers::GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, 
+    const uint32_t index)
+{
+    const auto it = std::ranges::find_if(bindings, [&](const auto& binding) { return binding.binding == index; });
+
+    Assert(it != bindings.end());
+
+    return *it;
+}

@@ -8,7 +8,7 @@ class Window;
 class Surface
 {
 public:
-	Surface(const Window& window, const VulkanContext& aVulkanContext);
+    Surface(const Window& window, const VulkanContext& aVulkanContext);
 	~Surface();
 
     Surface(const Surface&) = delete;
@@ -25,5 +25,5 @@ public:
 private:
     const VulkanContext& vulkanContext;
 
-	VkSurfaceKHR surface;
+    VkSurfaceKHR surface;
 };
