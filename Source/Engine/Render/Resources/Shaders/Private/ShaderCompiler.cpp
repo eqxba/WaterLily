@@ -41,10 +41,10 @@ std::vector<uint32_t> ShaderCompiler::Compile(const std::string_view glslCode, c
     const FilePath& includeDir)
 {
     using namespace ShaderCompilerDetails;
-
-    std::vector<uint32_t> spirv;
-
+    
     Assert(initialized);
+    Assert(!glslCode.empty());
+    
     static_assert(VulkanConfig::apiVersion == VK_API_VERSION_1_3); // Don't forget to change EShTargetClientVersion :)
 
     Assert(glslangStages.contains(shaderType));
@@ -73,7 +73,7 @@ std::vector<uint32_t> ShaderCompiler::Compile(const std::string_view glslCode, c
     if (!result)
     {
         LogE << "Failed to parse shader:\n" << shader.getInfoLog() << shader.getInfoDebugLog() << "\n";
-        return spirv;
+        return {};
     }
 
     glslang::TProgram program;
@@ -84,10 +84,12 @@ std::vector<uint32_t> ShaderCompiler::Compile(const std::string_view glslCode, c
     if (!result)
     {
         LogE << "Failed to link shader:\n" << shader.getInfoLog() << shader.getInfoDebugLog() << "\n";
-        return spirv;
+        return {};
     }
-
+    
+    std::vector<uint32_t> spirv;
     spv::SpvBuildLogger logger;
+    
     GlslangToSpv(*program.getIntermediate(stage), spirv, &logger);
 
     if (const std::string messages = logger.getAllMessages(); !messages.empty())

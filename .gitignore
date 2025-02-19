@@ -33,6 +33,9 @@ bld/
 [Ll]ogs/
 [Bb]uild/
 
+# Compiled shaders folder
+Source/Shaders/Compiled/
+
 # Folder for temp stuff
 Scrapyard/
 

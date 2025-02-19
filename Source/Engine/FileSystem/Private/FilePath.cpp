@@ -29,9 +29,19 @@ std::string FilePath::GetAbsolute() const
     return path.string();
 }
 
+std::string FilePath::GetRelativeTo(const FilePath& base) const
+{
+    return std::filesystem::relative(path, base.path).string();
+}
+
 std::string FilePath::GetDirectory() const
 {
     return path.parent_path().string();
+}
+
+std::string FilePath::GetFileNameWithExtension() const
+{
+    return path.filename().string();
 }
 
 std::string FilePath::GetFileName() const
@@ -52,6 +62,11 @@ bool FilePath::Exists() const
 bool FilePath::IsDirectory() const
 {
     return std::filesystem::is_directory(path);
+}
+
+FilePath FilePath::operator/(const std::string_view suffix) const
+{
+    return FilePath((path / suffix).string());
 }
 
 std::ostream& operator<<(std::ostream& os, const FilePath& fp)

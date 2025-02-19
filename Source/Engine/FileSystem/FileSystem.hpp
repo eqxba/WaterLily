@@ -18,6 +18,7 @@ namespace FileSystem
     };
 
     std::vector<char> ReadFile(const FilePath& path);
+    void CreateDirectories(const FilePath& path);
 
     FilePath ShowOpenFileDialog(const DialogDescription& description);
 }

@@ -25,6 +25,11 @@ namespace FileSystem
         return buffer;
     }
 
+    void CreateDirectories(const FilePath& path)
+    {
+        std::filesystem::create_directories(path.GetDirectory());
+    }
+
     FilePath ShowOpenFileDialog(const DialogDescription& description)
     {
         std::vector<std::string> filterStrings;

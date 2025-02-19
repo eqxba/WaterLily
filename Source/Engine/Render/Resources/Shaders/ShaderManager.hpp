@@ -11,9 +11,11 @@ class ShaderManager
 public:
     explicit ShaderManager(const VulkanContext& vulkanContext);
 
-    ShaderModule CreateShaderModule(const FilePath& path, const ShaderType shaderType) const;
+    ShaderModule CreateShaderModule(const FilePath& path, const ShaderType shaderType, bool useCacheOnFailure = true) const;
 
 private:
+    ShaderModule CreateShaderModule(std::span<const uint32_t> spirvCode, const ShaderType shaderType) const;
+    
     const VulkanContext& vulkanContext;
 
     ShaderCompiler shaderCompiler;
