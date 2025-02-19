@@ -14,13 +14,6 @@ class CameraComponent
 public:
     CameraComponent();
     CameraComponent(glm::vec3 position, glm::vec3 direction, glm::vec3 up, float verticalFov, float aspectRatio);
-    ~CameraComponent() = default;
-
-    CameraComponent(const CameraComponent&) = default;
-    CameraComponent& operator=(const CameraComponent&) = default;
-
-    CameraComponent(CameraComponent&&) = default;
-    CameraComponent& operator=(CameraComponent&&) = default;
 
     glm::vec3 GetPosition() const
     {

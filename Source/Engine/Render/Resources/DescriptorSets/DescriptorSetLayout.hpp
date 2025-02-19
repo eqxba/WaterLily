@@ -7,13 +7,6 @@ class DescriptorSetLayout
 public:
     DescriptorSetLayout() = default;
     DescriptorSetLayout(VkDescriptorSetLayout layout, const std::vector<VkDescriptorSetLayoutBinding>& bindings);
-    ~DescriptorSetLayout() = default;
-
-    DescriptorSetLayout(const DescriptorSetLayout&) = default;
-    DescriptorSetLayout& operator=(const DescriptorSetLayout&) = default;
-
-    DescriptorSetLayout(DescriptorSetLayout&& other) = default;
-    DescriptorSetLayout& operator=(DescriptorSetLayout&& other) = default;
 
     const VkDescriptorSetLayoutBinding& GetBinding(uint32_t index) const;
 
