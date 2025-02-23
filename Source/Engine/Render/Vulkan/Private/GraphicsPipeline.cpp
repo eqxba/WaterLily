@@ -3,32 +3,20 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Scene/Scene.hpp"
 #include "Engine/FileSystem/FilePath.hpp"
 
 namespace GraphicsPipelineDetails
 {
-    // TODO: parse from SPIR-V reflection
-    static std::vector<VkPushConstantRange> GetPushConstantRanges()
-    {
-        VkPushConstantRange pushConstantRange{};
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(PushConstants);
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-        return { pushConstantRange };
-    }
-
     static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
-          const VkVertexInputBindingDescription& bindingDescription
-        , const std::vector<VkVertexInputAttributeDescription>& attributeDescriptions)
+        const std::vector<VkVertexInputBindingDescription>& bindings, 
+        const std::vector<VkVertexInputAttributeDescription>& attributes)
     {
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 1;
-        vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; 
-        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-        vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); 
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = bindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+        vertexInputInfo.pVertexAttributeDescriptions = attributes.data();
 
         return vertexInputInfo;
     }
@@ -113,12 +101,12 @@ namespace GraphicsPipelineDetails
         return depthStencil;
     }
 
-    static VkPipelineColorBlendAttachmentState GetDefaultAttachmentNoBlend()
+    static VkPipelineColorBlendAttachmentState GetAttachmentStateNoBlend()
     {
         VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+        colorBlendAttachment.blendEnable = VK_FALSE;
         colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = VK_FALSE;
         colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
         colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
         colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -129,21 +117,14 @@ namespace GraphicsPipelineDetails
         return colorBlendAttachment;
     }
 
-    static VkPipelineColorBlendStateCreateInfo GetDefaultColorBlending(
-        const VkPipelineColorBlendAttachmentState& colorBlendAttachment)
+    static VkPipelineColorBlendStateCreateInfo GetColorBlendState(
+        const VkPipelineColorBlendAttachmentState& attachmentState)
     {
-        VkPipelineColorBlendStateCreateInfo colorBlending{};
-        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
-        colorBlending.blendConstants[0] = 0.0f;
-        colorBlending.blendConstants[1] = 0.0f;
-        colorBlending.blendConstants[2] = 0.0f;
-        colorBlending.blendConstants[3] = 0.0f;
-
-        return colorBlending;
+        VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
+        colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlendStateCreateInfo.attachmentCount = 1;
+        colorBlendStateCreateInfo.pAttachments = &attachmentState;
+        return colorBlendStateCreateInfo;
     }
 }
 
@@ -153,7 +134,7 @@ GraphicsPipeline::GraphicsPipeline(const VkPipelineLayout aPipelineLayout, const
     , pipelineLayout{aPipelineLayout}
     , pipeline{aPipeline}
 {
-
+    Assert(IsValid());
 }
 
 GraphicsPipeline::~GraphicsPipeline()
@@ -163,10 +144,12 @@ GraphicsPipeline::~GraphicsPipeline()
     {
         Assert(pipelineLayout != VK_NULL_HANDLE);
 
-        const VkDevice device = vulkanContext->GetDevice().GetVkDevice();
+        const Device& device = vulkanContext->GetDevice();
 
-        vkDestroyPipeline(device, pipeline, nullptr);
-        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        device.WaitIdle();
+
+        vkDestroyPipeline(device.GetVkDevice(), pipeline, nullptr);
+        vkDestroyPipelineLayout(device.GetVkDevice(), pipelineLayout, nullptr);
     }
 }
 
@@ -184,13 +167,9 @@ GraphicsPipeline& GraphicsPipeline::operator=(GraphicsPipeline&& other) noexcept
 {
     if (this != &other)
     {
-        vulkanContext = other.vulkanContext;
-        pipelineLayout = other.pipelineLayout;
-        pipeline = other.pipeline;
-
-        other.vulkanContext = nullptr;
-        other.pipelineLayout = VK_NULL_HANDLE;
-        other.pipeline = VK_NULL_HANDLE;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(pipelineLayout, other.pipelineLayout);
+        std::swap(pipeline, other.pipeline);
     }
 
     return *this;
@@ -206,8 +185,8 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(const VulkanContext& aVulkanCon
     rasterizer = GetDefaultRasterizer();
     multisamplingState = GetMultisamplingNone();
     depthStencil = GetDepthStencilNone();
-    colorBlendAttachment = GetDefaultAttachmentNoBlend();
-    colorBlending = GetDefaultColorBlending(colorBlendAttachment);
+    colorBlendAttachmentState = GetAttachmentStateNoBlend();
+    colorBlendState = GetColorBlendState(colorBlendAttachmentState);
     dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 }
 
@@ -217,19 +196,16 @@ GraphicsPipeline GraphicsPipelineBuilder::Build() const
     using namespace VulkanHelpers;
 
     Assert(!shaderModules.empty());
+    Assert(!vertexBindings.empty());
+    Assert(!vertexAttributes.empty());
     Assert(renderPass != nullptr);
-
-    const std::vector<VkPushConstantRange> pushConstantRanges = GetPushConstantRanges();
 
     VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayouts, pushConstantRanges,
         vulkanContext->GetDevice().GetVkDevice());
 
-    const VkVertexInputBindingDescription bindingDescription = Vertex::GetBindingDescription();
-    const std::vector<VkVertexInputAttributeDescription> attributeDescriptions = Vertex::GetAttributeDescriptions();
-    const VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo(bindingDescription,
-        attributeDescriptions);
-
     const std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
+
+    const VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
 
     const VkPipelineDynamicStateCreateInfo dynamicState = GetPipelineDynamicStateCreateInfo(dynamicStates);
 
@@ -242,7 +218,7 @@ GraphicsPipeline GraphicsPipelineBuilder::Build() const
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisamplingState;
     pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pColorBlendState = &colorBlendState;
     pipelineInfo.layout = pipelineLayout;
     pipelineInfo.pDynamicState = &dynamicState;
     pipelineInfo.renderPass = renderPass->GetVkRenderPass();
@@ -268,9 +244,24 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetDescriptorSetLayouts(
     return *this;
 }
 
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddPushConstantRange(const VkPushConstantRange pushConstantRange)
+{
+    pushConstantRanges.push_back(pushConstantRange);
+
+    return *this;
+}
+
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(std::vector<ShaderModule>&& aShaderModules)
 {
     shaderModules = std::move(aShaderModules);
+
+    return *this;
+}
+
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetVertexData(VertexBindings bindings, VertexAttributes attributes)
+{
+    vertexBindings = std::move(bindings);
+    vertexAttributes = std::move(attributes);
 
     return *this;
 }
@@ -318,6 +309,9 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetCullMode(CullMode aCullMode
     case CullMode::eBack:
         cullMode = VK_CULL_MODE_BACK_BIT;
         break;
+    case CullMode::eNone:
+        cullMode = VK_CULL_MODE_NONE;
+        break;
     }
 
     rasterizer.cullMode = cullMode;
@@ -333,11 +327,24 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetMultisampling(const VkSampl
     return *this;
 }
 
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::EnableDepthTest()
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::EnableBlending()
 {
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    colorBlendAttachmentState.blendEnable = VK_TRUE;
+    colorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    return *this;
+}
+
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetDepthState(const bool depthTest, const bool depthWrite, 
+    const VkCompareOp compareOp)
+{
+    depthStencil.depthTestEnable = depthTest ? VK_TRUE : VK_FALSE; 
+    depthStencil.depthWriteEnable = depthWrite ? VK_TRUE : VK_FALSE;
+    depthStencil.depthCompareOp = compareOp;
 
     return *this;
 }

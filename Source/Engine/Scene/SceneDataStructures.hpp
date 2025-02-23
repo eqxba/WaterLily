@@ -12,8 +12,8 @@ DISABLE_WARNINGS_END
 
 struct Vertex
 {
-    static VkVertexInputBindingDescription GetBindingDescription();
-    static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
+    static std::vector<VkVertexInputBindingDescription> GetBindings();
+    static std::vector<VkVertexInputAttributeDescription> GetAttributes();
 
     bool operator==(const Vertex& other) const;
 

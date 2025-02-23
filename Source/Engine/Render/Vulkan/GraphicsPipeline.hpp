@@ -20,11 +20,13 @@ enum class PolygonMode
 enum class CullMode
 {
     eBack,
+    eNone,
 };
 
 class GraphicsPipeline
 {
 public:
+    GraphicsPipeline() = default;
     GraphicsPipeline(VkPipelineLayout pipelineLayout, VkPipeline pipeline, const VulkanContext& vulkanContext);
 	~GraphicsPipeline();
 
@@ -44,16 +46,24 @@ public:
 	    return pipelineLayout;
 	}
 
-private:
-    const VulkanContext* vulkanContext;
+    bool IsValid() const
+    {
+        return pipelineLayout != VK_NULL_HANDLE && pipeline != VK_NULL_HANDLE;
+    }
 
-    VkPipelineLayout pipelineLayout;
-    VkPipeline pipeline;
+private:
+    const VulkanContext* vulkanContext = nullptr;
+
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE;
 };
 
 class GraphicsPipelineBuilder
 {
 public:
+    using VertexBindings = std::vector<VkVertexInputBindingDescription>;
+    using VertexAttributes = std::vector<VkVertexInputAttributeDescription>;
+
 	// TODO: Add pipeline cache and manager
     GraphicsPipelineBuilder(const VulkanContext& vulkanContext);
 
@@ -61,26 +71,33 @@ public:
 
 	// TODO: Get set layouts and push constants from reflection
     GraphicsPipelineBuilder& SetDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> descriptorSetLayouts); // Temp!
+    GraphicsPipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
 
     GraphicsPipelineBuilder& SetShaderModules(std::vector<ShaderModule>&& shaderModules);
+    GraphicsPipelineBuilder& SetVertexData(VertexBindings bindings, VertexAttributes attributes);
     GraphicsPipelineBuilder& SetInputTopology(InputTopology topology);
     GraphicsPipelineBuilder& SetPolygonMode(PolygonMode polygonMode);
     GraphicsPipelineBuilder& SetCullMode(CullMode cullMode, bool clockwise = true);
     GraphicsPipelineBuilder& SetMultisampling(VkSampleCountFlagBits sampleCount);
-    GraphicsPipelineBuilder& EnableDepthTest();
+    GraphicsPipelineBuilder& EnableBlending();
+    GraphicsPipelineBuilder& SetDepthState(bool depthTest, bool depthWrite, VkCompareOp compareOp);
     GraphicsPipelineBuilder& SetRenderPass(const RenderPass& renderPass, uint32_t subpass = 0);
 
 private:
-    const VulkanContext* vulkanContext;
+    const VulkanContext* vulkanContext = nullptr;
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts; // Temp!
+    // Temp! (parse from shaders)
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts; 
+    std::vector<VkPushConstantRange> pushConstantRanges;
 
     std::vector<ShaderModule> shaderModules;
+    VertexBindings vertexBindings;
+    VertexAttributes vertexAttributes;
     VkPipelineInputAssemblyStateCreateInfo inputAssembly;
     VkPipelineViewportStateCreateInfo viewportState;
     VkPipelineRasterizationStateCreateInfo rasterizer;
-    VkPipelineColorBlendAttachmentState colorBlendAttachment;
-    VkPipelineColorBlendStateCreateInfo colorBlending;
+    VkPipelineColorBlendAttachmentState colorBlendAttachmentState;
+    VkPipelineColorBlendStateCreateInfo colorBlendState;
     std::vector<VkDynamicState> dynamicStates;
     VkPipelineMultisampleStateCreateInfo multisamplingState;
     VkPipelineDepthStencilStateCreateInfo depthStencil;

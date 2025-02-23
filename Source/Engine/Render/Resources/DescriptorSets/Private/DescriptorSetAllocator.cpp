@@ -12,8 +12,6 @@ DescriptorSetAllocator::DescriptorSetAllocator(const uint32_t aMaxSetsInPool,
     , poolRatios{ aPoolRatios.begin(), aPoolRatios.end() }
 {}
 
-DescriptorSetAllocator::~DescriptorSetAllocator() = default;
-
 DescriptorSetAllocator::DescriptorSetAllocator(DescriptorSetAllocator&& other) noexcept
     : vulkanContext{other.vulkanContext}
     , maxSetsInPool{other.maxSetsInPool}
@@ -26,19 +24,18 @@ DescriptorSetAllocator::DescriptorSetAllocator(DescriptorSetAllocator&& other) n
     other.currentPool = nullptr;
 }
 
+DescriptorSetAllocator::~DescriptorSetAllocator() = default;
+
 DescriptorSetAllocator& DescriptorSetAllocator::operator=(DescriptorSetAllocator&& other) noexcept
 {
     if (this != &other)
     {
-        vulkanContext = other.vulkanContext;
-        maxSetsInPool = other.maxSetsInPool;
-        poolRatios = std::move(other.poolRatios);
-        currentPool = other.currentPool;
-        usedPools = std::move(other.usedPools);
-        freePools = std::move(other.freePools);
-
-        other.vulkanContext = nullptr;
-        other.currentPool = nullptr;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(maxSetsInPool, other.maxSetsInPool);
+        std::swap(poolRatios, other.poolRatios);
+        std::swap(currentPool, other.currentPool);
+        std::swap(usedPools, other.usedPools);
+        std::swap(freePools, other.freePools);
     }
     return *this;
 }

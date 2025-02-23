@@ -27,18 +27,40 @@ VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
     shaderManager = std::make_unique<ShaderManager>(*this);
     descriptorSetsManager = std::make_unique<DescriptorSetManager>(*this);
 
+    eventSystem.Subscribe<ES::WindowResized>(this, &VulkanContext::OnResize);
     eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &VulkanContext::OnBeforeWindowRecreated);
     eventSystem.Subscribe<ES::WindowRecreated>(this, &VulkanContext::OnWindowRecreated);
 }
 
 VulkanContext::~VulkanContext()
 {
+    eventSystem.Unsubscribe<ES::WindowResized>(this);
     eventSystem.Unsubscribe<ES::BeforeWindowRecreated>(this);
     eventSystem.Unsubscribe<ES::WindowRecreated>(this);
 }
 
+void VulkanContext::OnResize(const ES::WindowResized& event)
+{
+    if (event.newExtent.width == 0 || event.newExtent.height == 0)
+    {
+        return;
+    }
+    
+    device->WaitIdle();
+    
+    eventSystem.Fire<ES::BeforeSwapchainRecreated>();
+    
+    swapchain->Recreate(event.newExtent);
+    
+    eventSystem.Fire<ES::SwapchainRecreated>();
+}
+
 void VulkanContext::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
 {
+    device->WaitIdle();
+    
+    eventSystem.Fire<ES::BeforeSwapchainRecreated>();
+    
     swapchain.reset();
     surface.reset();
 }
@@ -47,4 +69,6 @@ void VulkanContext::OnWindowRecreated(const ES::WindowRecreated& event)
 {
     surface = std::make_unique<Surface>(*event.window, *this);
     swapchain = std::make_unique<Swapchain>(event.window->GetExtentInPixels(), *this);
+    
+    eventSystem.Fire<ES::SwapchainRecreated>();
 }

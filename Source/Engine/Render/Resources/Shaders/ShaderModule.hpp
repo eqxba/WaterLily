@@ -27,7 +27,7 @@ public:
     bool IsValid() const;
 
 private:
-    const VulkanContext& vulkanContext;
+    const VulkanContext* vulkanContext = nullptr;
 
     VkShaderModule shaderModule = VK_NULL_HANDLE;
     ShaderType shaderType;

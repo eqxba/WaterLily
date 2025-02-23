@@ -34,6 +34,30 @@ namespace WindowDetails
 
         return glfwCreateWindow(extent.width, extent.height, title.data(), monitor, nullptr);
     }
+
+    static KeyMods GetKeyMods(const int mods)
+    {
+        auto keyMods = KeyMods::eNone;
+
+        if (mods & GLFW_MOD_SHIFT)
+        {
+            keyMods = keyMods | KeyMods::eShift;
+        }
+        if (mods & GLFW_MOD_CONTROL)
+        {
+            keyMods = keyMods | KeyMods::eCtrl;
+        }
+        if (mods & GLFW_MOD_ALT)
+        {
+            keyMods = keyMods | KeyMods::eAlt;
+        }
+        if (mods & GLFW_MOD_SUPER)
+        {
+            keyMods = keyMods | KeyMods::eSuper;
+        }
+
+        return keyMods;
+    }
 }
 
 Window::Window(const WindowDescription& description, EventSystem& aEventSystem)
@@ -127,34 +151,22 @@ void Window::WindowSizeCallback(GLFWwindow* glfwWindow, const int32_t width, con
 
 void Window::KeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int action, int mods)
 {
-    KeyMods keyMods = KeyMods::eNone;
-    
-    if (mods & GLFW_MOD_SHIFT)
-    {
-        keyMods = keyMods | KeyMods::eShift;
-    }
-    if (mods & GLFW_MOD_CONTROL)
-    {
-        keyMods = keyMods | KeyMods::eCtrl;
-    }
-    if (mods & GLFW_MOD_ALT)
-    {
-        keyMods = keyMods | KeyMods::eAlt;
-    }
-    if (mods & GLFW_MOD_SUPER)
-    {
-        keyMods = keyMods | KeyMods::eSuper;
-    }
-    
     EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
     eventSystem.Fire<ES::KeyInput>({ .key = static_cast<Key>(key),
-        .action = static_cast<KeyAction>(action), .mods = keyMods});
+        .action = static_cast<KeyAction>(action), .mods = WindowDetails::GetKeyMods(mods)});
 }
 
 void Window::MouseCallback(GLFWwindow* glfwWindow, const double xPos, const double yPos)
 {
     EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
     eventSystem.Fire<ES::MouseMoved>({ .newPosition = { static_cast<float>(xPos), static_cast<float>(yPos) } });
+}
+
+void Window::MouseButtonCallback(GLFWwindow* glfwWindow, const int button, const int action, const int mods)
+{
+    EventSystem& eventSystem = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow))->eventSystem;
+    eventSystem.Fire<ES::MouseInput>({ .button = static_cast<MouseButton>(button),
+        .action = static_cast<MouseButtonAction>(action), .mods = WindowDetails::GetKeyMods(mods) });
 }
 
 void Window::ScrollCallback(GLFWwindow* glfwWindow, const double xOffset, const double yOffset)
@@ -197,6 +209,7 @@ void Window::RegisterCallbacks()
     glfwSetWindowSizeCallback(glfwWindow, WindowSizeCallback);
     glfwSetKeyCallback(glfwWindow, KeyCallback);
     glfwSetCursorPosCallback(glfwWindow, MouseCallback);
+    glfwSetMouseButtonCallback(glfwWindow, MouseButtonCallback);
     glfwSetScrollCallback(glfwWindow, ScrollCallback);
 }
 

@@ -11,9 +11,8 @@
 
 namespace ES
 {
-    struct WindowResized;
-    struct BeforeWindowRecreated;
-    struct WindowRecreated;
+    struct BeforeSwapchainRecreated;
+    struct SwapchainRecreated;
     struct SceneOpened;
     struct SceneClosed;
     struct KeyInput;
@@ -22,6 +21,7 @@ namespace ES
 class VulkanContext;
 class Device;
 class Scene;
+class UIRenderer;
 class EventSystem;
 class CommandBufferSync;
 class Buffer;
@@ -55,9 +55,8 @@ private:
     void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
     void TryReloadShaders();
 
-    void OnResize(const ES::WindowResized& event);
-    void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
-    void OnWindowRecreated(const ES::WindowRecreated& event);
+    void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
+    void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose(const ES::SceneClosed& event);
     void OnKeyInput(const ES::KeyInput& event);
@@ -67,8 +66,10 @@ private:
 
     EventSystem& eventSystem;
 
-    std::unique_ptr<RenderPass> renderPass;
-    std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+    std::unique_ptr<UIRenderer> uiRenderer;
+
+    RenderPass renderPass;
+    GraphicsPipeline graphicsPipeline;
 
     std::unique_ptr<Image> colorAttachment;
     std::unique_ptr<ImageView> colorAttachmentView;

@@ -22,11 +22,13 @@ public:
     DescriptorSetBuilder& Bind(uint32_t binding, const Buffer& buffer, VkDescriptorType type, VkShaderStageFlags shaderStages);
     DescriptorSetBuilder& Bind(uint32_t binding, const ImageView& imageView, VkDescriptorType type, VkShaderStageFlags shaderStages);
     DescriptorSetBuilder& Bind(uint32_t binding, VkSampler sampler, VkShaderStageFlags shaderStages);
+    DescriptorSetBuilder& Bind(uint32_t binding, const ImageView& imageView, VkSampler sampler, VkShaderStageFlags shaderStages);
 
     // API for binding resources when we already have the layout
     DescriptorSetBuilder& Bind(uint32_t binding, const Buffer& buffer);
     DescriptorSetBuilder& Bind(uint32_t binding, const ImageView& imageView);
     DescriptorSetBuilder& Bind(uint32_t binding, VkSampler sampler);
+    DescriptorSetBuilder& Bind(uint32_t binding, const ImageView& imageView, VkSampler sampler);
 
 private:
     const VkDescriptorSetLayoutBinding& GetBinding(uint32_t binding) const;

@@ -49,7 +49,7 @@ public:
 	    return physicalDevice;
 	}
 
-    VkPhysicalDeviceProperties GetPhysicalDeviceProperties() const
+    const VkPhysicalDeviceProperties& GetPhysicalDeviceProperties() const
 	{
 	    return physicalDeviceProperties;
 	}

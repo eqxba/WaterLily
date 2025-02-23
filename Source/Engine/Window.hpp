@@ -69,6 +69,7 @@ private:
     static void WindowSizeCallback(GLFWwindow* glfwWindow, int32_t width, int32_t height);
     static void KeyCallback(GLFWwindow* glfwWindow, int key, int scancode, int action, int mods);
     static void MouseCallback(GLFWwindow* glfwWindow, double xPos, double yPos);
+    static void MouseButtonCallback(GLFWwindow* glfwWindow, int button, int action, int mods);
     static void ScrollCallback(GLFWwindow* glfwWindow, double xOffset, double yOffset);
 
     void Init();

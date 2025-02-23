@@ -1,6 +1,7 @@
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Resources/CommandBufferSync.hpp"
 #include "Engine/Render/Resources/Buffer.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
@@ -123,7 +124,8 @@ void VulkanHelpers::DestroySemaphores(VkDevice device, std::vector<VkSemaphore>&
     semaphores.clear();
 }
 
-VkSampler VulkanHelpers::CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties, uint32_t mipLevelsCount)
+VkSampler VulkanHelpers::CreateSampler(VkDevice device, const VkPhysicalDeviceProperties& properties, 
+    uint32_t mipLevelsCount)
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -158,41 +160,31 @@ void VulkanHelpers::DestroySampler(VkDevice device, VkSampler sampler)
     }
 }
 
-std::vector<VkFramebuffer> VulkanHelpers::CreateFramebuffers(const Swapchain& swapchain, 
-    const ImageView& colorAttachmentView, const ImageView& depthAttachmentView, VkRenderPass renderPass, VkDevice device)
+VkFramebuffer VulkanHelpers::CreateFrameBuffer(const RenderPass& renderPass, const VkExtent2D extent,
+    const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext)
 {
-    std::vector<VkFramebuffer> framebuffers;
-    framebuffers.reserve(swapchain.GetImageViews().size());
+    const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
 
-    const auto createFramebuffer = [&](const ImageView& imageView) {
-        std::array<VkImageView, 3> attachments = { colorAttachmentView.GetVkImageView(),
-            depthAttachmentView.GetVkImageView(), imageView.GetVkImageView() };
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = renderPass.GetVkRenderPass();
+    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    framebufferInfo.pAttachments = attachments.data();
+    framebufferInfo.width = extent.width;
+    framebufferInfo.height = extent.height;
+    framebufferInfo.layers = 1;
 
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
-        framebufferInfo.width = swapchain.GetExtent().width;
-        framebufferInfo.height = swapchain.GetExtent().height;
-        framebufferInfo.layers = 1;
+    VkFramebuffer framebuffer;
+    const VkResult result = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer);
+    Assert(result == VK_SUCCESS);
 
-        VkFramebuffer framebuffer;
-        const VkResult result = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer);
-        Assert(result == VK_SUCCESS);
-
-        return framebuffer;
-    };
-
-    std::ranges::transform(swapchain.GetImageViews(), std::back_inserter(framebuffers), createFramebuffer);
-
-    return framebuffers;
+    return framebuffer;
 }
 
-void VulkanHelpers::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, VkDevice device)
+void VulkanHelpers::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext)
 {
-    std::ranges::for_each(framebuffers, [=](VkFramebuffer framebuffer) {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    std::ranges::for_each(framebuffers, [&](VkFramebuffer framebuffer) {
+        vkDestroyFramebuffer(vulkanContext.GetDevice().GetVkDevice(), framebuffer, nullptr);
     });
 
     framebuffers.clear();
@@ -208,7 +200,7 @@ std::unique_ptr<Image> VulkanHelpers::CreateColorAttachment(VkExtent2D extent, c
         .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    return std::make_unique<Image>(imageDescription, &vulkanContext);
+    return std::make_unique<Image>(imageDescription, vulkanContext);
 }
 
 std::unique_ptr<Image> VulkanHelpers::CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
@@ -221,7 +213,7 @@ std::unique_ptr<Image> VulkanHelpers::CreateDepthAttachment(VkExtent2D extent, c
         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    return std::make_unique<Image>(imageDescription, &vulkanContext);
+    return std::make_unique<Image>(imageDescription, vulkanContext);
 }
 
 std::tuple<std::unique_ptr<Buffer>, uint32_t> VulkanHelpers::CreateIndirectBuffer(const Scene& scene,
@@ -255,17 +247,17 @@ std::tuple<std::unique_ptr<Buffer>, uint32_t> VulkanHelpers::CreateIndirectBuffe
         .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    return { std::make_unique<Buffer>(indirectBufferDescription, true, indirectCommandsSpan, &vulkanContext),
+    return { std::make_unique<Buffer>(indirectBufferDescription, true, indirectCommandsSpan, vulkanContext),
         static_cast<uint32_t>(indirectCommands.size()) };
 }
 
-VkViewport VulkanHelpers::GetViewport(const VkExtent2D extent)
+VkViewport VulkanHelpers::GetViewport(const float width, const float height)
 {
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
+    viewport.width = width;
+    viewport.height = height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 

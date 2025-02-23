@@ -12,6 +12,7 @@
 
 namespace ES
 {
+    struct WindowResized;
     struct BeforeWindowRecreated;
     struct WindowRecreated;
 }
@@ -66,6 +67,7 @@ public:
 	}
 
 private:
+    void OnResize(const ES::WindowResized& event);
     void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
     void OnWindowRecreated(const ES::WindowRecreated& event);
 

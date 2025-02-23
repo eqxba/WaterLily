@@ -5,6 +5,7 @@
 #include "Engine/Render/Resources/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
+class RenderPass;
 class CommandBufferSync;
 class Scene;
 class Buffer;
@@ -35,20 +36,20 @@ namespace VulkanHelpers
     std::vector<VkSemaphore> CreateSemaphores(VkDevice device, size_t count);
     void DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& semaphores);
     
-    VkSampler CreateSampler(VkDevice device, VkPhysicalDeviceProperties properties, uint32_t mipLevelsCount);
+    VkSampler CreateSampler(VkDevice device, const VkPhysicalDeviceProperties& properties, uint32_t mipLevelsCount);
     void DestroySampler(VkDevice device, VkSampler sampler);
 
-    std::vector<VkFramebuffer> CreateFramebuffers(const Swapchain& swapchain, const ImageView& colorAttachmentView,
-        const ImageView& depthAttachmentView, VkRenderPass renderPass, VkDevice device);
-    void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, VkDevice device);
+    VkFramebuffer CreateFrameBuffer(const RenderPass& renderPass, VkExtent2D extent,
+        const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext);
+    void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext);
 
     std::unique_ptr<Image> CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext);
     std::unique_ptr<Image> CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext);
 
     std::tuple<std::unique_ptr<Buffer>, uint32_t> CreateIndirectBuffer(const Scene& scene, const VulkanContext& vulkanContext);
 
-    VkViewport GetViewport(const VkExtent2D extent);
-    VkRect2D GetScissor(const VkExtent2D extent);
+    VkViewport GetViewport(float width, float height);
+    VkRect2D GetScissor(VkExtent2D extent);
 
     std::vector<VkPipelineShaderStageCreateInfo> GetShaderStageCreateInfos(const std::vector<ShaderModule>& shaders);
 

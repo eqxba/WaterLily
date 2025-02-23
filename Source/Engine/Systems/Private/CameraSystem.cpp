@@ -186,7 +186,7 @@ void CameraSystem::OnMouseWheelScrolled(const ES::MouseWheelScrolled& event)
 {
     using namespace CameraSystemDetails;
 
-    if (mainCamera)
+    if (cursorMode == CursorMode::eDisabled && mainCamera)
     {
         const float deltaFov = - static_cast<float>(event.offset.y) * mouseScrollSensitivity;
         const float newFov = std::clamp(mainCamera->GetVerticalFov() + deltaFov, minVerticalFov, maxVerticalFov);

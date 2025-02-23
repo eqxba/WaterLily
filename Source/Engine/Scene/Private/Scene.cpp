@@ -74,14 +74,14 @@ void Scene::InitBuffers()
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, &vulkanContext);
+    vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, vulkanContext);
     vertexBuffer.DestroyStagingBuffer();
 
     BufferDescription indexBufferDescription{ .size = static_cast<VkDeviceSize>(indicesSpan.size_bytes()),
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, &vulkanContext);
+    indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, vulkanContext);
     indexBuffer.DestroyStagingBuffer();
 
     const std::vector<glm::mat4> transforms = SceneHelpers::GetBakedTransforms(*root);
@@ -91,7 +91,7 @@ void Scene::InitBuffers()
         .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    transformsBuffer = Buffer(transformsBufferDescription, true, transformsSpan, &vulkanContext);
+    transformsBuffer = Buffer(transformsBufferDescription, true, transformsSpan, vulkanContext);
     transformsBuffer.DestroyStagingBuffer();
 }
 
@@ -110,10 +110,10 @@ void Scene::InitTextureResources()
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT ,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    image = Image(imageDescription, &vulkanContext);
+    image = Image(imageDescription, vulkanContext);
     image.FillMipLevel0(buffer, true);
 
-    imageView = ImageView(image, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
+    imageView = ImageView(image, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
 
     sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
 }

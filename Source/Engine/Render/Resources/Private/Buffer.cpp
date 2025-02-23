@@ -30,8 +30,8 @@ namespace BufferDetails
     }
 }
 
-Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const VulkanContext* aVulkanContext)
-    : vulkanContext{ aVulkanContext }
+Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const VulkanContext& aVulkanContext)
+    : vulkanContext{ &aVulkanContext }
     , description { std::move(aDescription) }
 {
     if (createStagingBuffer)
@@ -41,10 +41,19 @@ Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const V
     }
 
     buffer = BufferDetails::CreateBuffer(description, *vulkanContext);
+
+    Assert(IsValid());
 }
 
 Buffer::~Buffer()
-{    
+{
+    if (!IsValid())
+    {
+        return;
+    }
+
+    vulkanContext->GetDevice().WaitIdle();
+
     if (!mappedMemory.empty())
     {
         Assert(persistentMapping);
@@ -52,11 +61,8 @@ Buffer::~Buffer()
         mappedMemory = {};
     }
 
-    if (buffer != VK_NULL_HANDLE)
-    {
-        vulkanContext->GetMemoryManager().DestroyBuffer(buffer);
-        buffer = VK_NULL_HANDLE;
-    }
+    vulkanContext->GetMemoryManager().DestroyBuffer(buffer);
+    buffer = VK_NULL_HANDLE;
 }
 
 Buffer::Buffer(Buffer&& other) noexcept
@@ -79,29 +85,12 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept
 {
     if (this != &other)
     {
-        if (!mappedMemory.empty())
-        {
-            vulkanContext->GetMemoryManager().UnmapBufferMemory(buffer);
-        }
-
-        if (buffer != VK_NULL_HANDLE)
-        {
-            vulkanContext->GetMemoryManager().DestroyBuffer(buffer);
-        }
-
-        vulkanContext = other.vulkanContext;
-        description = other.description;
-        buffer = other.buffer;
-        stagingBuffer = std::move(other.stagingBuffer);
-        mappedMemory = other.mappedMemory;
-        persistentMapping = other.persistentMapping;
-
-        other.vulkanContext = nullptr;
-        other.description = {};
-        other.buffer = VK_NULL_HANDLE;
-        other.stagingBuffer = {};
-        other.mappedMemory = {};
-        other.persistentMapping = false;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(description, other.description);
+        std::swap(buffer, other.buffer);
+        std::swap(stagingBuffer, other.stagingBuffer);
+        std::swap(mappedMemory, other.mappedMemory);
+        std::swap(persistentMapping, other.persistentMapping);
     }
     return *this;
 }
@@ -112,12 +101,20 @@ void Buffer::CreateStagingBuffer()
             .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
-    stagingBuffer = std::make_unique<Buffer>(stagingBufferDescription, false, vulkanContext);
+    stagingBuffer = std::make_unique<Buffer>(stagingBufferDescription, false, *vulkanContext);
 }
 
 void Buffer::DestroyStagingBuffer()
 {
     stagingBuffer.reset();
+}
+
+void Buffer::Flush() const
+{
+    Assert((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) !=
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    vulkanContext->GetMemoryManager().FlushBuffer(buffer);
 }
 
 std::span<std::byte> Buffer::MapMemory(bool aPersistentMapping /* = false */) const
@@ -150,7 +147,6 @@ void Buffer::FillImpl(const std::span<const std::byte> span)
 {
     Assert(span.size() == description.size);
 
-    MemoryManager& memoryManager = vulkanContext->GetMemoryManager();
     const Device& device = vulkanContext->GetDevice();
 
     if ((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
@@ -162,16 +158,7 @@ void Buffer::FillImpl(const std::span<const std::byte> span)
         if ((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
         {
-            const MemoryBlock memoryBlock = memoryManager.GetBufferMemoryBlock(buffer);
-
-            VkMappedMemoryRange memoryRange{};
-            memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-            memoryRange.memory = memoryBlock.memory;
-            memoryRange.offset = memoryBlock.offset;
-            memoryRange.size = memoryBlock.size;
-
-            const VkResult result = vkFlushMappedMemoryRanges(device.GetVkDevice(), 1, &memoryRange);
-            Assert(result == VK_SUCCESS);
+            Flush();
         }
     }
     else

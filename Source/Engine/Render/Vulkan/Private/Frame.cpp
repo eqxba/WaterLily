@@ -23,7 +23,7 @@ namespace FrameDetails
         BufferDescription bufferDescription{ static_cast<VkDeviceSize>(sizeof(gpu::UniformBufferObject)),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-        auto result = Buffer(bufferDescription, true, &vulkanContext);
+        auto result = Buffer(bufferDescription, true, vulkanContext);
         std::ignore = result.GetStagingBuffer()->MapMemory(true);
 
         return result;
@@ -73,18 +73,12 @@ Frame& Frame::operator=(Frame&& other) noexcept
 {
     if (this != &other)
     {
-        vulkanContext = other.vulkanContext;
-        commandBuffer = other.commandBuffer;
-        sync = std::move(other.sync);
-        uniformBuffer = std::move(other.uniformBuffer);
-        descriptors = std::move(other.descriptors);
-        descriptorSetLayout = other.descriptorSetLayout;
-        
-        other.vulkanContext = nullptr;
-        other.commandBuffer = VK_NULL_HANDLE;
-        other.sync = {};
-        other.uniformBuffer = {};
-        other.descriptorSetLayout = {};
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(commandBuffer, other.commandBuffer);
+        std::swap(sync, other.sync);
+        std::swap(uniformBuffer, other.uniformBuffer);
+        std::swap(descriptors, other.descriptors);
+        std::swap(descriptorSetLayout, other.descriptorSetLayout);
     }
     return *this;
 }

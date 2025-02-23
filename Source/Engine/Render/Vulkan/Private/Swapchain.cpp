@@ -177,7 +177,7 @@ namespace SwapchainDetails
         const ImageDescription description = { .format = format };
 
         std::ranges::transform(images, std::back_inserter(imageViews), [&](VkImage image) {
-            return ImageView(image, description, aspectFlags, &vulkanContext);
+            return ImageView(image, description, aspectFlags, vulkanContext);
         });
 
         return imageViews;

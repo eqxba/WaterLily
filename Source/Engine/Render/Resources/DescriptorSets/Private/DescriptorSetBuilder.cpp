@@ -79,6 +79,15 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const V
     return *this;
 }
 
+DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const ImageView& imageView, 
+    const VkSampler sampler, const VkShaderStageFlags shaderStages)
+{
+    AddBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shaderStages);
+    Bind(binding, imageView, sampler);
+
+    return *this;
+}
+
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const Buffer& buffer)
 {
     bufferInfos.emplace_back(buffer.GetVkBuffer(), 0, buffer.GetDescription().size);
@@ -116,9 +125,23 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, VkSampl
     return *this;
 }
 
-const VkDescriptorSetLayoutBinding& DescriptorSetBuilder::GetBinding(const uint32_t index) const
+DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const ImageView& imageView, 
+    const VkSampler sampler)
 {
-    return layoutBuilder ? layoutBuilder->GetBinding(index) : layout.GetBinding(index);
+    // TODO: Get rid of hardcoded layout here as we will need to write to read-modify-write?
+    imageInfos.emplace_back(sampler, imageView.GetVkImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // Hack: store index (1-based) of the element in the imageInfos vector and resolve it to the actual pointer in the
+    // Build() function to handle possible buffer reallocations
+    VkWriteDescriptorSet& imageWrite = CreateWrite(binding);
+    imageWrite.pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(imageInfos.size());
+
+    return *this;
+}
+
+const VkDescriptorSetLayoutBinding& DescriptorSetBuilder::GetBinding(const uint32_t binding) const
+{
+    return layoutBuilder ? layoutBuilder->GetBinding(binding) : layout.GetBinding(binding);
 }
 
 void DescriptorSetBuilder::AddBinding(const uint32_t binding, const VkDescriptorType descriptorType, 

@@ -14,8 +14,8 @@ class ImageView
 public:
     ImageView() = default;   
     ImageView(VkImage image, const ImageDescription& description, VkImageAspectFlags aspectFlags, 
-        const VulkanContext* vulkanContext);
-    ImageView(const Image& image, VkImageAspectFlags aspectFlags, const VulkanContext* vulkanContext);
+        const VulkanContext& vulkanContext);
+    ImageView(const Image& image, VkImageAspectFlags aspectFlags, const VulkanContext& vulkanContext);
 
     ~ImageView();
 

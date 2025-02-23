@@ -15,11 +15,11 @@ class Buffer
 {
 public:
     Buffer() = default;
-    Buffer(BufferDescription description, bool createStagingBuffer, const VulkanContext* vulkanContext);
+    Buffer(BufferDescription description, bool createStagingBuffer, const VulkanContext& vulkanContext);
 
     template <typename T>
     Buffer(BufferDescription description, bool createStagingBuffer, const std::span<const T> initialData,
-        const VulkanContext* vulkanContext);
+        const VulkanContext& vulkanContext);
 
     ~Buffer();
 
@@ -32,6 +32,11 @@ public:
     void CreateStagingBuffer();
     void DestroyStagingBuffer();
 
+    bool IsValid() const
+    {
+        return buffer != VK_NULL_HANDLE;
+    }
+
     const BufferDescription& GetDescription() const
     {
         return description;
@@ -39,6 +44,8 @@ public:
 
     template <typename T>
     void Fill(const std::span<const T> data);
+
+    void Flush() const;
 
     std::span<std::byte> MapMemory(bool persistentMapping = false) const;
     void UnmapMemory() const;
@@ -75,7 +82,7 @@ private:
 
 template <typename T>
 Buffer::Buffer(BufferDescription description, bool createStagingBuffer, const std::span<const T> initialData,
-    const VulkanContext* vulkanContext)
+    const VulkanContext& vulkanContext)
     : Buffer{ std::move(description), createStagingBuffer, vulkanContext }
 {
     if (!initialData.empty())

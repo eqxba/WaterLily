@@ -54,6 +54,17 @@ void MemoryManager::DestroyBuffer(VkBuffer buffer)
     bufferAllocations.erase(it);
 }
 
+void MemoryManager::FlushBuffer(VkBuffer buffer)
+{
+    const auto it = bufferAllocations.find(buffer);
+    Assert(it != bufferAllocations.end());
+
+    VmaAllocationInfo allocationInfo;
+    vmaGetAllocationInfo(allocator, it->second, &allocationInfo);
+
+    vmaFlushAllocation(allocator, it->second, allocationInfo.offset, allocationInfo.size);
+}
+
 // TODO: Make generic on the 1st need
 MemoryBlock MemoryManager::GetBufferMemoryBlock(VkBuffer buffer)
 {

@@ -18,6 +18,9 @@ namespace ES // Event system
 	    const Window* window;
 	};
 
+    struct BeforeSwapchainRecreated {};
+    struct SwapchainRecreated {};
+
     struct SceneOpened
 	{
 	    Scene& scene;
@@ -35,6 +38,13 @@ namespace ES // Event system
     struct MouseMoved
 	{
 	    glm::vec2 newPosition{};
+	};
+
+	struct MouseInput
+	{
+		MouseButton button{};
+		MouseButtonAction action{};
+		KeyMods mods{};
 	};
 
     struct MouseWheelScrolled

@@ -48,17 +48,11 @@ CommandBufferSync& CommandBufferSync::operator=(CommandBufferSync&& other) noexc
 {
     if (this != &other)
     {
-        waitSemaphores = std::move(other.waitSemaphores);
-        waitStages = std::move(other.waitStages);
-        signalSemaphores = std::move(other.signalSemaphores);
-        fence = other.fence;
-        device = other.device;
-
-        other.waitSemaphores.clear();
-        other.waitStages.clear();
-        other.signalSemaphores.clear();
-        other.fence = VK_NULL_HANDLE;
-        other.device = VK_NULL_HANDLE;
+        std::swap(waitSemaphores, other.waitSemaphores);
+        std::swap(waitStages, other.waitStages);
+        std::swap(signalSemaphores, other.signalSemaphores);
+        std::swap(fence, other.fence);
+        std::swap(device, other.device);
     }
     return *this;
 }

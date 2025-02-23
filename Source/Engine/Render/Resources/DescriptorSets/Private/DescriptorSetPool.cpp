@@ -42,11 +42,8 @@ DescriptorSetPool& DescriptorSetPool::operator=(DescriptorSetPool&& other) noexc
 {
     if (this != &other)
     {
-        vulkanContext = other.vulkanContext;
-        pool = other.pool;
-
-        other.vulkanContext = nullptr;
-        other.pool = VK_NULL_HANDLE;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(pool, other.pool);
     }
 
     return *this;

@@ -22,7 +22,7 @@ class Image
 {
 public:
     Image() = default;
-    Image(ImageDescription description, const VulkanContext* vulkanContext);
+    Image(ImageDescription description, const VulkanContext& vulkanContext);
 
     ~Image();
 

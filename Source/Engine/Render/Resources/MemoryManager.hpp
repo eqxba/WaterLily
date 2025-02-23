@@ -30,6 +30,8 @@ public:
     VkBuffer CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo, const VkMemoryPropertyFlags memoryProperties);
     void DestroyBuffer(VkBuffer buffer);
 
+    void FlushBuffer(VkBuffer buffer);
+
     MemoryBlock GetBufferMemoryBlock(VkBuffer buffer);
     void* MapBufferMemory(VkBuffer buffer);
     void UnmapBufferMemory(VkBuffer buffer);

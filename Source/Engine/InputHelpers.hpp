@@ -139,6 +139,24 @@ enum class KeyAction
     eRepeat
 };
 
+enum class MouseButton
+{
+    eLeft = 0,
+    eRight,
+    eMiddle,
+    e4,
+    e5,
+    e6,
+    e7,
+    e8
+};
+
+enum class MouseButtonAction
+{
+    eRelease,
+    ePress,
+};
+
 // TODO: another data structure to handle masks
 enum class KeyMods : uint8_t
 {

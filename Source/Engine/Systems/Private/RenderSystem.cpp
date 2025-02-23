@@ -3,6 +3,7 @@
 #include "Engine/Engine.hpp"
 #include "Engine/EventSystem.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/UI/UIRenderer.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
@@ -25,43 +26,83 @@ namespace RenderSystemDetails
 
         return shaderModules;
     }
+
+    static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
+    {
+        AttachmentDescription colorAttachmentDescription = {
+            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+        AttachmentDescription resolveAttachmentDescription = {
+            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+        AttachmentDescription depthStencilAttachmentDescription = {
+            .format = VulkanConfig::depthImageFormat,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+
+        return RenderPassBuilder(vulkanContext)
+            .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
+            .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
+            .AddColorAndResolveAttachments(colorAttachmentDescription, resolveAttachmentDescription)
+            .AddDepthStencilAttachment(depthStencilAttachmentDescription)
+            .Build();
+    }
 }
 
 RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
-    : vulkanContext{aVulkanContext}
-    , device{vulkanContext.GetDevice()}
-    , eventSystem{aEventSystem}
-    , renderPass{std::make_unique<RenderPass>(vulkanContext)}
+    : vulkanContext{ aVulkanContext }
+    , device{ vulkanContext.GetDevice() }
+    , eventSystem{ aEventSystem }
+    , uiRenderer{ std::make_unique<UIRenderer>(eventSystem, vulkanContext) }
 {
-    using namespace VulkanHelpers;
+    using namespace RenderSystemDetails;
     using namespace VulkanConfig;
+
+    renderPass = CreateRenderPass(vulkanContext);
 
     CreateAttachmentsAndFramebuffers();
 
     frames.resize(maxFramesInFlight);
     std::ranges::generate(frames, [&]() { return Frame(&vulkanContext); });
 
-    eventSystem.Subscribe<ES::WindowResized>(this, &RenderSystem::OnResize);
+    eventSystem.Subscribe<ES::BeforeSwapchainRecreated>(this, &RenderSystem::OnBeforeSwapchainRecreated);
+    eventSystem.Subscribe<ES::SwapchainRecreated>(this, &RenderSystem::OnSwapchainRecreated);
     eventSystem.Subscribe<ES::SceneOpened>(this, &RenderSystem::OnSceneOpen);
     eventSystem.Subscribe<ES::SceneClosed>(this, &RenderSystem::OnSceneClose);
-    eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &RenderSystem::OnBeforeWindowRecreated, ES::Priority::eHigh);
-    eventSystem.Subscribe<ES::WindowRecreated>(this, &RenderSystem::OnWindowRecreated, ES::Priority::eLow);
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
 
 RenderSystem::~RenderSystem()
 {
-    eventSystem.Unsubscribe<ES::WindowResized>(this);
+    eventSystem.Unsubscribe<ES::BeforeSwapchainRecreated>(this);
+    eventSystem.Unsubscribe<ES::SwapchainRecreated>(this);
     eventSystem.Unsubscribe<ES::SceneOpened>(this);
     eventSystem.Unsubscribe<ES::SceneClosed>(this);
-    eventSystem.Unsubscribe<ES::BeforeWindowRecreated>(this);
-    eventSystem.Unsubscribe<ES::WindowRecreated>(this);
     eventSystem.Unsubscribe<ES::KeyInput>(this);
+
+    device.WaitIdle();
+    
+    vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
 
     DestroyAttachmentsAndFramebuffers();
 }
 
-void RenderSystem::Process(float deltaSeconds)
+void RenderSystem::Process(const float deltaSeconds)
 {
     if (!scene)
     {
@@ -73,6 +114,8 @@ void RenderSystem::Process(float deltaSeconds)
     ubo.view = camera.GetViewMatrix();
     ubo.projection = camera.GetProjectionMatrix();
     ubo.viewPos = camera.GetPosition();
+
+    uiRenderer->Process(deltaSeconds);
 }
 
 void RenderSystem::Render()
@@ -101,7 +144,11 @@ void RenderSystem::Render()
     frame.GetUniformBuffer().Fill(std::span{ reinterpret_cast<const std::byte*>(&ubo), sizeof(ubo) });
 
     // Submit scene rendering commands
-    const auto renderCommands = [&](VkCommandBuffer buffer) { RenderScene(frame, framebuffers[imageIndex]); };
+    const auto renderCommands = [&](VkCommandBuffer buffer) {
+        RenderScene(frame, framebuffers[imageIndex]);
+        uiRenderer->Render(frame.GetCommandBuffer(), imageIndex);
+    };
+
     SubmitCommandBuffer(frame.GetCommandBuffer(), device.GetQueues().graphics, renderCommands, frame.GetSync());
 
     // Present will happen when rendering is finished and the frame signal semaphore is signaled
@@ -130,23 +177,23 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass->GetVkRenderPass();
+    renderPassInfo.renderPass = renderPass.GetVkRenderPass();
     renderPassInfo.framebuffer = framebuffer;
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = vulkanContext.GetSwapchain().GetExtent();
 
-    std::array<VkClearValue, 2> clearValues{};
+    std::array<VkClearValue, 3> clearValues{};
     clearValues[0].color = { { 0.73f, 0.95f, 1.0f, 1.0f } };
-    clearValues[1].depthStencil = { 1.0f, 0 };
+    clearValues[2].depthStencil = { 1.0f, 0 };
 
     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetVkPipeline());
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
 
     const VkExtent2D extent = vulkanContext.GetSwapchain().GetExtent();
-    VkViewport viewport = GetViewport(extent);
+    VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     const VkRect2D scissor = GetScissor(extent);
@@ -161,7 +208,7 @@ void RenderSystem::RenderScene(const Frame& frame, const VkFramebuffer framebuff
     std::vector<VkDescriptorSet> descriptors = frame.GetDescriptors();
     std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipelineLayout(),
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
     vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->GetVkBuffer(), 0, indirectDrawCount,
@@ -179,9 +226,9 @@ void RenderSystem::Present(const Frame& frame, const uint32_t imageIndex) const
     presentInfo.waitSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
     presentInfo.pWaitSemaphores = signalSemaphores.data();
 
-    VkSwapchainKHR swapChains[] = { vulkanContext.GetSwapchain().GetVkSwapchainKHR() };
+    VkSwapchainKHR swapchains[] = { vulkanContext.GetSwapchain().GetVkSwapchainKHR() };
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
+    presentInfo.pSwapchains = swapchains;
     presentInfo.pImageIndices = &imageIndex;
     presentInfo.pResults = nullptr;
 
@@ -193,27 +240,32 @@ void RenderSystem::CreateAttachmentsAndFramebuffers()
 {
     using namespace VulkanHelpers;
 
-    device.WaitIdle();
-
     const Swapchain& swapchain = vulkanContext.GetSwapchain();
 
+    // Attachments
     colorAttachment = CreateColorAttachment(swapchain.GetExtent(), vulkanContext);
-    colorAttachmentView = std::make_unique<ImageView>(*colorAttachment, VK_IMAGE_ASPECT_COLOR_BIT, &vulkanContext);
+    colorAttachmentView = std::make_unique<ImageView>(*colorAttachment, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
 
     depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), vulkanContext);
-    depthAttachmentView = std::make_unique<ImageView>(*depthAttachment, VK_IMAGE_ASPECT_DEPTH_BIT, &vulkanContext);
+    depthAttachmentView = std::make_unique<ImageView>(*depthAttachment, VK_IMAGE_ASPECT_DEPTH_BIT, vulkanContext);
 
-    framebuffers = CreateFramebuffers(swapchain, *colorAttachmentView, *depthAttachmentView,
-        renderPass->GetVkRenderPass(), device.GetVkDevice());
+    // Framebuffers
+    framebuffers.reserve(swapchain.GetImageViews().size());
+
+    std::vector<VkImageView> attachments = { colorAttachmentView->GetVkImageView(), VK_NULL_HANDLE,
+        depthAttachmentView->GetVkImageView() };
+
+    std::ranges::transform(swapchain.GetImageViews(), std::back_inserter(framebuffers), [&](const ImageView& imageView) {
+        attachments[1] = imageView.GetVkImageView();
+        return CreateFrameBuffer(renderPass, swapchain.GetExtent(), attachments, vulkanContext);
+    });
 }
 
 void RenderSystem::DestroyAttachmentsAndFramebuffers()
 {
     using namespace VulkanHelpers;
 
-    device.WaitIdle();
-
-    DestroyFramebuffers(framebuffers, device.GetVkDevice());
+    DestroyFramebuffers(framebuffers, vulkanContext);
 
     colorAttachmentView.reset();
     colorAttachment.reset();
@@ -227,21 +279,21 @@ void RenderSystem::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModu
 {
     using namespace VulkanHelpers;
 
-    device.WaitIdle();
-
     std::vector descriptorSetLayouts = { frames[0].GetDescriptorSetLayout().GetVkDescriptorSetLayout(),
         Scene::GetGlobalDescriptorSetLayout(vulkanContext).GetVkDescriptorSetLayout() };
 
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(GraphicsPipelineBuilder(vulkanContext)
+    graphicsPipeline = GraphicsPipelineBuilder(vulkanContext)
         .SetDescriptorSetLayouts(std::move(descriptorSetLayouts))
+        .AddPushConstantRange( { VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants) })
         .SetShaderModules(std::move(shaderModules))
+        .SetVertexData(Vertex::GetBindings(), Vertex::GetAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eBack, false)
         .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
-        .EnableDepthTest()
-        .SetRenderPass(*renderPass)
-        .Build());
+        .SetDepthState(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .SetRenderPass(renderPass)
+        .Build();
 }
 
 void RenderSystem::TryReloadShaders()
@@ -253,26 +305,16 @@ void RenderSystem::TryReloadShaders()
     {
         CreateGraphicsPipeline(std::move(shaderModules));
     }
+
+    uiRenderer->TryReloadShaders();
 }
 
-void RenderSystem::OnResize(const ES::WindowResized& event)
-{
-    if (event.newExtent.width == 0 || event.newExtent.height == 0)
-    {
-        return;
-    }
-
-    DestroyAttachmentsAndFramebuffers();
-    vulkanContext.GetSwapchain().Recreate(event.newExtent);
-    CreateAttachmentsAndFramebuffers();
-}
-
-void RenderSystem::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
+void RenderSystem::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
 {
     DestroyAttachmentsAndFramebuffers();
 }
 
-void RenderSystem::OnWindowRecreated(const ES::WindowRecreated& event)
+void RenderSystem::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
 {
     CreateAttachmentsAndFramebuffers();
 }
@@ -284,7 +326,7 @@ void RenderSystem::OnSceneOpen(const ES::SceneOpened& event)
 
     scene = &event.scene;
 
-    if (!graphicsPipeline)
+    if (!graphicsPipeline.IsValid())
     {
         std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext.GetShaderManager());
 

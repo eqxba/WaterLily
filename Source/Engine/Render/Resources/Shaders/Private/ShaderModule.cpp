@@ -24,7 +24,7 @@ namespace ShaderModuleDetails
 
 ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType aShaderType, 
     const VulkanContext& aVulkanContext)
-    : vulkanContext{ aVulkanContext }
+    : vulkanContext{ &aVulkanContext }
     , shaderModule{ aShaderModule }
     , shaderType{ aShaderType }
 {}
@@ -33,7 +33,7 @@ ShaderModule::~ShaderModule()
 {
     if (shaderModule != VK_NULL_HANDLE)
     { 
-        vkDestroyShaderModule(vulkanContext.GetDevice().GetVkDevice(), shaderModule, nullptr);
+        vkDestroyShaderModule(vulkanContext->GetDevice().GetVkDevice(), shaderModule, nullptr);
     }    
 }
 
@@ -49,8 +49,9 @@ ShaderModule& ShaderModule::operator=(ShaderModule&& other) noexcept
 {
     if (this != &other)
     {
-        shaderModule = other.shaderModule;
-        other.shaderModule = VK_NULL_HANDLE;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(shaderModule, other.shaderModule);
+        std::swap(shaderType, other.shaderType);
     }    
     return *this;
 }

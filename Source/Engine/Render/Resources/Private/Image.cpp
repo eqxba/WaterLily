@@ -134,8 +134,8 @@ namespace ImageDetails
     }   
 }
 
-Image::Image(ImageDescription aDescription, const VulkanContext* aVulkanContext)
-    : vulkanContext{ aVulkanContext }
+Image::Image(ImageDescription aDescription, const VulkanContext& aVulkanContext)
+    : vulkanContext{ &aVulkanContext }
     , description{ aDescription }
 {    
     using namespace ImageDetails;
@@ -168,18 +168,9 @@ Image& Image::operator=(Image&& other) noexcept
 {
     if (this != &other)
     {
-        if (image != VK_NULL_HANDLE)
-        {
-            vulkanContext->GetMemoryManager().DestroyImage(image);
-        }
-
-        vulkanContext = other.vulkanContext;
-        description = other.description;
-        image = other.image;
-
-        other.vulkanContext = nullptr;
-        other.description = {};
-        other.image = VK_NULL_HANDLE;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(description, other.description);
+        std::swap(image, other.image);
     }
     return *this;
 }

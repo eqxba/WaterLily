@@ -32,8 +32,8 @@ namespace ImageViewDetails
 }
 
 ImageView::ImageView(VkImage image, const ImageDescription& description, VkImageAspectFlags aspectFlags,
-    const VulkanContext* aVulkanContext)
-    : vulkanContext{ aVulkanContext }
+    const VulkanContext& aVulkanContext)
+    : vulkanContext{ &aVulkanContext }
 {
     Assert(vulkanContext != nullptr);
 
@@ -41,7 +41,7 @@ ImageView::ImageView(VkImage image, const ImageDescription& description, VkImage
     imageView = ImageViewDetails::CreateImageView(device, image, description, aspectFlags);
 }
 
-ImageView::ImageView(const Image& image, VkImageAspectFlags aspectFlags, const VulkanContext* aVulkanContext)
+ImageView::ImageView(const Image& image, VkImageAspectFlags aspectFlags, const VulkanContext& aVulkanContext)
     : ImageView(image.GetVkImage(), image.GetDescription(), aspectFlags, aVulkanContext)
 {}
 
@@ -66,16 +66,8 @@ ImageView& ImageView::operator=(ImageView&& other) noexcept
 {
     if (this != &other)
     {
-        if (imageView != VK_NULL_HANDLE)
-        {
-            vkDestroyImageView(vulkanContext->GetDevice().GetVkDevice(), imageView, nullptr);
-        }
-
-        vulkanContext = other.vulkanContext;
-        imageView = other.imageView;
-
-        other.vulkanContext = nullptr;
-        other.imageView = VK_NULL_HANDLE;
+        std::swap(vulkanContext, other.vulkanContext);
+        std::swap(imageView, other.imageView);
     }
     return *this;
 }
