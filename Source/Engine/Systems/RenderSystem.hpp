@@ -19,10 +19,11 @@ namespace ES
 }
 
 class VulkanContext;
-class Device;
-class Scene;
-class UIRenderer;
+class Window;
 class EventSystem;
+class Device;
+class UIRenderer;
+class Scene;
 class CommandBufferSync;
 class Buffer;
 class Image;
@@ -31,7 +32,7 @@ class ImageView;
 class RenderSystem : public System
 {
 public:
-    RenderSystem(EventSystem& aEventSystem, const VulkanContext& vulkanContext);
+    RenderSystem(const Window& window, EventSystem& aEventSystem, const VulkanContext& vulkanContext);
 	~RenderSystem() override;
 
     RenderSystem(const RenderSystem&) = delete;

@@ -142,7 +142,7 @@ void CameraSystem::OnKeyInput(const ES::KeyInput& event)
 {
     using namespace CameraSystemDetails;
 
-    if (event.action == KeyAction::eRepeat)
+    if (event.action == KeyAction::eRepeat || cursorMode == CursorMode::eEnabled)
     {
         return;
     }
@@ -200,4 +200,9 @@ void CameraSystem::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& 
     lastMousePosition.reset();
 
     cursorMode = event.newCursorMode;
+
+    if (cursorMode == CursorMode::eEnabled)
+    {
+        pressedMovementKeys.clear();
+    }
 }

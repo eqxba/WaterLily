@@ -2,6 +2,7 @@
 
 #include "Engine/Engine.hpp"
 #include "Engine/EventSystem.hpp"
+#include "Engine/Window.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/UI/UIRenderer.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
@@ -64,11 +65,11 @@ namespace RenderSystemDetails
     }
 }
 
-RenderSystem::RenderSystem(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
+RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
     , device{ vulkanContext.GetDevice() }
     , eventSystem{ aEventSystem }
-    , uiRenderer{ std::make_unique<UIRenderer>(eventSystem, vulkanContext) }
+    , uiRenderer{ std::make_unique<UIRenderer>(window, eventSystem, vulkanContext) }
 {
     using namespace RenderSystemDetails;
     using namespace VulkanConfig;

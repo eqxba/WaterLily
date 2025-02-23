@@ -1,7 +1,6 @@
 #pragma once
 
 #include <volk.h>
-#include <imgui.h>
 
 DISABLE_WARNINGS_BEGIN
 #define GLM_ENABLE_EXPERIMENTAL
@@ -19,14 +18,14 @@ DISABLE_WARNINGS_END
 
 class VulkanContext;
 class EventSystem;
+class Window;
 
 namespace ES
 {
     struct BeforeSwapchainRecreated;
     struct SwapchainRecreated;
-	struct MouseMoved;
-	struct MouseInput;
-    struct MouseWheelScrolled;
+	struct BeforeWindowRecreated;
+	struct WindowRecreated;
 	struct BeforeCursorModeUpdated;
 }
 
@@ -39,7 +38,7 @@ public:
 		glm::vec2 translate = Vector2::allMinusOnes;
 	};
 
-	UIRenderer(EventSystem& eventSystem, const VulkanContext& vulkanContext);
+	UIRenderer(const Window& window, EventSystem& eventSystem, const VulkanContext& vulkanContext);
 	~UIRenderer();
 
 	UIRenderer(const UIRenderer&) = delete;
@@ -64,14 +63,15 @@ private:
 
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
-	void OnMouseMoved(const ES::MouseMoved& event);
-	void OnMouseInput(const ES::MouseInput& event);
-    void OnMouseWheelScrolled(const ES::MouseWheelScrolled& event);
+	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
+	void OnWindowRecreated(const ES::WindowRecreated& event);
 	void OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event);
 
 	const VulkanContext* vulkanContext = nullptr;
 
 	EventSystem* eventSystem = nullptr;
+
+	const Window* window = nullptr;
 
 	RenderPass renderPass;
 	GraphicsPipeline graphicsPipeline;

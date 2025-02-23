@@ -1,7 +1,11 @@
 #include "Engine/Render/UI/UIRenderer.hpp"
 
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+
 #include "Engine/EngineConfig.hpp"
 #include "Engine/EventSystem.hpp"
+#include "Engine/Window.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
@@ -149,14 +153,17 @@ namespace UIRendererDetails
 	}
 }
 
-UIRenderer::UIRenderer(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
+UIRenderer::UIRenderer(const Window& aWindow, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
     , eventSystem{ &aEventSystem }
+    , window{ &aWindow }
 {
 	using namespace UIRendererDetails;
 
 	ImGui::CreateContext();
 	ImGui::StyleColorsClassic();
+
+	ImGui_ImplGlfw_InitForOther(window->GetGlfwWindow(), cursorMode == CursorMode::eEnabled);
     UpdateDisplaySize();
 
 	renderPass = CreateRenderPass(*vulkanContext);
@@ -177,9 +184,8 @@ UIRenderer::UIRenderer(EventSystem& aEventSystem, const VulkanContext& aVulkanCo
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &UIRenderer::OnBeforeSwapchainRecreated);
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &UIRenderer::OnSwapchainRecreated);
-	eventSystem->Subscribe<ES::MouseMoved>(this, &UIRenderer::OnMouseMoved);
-	eventSystem->Subscribe<ES::MouseInput>(this, &UIRenderer::OnMouseInput);
-    eventSystem->Subscribe<ES::MouseWheelScrolled>(this, &UIRenderer::OnMouseWheelScrolled);
+	eventSystem->Subscribe<ES::BeforeWindowRecreated>(this, &UIRenderer::OnBeforeWindowRecreated);
+	eventSystem->Subscribe<ES::WindowRecreated>(this, &UIRenderer::OnWindowRecreated);
 	eventSystem->Subscribe<ES::BeforeCursorModeUpdated>(this, &UIRenderer::OnBeforeCursorModeUpdated);
 }
 
@@ -187,11 +193,11 @@ UIRenderer::~UIRenderer()
 {
     eventSystem->Unsubscribe<ES::BeforeSwapchainRecreated>(this);
     eventSystem->Unsubscribe<ES::SwapchainRecreated>(this);
-	eventSystem->Unsubscribe<ES::MouseMoved>(this);
-	eventSystem->Unsubscribe<ES::MouseInput>(this);
-    eventSystem->Unsubscribe<ES::MouseWheelScrolled>(this);
+	eventSystem->Unsubscribe<ES::BeforeWindowRecreated>(this);
+	eventSystem->Unsubscribe<ES::WindowRecreated>(this);
 	eventSystem->Unsubscribe<ES::BeforeCursorModeUpdated>(this);
 
+	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 
 	VulkanHelpers::DestroySampler(vulkanContext->GetDevice().GetVkDevice(), fontImageSampler);
@@ -290,6 +296,7 @@ void UIRenderer::BuildUi()
 {
 	using namespace EngineConfig;
 
+	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
 	ImGui::Begin(engineName);
@@ -377,44 +384,32 @@ void UIRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
     framebuffers = UIRendererDetails::CreateFramebuffers(renderPass, *vulkanContext);
 }
 
-void UIRenderer::OnMouseMoved(const ES::MouseMoved& event)
+void UIRenderer::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
 {
-	if (cursorMode == CursorMode::eDisabled)
-	{
-		return;
-	}
-
-	ImGuiIO& io = ImGui::GetIO();
-	io.MousePos = ImVec2(event.newPosition.x, event.newPosition.y);
+	ImGui_ImplGlfw_Shutdown();
 }
 
-void UIRenderer::OnMouseInput(const ES::MouseInput& event)
+void UIRenderer::OnWindowRecreated(const ES::WindowRecreated& event)
 {
-	if (cursorMode == CursorMode::eDisabled)
-	{
-		return;
-	}
-
-    if (const int buttonIndex = static_cast<int>(event.button); buttonIndex < ImGuiMouseButton_COUNT)
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		io.MouseDown[buttonIndex] = event.action == MouseButtonAction::ePress;
-	}
-}
-
-void UIRenderer::OnMouseWheelScrolled(const ES::MouseWheelScrolled& event)
-{
-    if (cursorMode == CursorMode::eDisabled)
-    {
-        return;
-    }
-    
-    ImGuiIO& io = ImGui::GetIO();
-    io.MouseWheel = event.offset.y;
-    io.MouseWheelH = event.offset.x;
+	ImGui_ImplGlfw_InitForOther(event.window->GetGlfwWindow(), cursorMode == CursorMode::eEnabled);
+	UpdateDisplaySize();
 }
 
 void UIRenderer::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event)
 {
+	if (event.newCursorMode == cursorMode)
+	{
+		return;
+	}
+
 	cursorMode = event.newCursorMode;
+
+	if (cursorMode == CursorMode::eEnabled)
+	{
+		ImGui_ImplGlfw_InstallCallbacks(window->GetGlfwWindow());
+	}
+	else
+	{
+		ImGui_ImplGlfw_RestoreCallbacks(window->GetGlfwWindow());
+	}
 }

@@ -126,6 +126,11 @@ void EventSystem::Unsubscribe(void (*function)())
 template<class T>
 void EventSystem::Fire(const T& argument)
 {
+    if (!subscriptions.contains(typeid(T)))
+    {
+        return;
+    }
+
     for (const auto& subscription : subscriptions[typeid(T)])
     {
         std::get<1>(subscription)(argument);
@@ -135,6 +140,11 @@ void EventSystem::Fire(const T& argument)
 template<class T>
 void EventSystem::Fire()
 {
+    if (!subscriptions.contains(typeid(T)))
+    {
+        return;
+    }
+
     T argument{};
 
     for (const auto& subscription : subscriptions[typeid(T)])

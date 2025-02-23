@@ -77,7 +77,7 @@ void Engine::Run()
 
 void Engine::CreateSystems()
 {
-    auto renderSystemPtr = std::make_unique<RenderSystem>(*eventSystem, *vulkanContext);
+    auto renderSystemPtr = std::make_unique<RenderSystem>(*window, *eventSystem, *vulkanContext);
     renderSystem = renderSystemPtr.get();
 
     systems.emplace_back(std::move(renderSystemPtr));
