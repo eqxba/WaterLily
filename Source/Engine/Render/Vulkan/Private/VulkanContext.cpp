@@ -34,9 +34,7 @@ VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
 
 VulkanContext::~VulkanContext()
 {
-    eventSystem.Unsubscribe<ES::WindowResized>(this);
-    eventSystem.Unsubscribe<ES::BeforeWindowRecreated>(this);
-    eventSystem.Unsubscribe<ES::WindowRecreated>(this);
+    eventSystem.UnsubscribeAll(this);
 }
 
 void VulkanContext::OnResize(const ES::WindowResized& event)

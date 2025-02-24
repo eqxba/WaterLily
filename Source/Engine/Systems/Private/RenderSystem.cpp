@@ -90,11 +90,7 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
 
 RenderSystem::~RenderSystem()
 {
-    eventSystem.Unsubscribe<ES::BeforeSwapchainRecreated>(this);
-    eventSystem.Unsubscribe<ES::SwapchainRecreated>(this);
-    eventSystem.Unsubscribe<ES::SceneOpened>(this);
-    eventSystem.Unsubscribe<ES::SceneClosed>(this);
-    eventSystem.Unsubscribe<ES::KeyInput>(this);
+    eventSystem.UnsubscribeAll(this);
 
     device.WaitIdle();
     

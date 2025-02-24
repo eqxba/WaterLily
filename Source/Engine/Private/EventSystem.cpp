@@ -2,14 +2,24 @@
 
 EventSystem::~EventSystem()
 {
-    Assert(subscriptions.empty());
+    const auto pred = [](const auto& subscription) {
+        return subscription.second.empty();
+    };
+
+    Assert(std::ranges::all_of(subscriptions, pred));
+}
+
+void EventSystem::UnsubscribeAll(void* subscriber)
+{
+    std::ranges::for_each(subscriptions, [&](const auto& subscription) {
+        UnsubscribeImpl(subscription.first, subscriber);
+    });
 }
 
 void EventSystem::SubscribeImpl(std::type_index typeIndex, void* subscriber, 
     const std::function<void(std::any)> &handler, ES::Priority priority)
 {
-    const auto it = subscriptions.find(typeIndex);
-    if (it == subscriptions.end())
+    if (const auto it = subscriptions.find(typeIndex); it == subscriptions.end())
     {
         subscriptions.emplace(typeIndex, std::vector<EventHandler>());
     }
@@ -28,9 +38,4 @@ void EventSystem::UnsubscribeImpl(std::type_index typeIndex, void* subscriber)
     };
 
     std::erase_if(subscriptions[typeIndex], pred);
-
-    if (subscriptions[typeIndex].empty())
-    {
-        subscriptions.erase(typeIndex);
-    }
 }

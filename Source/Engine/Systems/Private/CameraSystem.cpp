@@ -47,14 +47,7 @@ CameraSystem::CameraSystem(const Extent2D windowExtent, CursorMode aCursorMode, 
 
 CameraSystem::~CameraSystem()
 {
-    // TODO: UnsubscribeAll implementation
-    eventSystem.Unsubscribe<ES::SceneOpened>(this);
-    eventSystem.Unsubscribe<ES::WindowResized>(this);
-    eventSystem.Unsubscribe<ES::WindowRecreated>(this);
-    eventSystem.Unsubscribe<ES::KeyInput>(this);
-    eventSystem.Unsubscribe<ES::MouseMoved>(this);
-    eventSystem.Unsubscribe<ES::MouseWheelScrolled>(this);
-    eventSystem.Unsubscribe<ES::BeforeCursorModeUpdated>(this);
+    eventSystem.UnsubscribeAll(this);
 }
 
 void CameraSystem::Process(const float deltaSeconds)

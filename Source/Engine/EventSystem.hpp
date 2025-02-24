@@ -40,7 +40,6 @@ public:
     template<class T>
     void Subscribe(void (*function)(), ES::Priority priority = ES::Priority::eDefault);
 
-    // TODO: Do i need 3 of these?
     template<class T>
     void Unsubscribe(void* subscriber);
 
@@ -49,6 +48,8 @@ public:
 
     template<class T>
     void Unsubscribe(void (*function)());
+
+    void UnsubscribeAll(void* subscriber);
 
     template<class T>
     void Fire(const T& argument);

@@ -194,11 +194,7 @@ UIRenderer::UIRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
 
 UIRenderer::~UIRenderer()
 {
-    eventSystem->Unsubscribe<ES::BeforeSwapchainRecreated>(this);
-    eventSystem->Unsubscribe<ES::SwapchainRecreated>(this);
-	eventSystem->Unsubscribe<ES::BeforeWindowRecreated>(this);
-	eventSystem->Unsubscribe<ES::WindowRecreated>(this);
-	eventSystem->Unsubscribe<ES::BeforeCursorModeUpdated>(this);
+	eventSystem->UnsubscribeAll(this);
 
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();

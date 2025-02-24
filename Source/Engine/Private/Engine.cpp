@@ -39,8 +39,7 @@ Engine::Engine(const std::string_view executablePath)
 
 Engine::~Engine()
 {
-    eventSystem->Unsubscribe<ES::WindowResized>(this);
-    eventSystem->Unsubscribe<ES::KeyInput>(this);
+    eventSystem->UnsubscribeAll(this);
 }
 
 EventSystem& Engine::GetEventSystem() const
