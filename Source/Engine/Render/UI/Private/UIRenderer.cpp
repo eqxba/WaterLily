@@ -141,13 +141,13 @@ namespace UIRendererDetails
 		return attributes;
 	}
 
-	static VkRect2D GetScissor(const ImDrawCmd& command)
+	static VkRect2D GetScissor(const ImDrawCmd& command, const ImVec2& clipScale)
 	{
 		VkRect2D scissor;
-		scissor.offset.x = std::max(static_cast<int32_t>(command.ClipRect.x), 0);
-		scissor.offset.y = std::max(static_cast<int32_t>(command.ClipRect.y), 0);
-		scissor.extent.width = static_cast<uint32_t>(command.ClipRect.z - command.ClipRect.x);
-		scissor.extent.height = static_cast<uint32_t>(command.ClipRect.w - command.ClipRect.y);
+        scissor.offset.x = std::max(static_cast<int32_t>(command.ClipRect.x * clipScale.x), 0);
+        scissor.offset.y = std::max(static_cast<int32_t>(command.ClipRect.y * clipScale.y), 0);
+        scissor.extent.width = static_cast<uint32_t>((command.ClipRect.z - command.ClipRect.x) * clipScale.x);
+        scissor.extent.height = static_cast<uint32_t>((command.ClipRect.w - command.ClipRect.y) * clipScale.y);
 
 		return scissor;
 	}
@@ -161,10 +161,13 @@ UIRenderer::UIRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
 	using namespace UIRendererDetails;
 
 	ImGui::CreateContext();
-	ImGui::StyleColorsClassic();
+    ImGui::StyleColorsClassic();
+    
+    // Using InitForOther intentionally to make ImGui handle all
+    // of the i/o for us while implementing our own rendering
+	ImGui_ImplGlfw_InitForOther(window->GetGlfwWindow(), true);
 
-	ImGui_ImplGlfw_InitForOther(window->GetGlfwWindow(), cursorMode == CursorMode::eEnabled);
-    UpdateDisplaySize();
+    UpdateImGuiInputState();
 
 	renderPass = CreateRenderPass(*vulkanContext);
     framebuffers = CreateFramebuffers(renderPass, *vulkanContext);
@@ -206,31 +209,46 @@ UIRenderer::~UIRenderer()
 
 void UIRenderer::Process(const float deltaSeconds)
 {
-	BuildUi();
+    // Handles i/o and other different window events
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    
+    // All our UI elements
+	BuildUI();
+    
+    // Creates all abstract rendering commands so we can
+    // use them in Render() and do the buffers update
+    ImGui::Render();
+    UpdateBuffers();
+    
+    // Don't forget to update push constants
+    // Ignore translate for now as there's only 1 viewport
+    const ImGuiIO& io = ImGui::GetIO();
+    pushConstants.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
 }
 
 void UIRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t swapchainImageIndex)
 {
 	using namespace VulkanHelpers;
 
+    const VkExtent2D swapchainExtent = vulkanContext->GetSwapchain().GetExtent();
+    
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass.GetVkRenderPass();
 	renderPassInfo.framebuffer = framebuffers[swapchainImageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = vulkanContext->GetSwapchain().GetExtent();
+	renderPassInfo.renderArea.extent = swapchainExtent;
 
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
 
-	const ImGuiIO& io = ImGui::GetIO();
-	const VkViewport viewport = GetViewport(io.DisplaySize.x, io.DisplaySize.y);
+    const VkViewport viewport = GetViewport(swapchainExtent.width, swapchainExtent.height);
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
 		0, 1, &descriptor, 0, nullptr);
-
-	pushConstants.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
+    
 	vkCmdPushConstants(commandBuffer, graphicsPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
 		sizeof(PushConstants), &pushConstants);
 
@@ -241,13 +259,15 @@ void UIRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t swap
 
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBuffer, indexBuffer.GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
-
-		VkRect2D scissorRect;
+        
 		int32_t vertexOffset = 0;
 		int32_t indexOffset = 0;
+        
+        const ImVec2 clipScale = ImGui::GetIO().DisplayFramebufferScale;
+        VkRect2D scissorRect;
 
 		const auto issueDraw = [&](const ImDrawCmd& command) {
-			scissorRect = UIRendererDetails::GetScissor(command);
+			scissorRect = UIRendererDetails::GetScissor(command, clipScale);
 			vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
 
 			vkCmdDrawIndexed(commandBuffer, command.ElemCount, 1, indexOffset, vertexOffset, 0);
@@ -292,12 +312,9 @@ void UIRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModule
 		.Build();
 }
 
-void UIRenderer::BuildUi()
+void UIRenderer::BuildUI()
 {
 	using namespace EngineConfig;
-
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
 
 	ImGui::Begin(engineName);
 
@@ -310,9 +327,6 @@ void UIRenderer::BuildUi()
 	ImGui::End();
 
 	// ImGui::ShowDemoWindow();
-
-	ImGui::Render();	
-	UpdateBuffers();
 }
 
 void UIRenderer::UpdateBuffers()
@@ -365,12 +379,18 @@ void UIRenderer::UpdateBuffers()
 	indexBuffer.Flush();
 }
 
-void UIRenderer::UpdateDisplaySize() const
+void UIRenderer::UpdateImGuiInputState() const
 {
-    const auto [width, height] = vulkanContext->GetSwapchain().GetExtent();
-
     ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+    
+    if (cursorMode == CursorMode::eEnabled)
+    {
+        io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoKeyboard);
+    }
+    else
+    {
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoKeyboard;
+    }
 }
 
 void UIRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
@@ -380,7 +400,6 @@ void UIRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& 
 
 void UIRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
 {
-    UpdateDisplaySize();
     framebuffers = UIRendererDetails::CreateFramebuffers(renderPass, *vulkanContext);
 }
 
@@ -391,25 +410,11 @@ void UIRenderer::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
 
 void UIRenderer::OnWindowRecreated(const ES::WindowRecreated& event)
 {
-	ImGui_ImplGlfw_InitForOther(event.window->GetGlfwWindow(), cursorMode == CursorMode::eEnabled);
-	UpdateDisplaySize();
+	ImGui_ImplGlfw_InitForOther(event.window->GetGlfwWindow(), true);
 }
 
 void UIRenderer::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event)
 {
-	if (event.newCursorMode == cursorMode)
-	{
-		return;
-	}
-
-	cursorMode = event.newCursorMode;
-
-	if (cursorMode == CursorMode::eEnabled)
-	{
-		ImGui_ImplGlfw_InstallCallbacks(window->GetGlfwWindow());
-	}
-	else
-	{
-		ImGui_ImplGlfw_RestoreCallbacks(window->GetGlfwWindow());
-	}
+    cursorMode = event.newCursorMode;
+    UpdateImGuiInputState();
 }

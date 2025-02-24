@@ -56,10 +56,11 @@ public:
 private:
 	void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
 
-	void BuildUi();
+	void BuildUI();
+    
 	void UpdateBuffers();
     
-    void UpdateDisplaySize() const;
+    void UpdateImGuiInputState() const;
 
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
