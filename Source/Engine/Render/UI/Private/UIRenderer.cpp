@@ -231,19 +231,19 @@ void UIRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t swap
 {
 	using namespace VulkanHelpers;
 
-    const VkExtent2D swapchainExtent = vulkanContext->GetSwapchain().GetExtent();
-    
+    const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
+
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass.GetVkRenderPass();
 	renderPassInfo.framebuffer = framebuffers[swapchainImageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = swapchainExtent;
+	renderPassInfo.renderArea.extent = extent;
 
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
 
-    const VkViewport viewport = GetViewport(swapchainExtent.width, swapchainExtent.height);
+    const VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
