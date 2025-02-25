@@ -29,7 +29,7 @@ namespace ES
 	struct BeforeCursorModeUpdated;
 }
 
-class UIRenderer
+class UiRenderer
 {
 public:
 	struct PushConstants
@@ -38,14 +38,14 @@ public:
 		glm::vec2 translate = Vector2::allMinusOnes;
 	};
 
-	UIRenderer(const Window& window, EventSystem& eventSystem, const VulkanContext& vulkanContext);
-	~UIRenderer();
+	UiRenderer(const Window& window, EventSystem& eventSystem, const VulkanContext& vulkanContext);
+	~UiRenderer();
 
-	UIRenderer(const UIRenderer&) = delete;
-	UIRenderer& operator=(const UIRenderer&) = delete;
+	UiRenderer(const UiRenderer&) = delete;
+	UiRenderer& operator=(const UiRenderer&) = delete;
 
-	UIRenderer(UIRenderer&&) = delete;
-	UIRenderer& operator=(UIRenderer&&) = delete;
+	UiRenderer(UiRenderer&&) = delete;
+	UiRenderer& operator=(UiRenderer&&) = delete;
 
 	void Process(float deltaSeconds);
 
@@ -92,4 +92,6 @@ private:
 	PushConstants pushConstants;
 
 	CursorMode cursorMode = CursorMode::eDisabled;
+    
+    std::array<float, 50> frameTimes = {};
 };

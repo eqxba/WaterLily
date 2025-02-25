@@ -58,11 +58,8 @@ void MemoryManager::FlushBuffer(VkBuffer buffer)
 {
     const auto it = bufferAllocations.find(buffer);
     Assert(it != bufferAllocations.end());
-
-    VmaAllocationInfo allocationInfo;
-    vmaGetAllocationInfo(allocator, it->second, &allocationInfo);
-
-    vmaFlushAllocation(allocator, it->second, allocationInfo.offset, allocationInfo.size);
+    
+    vmaFlushAllocation(allocator, it->second, 0, VK_WHOLE_SIZE);
 }
 
 // TODO: Make generic on the 1st need

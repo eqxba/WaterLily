@@ -22,7 +22,7 @@ class VulkanContext;
 class Window;
 class EventSystem;
 class Device;
-class UIRenderer;
+class UiRenderer;
 class Scene;
 class CommandBufferSync;
 class Buffer;
@@ -67,7 +67,7 @@ private:
 
     EventSystem& eventSystem;
 
-    std::unique_ptr<UIRenderer> uiRenderer;
+    std::unique_ptr<UiRenderer> uiRenderer;
 
     RenderPass renderPass;
     GraphicsPipeline graphicsPipeline;

@@ -4,7 +4,7 @@
 #include "Engine/EventSystem.hpp"
 #include "Engine/Window.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/UI/UIRenderer.hpp"
+#include "Engine/Render/UI/UiRenderer.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
@@ -69,7 +69,7 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     : vulkanContext{ aVulkanContext }
     , device{ vulkanContext.GetDevice() }
     , eventSystem{ aEventSystem }
-    , uiRenderer{ std::make_unique<UIRenderer>(window, eventSystem, vulkanContext) }
+    , uiRenderer{ std::make_unique<UiRenderer>(window, eventSystem, vulkanContext) }
 {
     using namespace RenderSystemDetails;
     using namespace VulkanConfig;
