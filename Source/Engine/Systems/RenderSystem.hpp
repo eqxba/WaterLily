@@ -1,33 +1,21 @@
 #pragma once
 
-#include "Engine/Systems/System.hpp"
-#include "Utils/Constants.hpp"
-#include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
-#include "Engine/Render/Vulkan/Frame.hpp"
-#include "Shaders/Common.h"
-
 #include <volk.h>
+
+#include "Engine/Systems/System.hpp"
+#include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Render/Vulkan/Frame.hpp"
 
 namespace ES
 {
-    struct BeforeSwapchainRecreated;
-    struct SwapchainRecreated;
-    struct SceneOpened;
-    struct SceneClosed;
     struct KeyInput;
 }
 
 class VulkanContext;
 class Window;
 class EventSystem;
-class Device;
+class SceneRenderer;
 class UiRenderer;
-class Scene;
-class CommandBufferSync;
-class Buffer;
-class Image;
-class ImageView;
 
 class RenderSystem : public System
 {
@@ -50,43 +38,15 @@ private:
     void RenderScene(const Frame& frame, VkFramebuffer framebuffer) const;
     void Present(const Frame& frame, uint32_t imageIndex) const;
 
-    void CreateAttachmentsAndFramebuffers();
-    void DestroyAttachmentsAndFramebuffers();
-
-    void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
-    void TryReloadShaders();
-
-    void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
-    void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
-    void OnSceneOpen(const ES::SceneOpened& event);
-    void OnSceneClose(const ES::SceneClosed& event);
     void OnKeyInput(const ES::KeyInput& event);
 
     const VulkanContext& vulkanContext;
-    const Device& device;
 
     EventSystem& eventSystem;
 
+    std::unique_ptr<SceneRenderer> sceneRenderer;
     std::unique_ptr<UiRenderer> uiRenderer;
-
-    RenderPass renderPass;
-    GraphicsPipeline graphicsPipeline;
-
-    std::unique_ptr<Image> colorAttachment;
-    std::unique_ptr<ImageView> colorAttachmentView;
-
-    std::unique_ptr<Image> depthAttachment;
-    std::unique_ptr<ImageView> depthAttachmentView;
-
-    std::vector<VkFramebuffer> framebuffers;
     
     std::vector<Frame> frames;
-    size_t currentFrame = 0;
-    
-    gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
-
-    std::unique_ptr<Buffer> indirectBuffer;
-    uint32_t indirectDrawCount = 0;
-
-    Scene* scene = nullptr;
+    uint32_t currentFrame = 0;
 };

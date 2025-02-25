@@ -21,6 +21,8 @@ namespace ES // Event system
     struct BeforeSwapchainRecreated {};
     struct SwapchainRecreated {};
 
+	struct TryReloadShaders {};
+
     struct SceneOpened
 	{
 	    Scene& scene;

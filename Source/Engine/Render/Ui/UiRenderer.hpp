@@ -26,6 +26,7 @@ namespace ES
     struct SwapchainRecreated;
 	struct BeforeWindowRecreated;
 	struct WindowRecreated;
+	struct TryReloadShaders;
 	struct BeforeCursorModeUpdated;
 }
 
@@ -49,16 +50,14 @@ public:
 
 	void Process(float deltaSeconds);
 
-	void Render(VkCommandBuffer commandBuffer, uint32_t swapchainImageIndex);
-
-	void TryReloadShaders();
+	void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex, uint32_t swapchainImageIndex);
 
 private:
 	void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
 
 	void BuildUI();
     
-	void UpdateBuffers();
+	void UpdateBuffers(uint32_t frameIndex);
     
     void UpdateImGuiInputState() const;
 
@@ -66,6 +65,7 @@ private:
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
 	void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
 	void OnWindowRecreated(const ES::WindowRecreated& event);
+	void OnTryReloadShaders(const ES::TryReloadShaders& event);
 	void OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event);
 
 	const VulkanContext* vulkanContext = nullptr;
@@ -79,8 +79,8 @@ private:
 
 	std::vector<VkFramebuffer> framebuffers;
 
-	Buffer vertexBuffer;
-	Buffer indexBuffer;
+	std::vector<Buffer> vertexBuffers;
+	std::vector<Buffer> indexBuffers;
 
 	Image fontImage;
 	ImageView fontImageView;

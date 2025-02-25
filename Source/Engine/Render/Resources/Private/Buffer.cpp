@@ -52,8 +52,6 @@ Buffer::~Buffer()
         return;
     }
 
-    vulkanContext->GetDevice().WaitIdle();
-
     if (!mappedMemory.empty())
     {
         Assert(persistentMapping);

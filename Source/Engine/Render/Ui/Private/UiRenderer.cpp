@@ -1,4 +1,4 @@
-#include "Engine/Render/UI/UiRenderer.hpp"
+#include "Engine/Render/Ui/UiRenderer.hpp"
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -31,7 +31,7 @@ namespace UiRendererDetails
 			.memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
 		const Buffer fontDataBuffer(bufferDescription, false, fontDataSpan, vulkanContext);
-
+		 
 		const ImageDescription fontImageDescription{
 			.extent = extent,
 			.mipLevelsCount = 1,
@@ -159,6 +159,8 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     : vulkanContext{ &aVulkanContext }
     , eventSystem{ &aEventSystem }
     , window{ &aWindow }
+    , vertexBuffers{ VulkanConfig::maxFramesInFlight }
+    , indexBuffers{ VulkanConfig::maxFramesInFlight }
 {
 	using namespace UiRendererDetails;
 
@@ -191,6 +193,7 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &UiRenderer::OnSwapchainRecreated);
 	eventSystem->Subscribe<ES::BeforeWindowRecreated>(this, &UiRenderer::OnBeforeWindowRecreated);
 	eventSystem->Subscribe<ES::WindowRecreated>(this, &UiRenderer::OnWindowRecreated);
+	eventSystem->Subscribe<ES::TryReloadShaders>(this, &UiRenderer::OnTryReloadShaders);
 	eventSystem->Subscribe<ES::BeforeCursorModeUpdated>(this, &UiRenderer::OnBeforeCursorModeUpdated);
 }
 
@@ -216,11 +219,9 @@ void UiRenderer::Process(const float deltaSeconds)
     
     // All our UI elements
 	BuildUI();
-    
-    // Creates all abstract rendering commands so we can
-    // use them in Render() and do the buffers update
-    ImGui::Render();
-    UpdateBuffers();
+
+	// Creates all abstract rendering commands
+	ImGui::Render();
     
     // Don't forget to update push constants
     // Ignore translate for now as there's only 1 viewport
@@ -228,9 +229,15 @@ void UiRenderer::Process(const float deltaSeconds)
     pushConstants.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
 }
 
-void UiRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t swapchainImageIndex)
+void UiRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t frameIndex, 
+	const uint32_t swapchainImageIndex)
 {
 	using namespace VulkanHelpers;
+
+	UpdateBuffers(frameIndex);
+
+	const Buffer& vertexBuffer = vertexBuffers[frameIndex];
+	const Buffer& indexBuffer = indexBuffers[frameIndex];
 
     const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
 
@@ -255,10 +262,10 @@ void UiRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t swap
 
 	if (const ImDrawData* drawData = ImGui::GetDrawData(); !drawData->CmdLists.empty())
 	{
-		const VkBuffer vertexBuffers[] = { vertexBuffer.GetVkBuffer() };
+		const VkBuffer vkVertexBuffers[] = { vertexBuffer.GetVkBuffer() };
 		constexpr VkDeviceSize offsets[] = { 0 };
 
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vkVertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBuffer, indexBuffer.GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
         
 		int32_t vertexOffset = 0;
@@ -285,15 +292,6 @@ void UiRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t swap
 	}
 
 	vkCmdEndRenderPass(commandBuffer);
-}
-
-void UiRenderer::TryReloadShaders()
-{
-	if (std::vector<ShaderModule> shaderModules = UiRendererDetails::GetShaderModules(vulkanContext->GetShaderManager());
-		std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
-	{
-		CreateGraphicsPipeline(std::move(shaderModules));
-	}
 }
 
 void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
@@ -341,7 +339,7 @@ void UiRenderer::BuildUI()
     }
 }
 
-void UiRenderer::UpdateBuffers()
+void UiRenderer::UpdateBuffers(const uint32_t frameIndex)
 {
 	ImDrawData* drawData = ImGui::GetDrawData();
 
@@ -353,19 +351,22 @@ void UiRenderer::UpdateBuffers()
 		return;
 	}
 
-	if (!vertexBuffer.IsValid() || vertexBuffer.GetDescription().size != vertexBufferSize) 
+	Buffer& vertexBuffer = vertexBuffers[frameIndex];
+	Buffer& indexBuffer = indexBuffers[frameIndex];
+
+	if (!vertexBuffer.IsValid() || vertexBuffer.GetDescription().size < vertexBufferSize) 
 	{
 		BufferDescription vertexBufferDescription{ vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT };
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
 		vertexBuffer = Buffer(vertexBufferDescription, false, *vulkanContext);
 		std::ignore = vertexBuffer.MapMemory(true); // persistent mapping
 	}
 
-	if (!indexBuffer.IsValid() || indexBuffer.GetDescription().size != indexBufferSize)
+	if (!indexBuffer.IsValid() || indexBuffer.GetDescription().size < indexBufferSize)
 	{
 		BufferDescription indexBufferDescription{ indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT };
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
 		indexBuffer = Buffer(indexBufferDescription, false, *vulkanContext);
 		std::ignore = indexBuffer.MapMemory(true); // persistent mapping
@@ -386,9 +387,6 @@ void UiRenderer::UpdateBuffers()
 	};
 
 	std::ranges::for_each(drawData->CmdLists, processDrawList);
-
-	vertexBuffer.Flush();
-	indexBuffer.Flush();
 }
 
 void UiRenderer::UpdateImGuiInputState() const
@@ -423,6 +421,15 @@ void UiRenderer::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
 void UiRenderer::OnWindowRecreated(const ES::WindowRecreated& event)
 {
 	ImGui_ImplGlfw_InitForOther(event.window->GetGlfwWindow(), true);
+}
+
+void UiRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
+{
+	if (std::vector<ShaderModule> shaderModules = UiRendererDetails::GetShaderModules(vulkanContext->GetShaderManager());
+		std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
+	{
+		CreateGraphicsPipeline(std::move(shaderModules));
+	}
 }
 
 void UiRenderer::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event)
