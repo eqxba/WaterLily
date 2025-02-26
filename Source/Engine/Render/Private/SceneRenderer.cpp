@@ -131,7 +131,7 @@ void SceneRenderer::Process(const float deltaSeconds)
     ubo.viewPos = camera.GetPosition();
 }
 
-void SceneRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t frameIndex, const uint32_t swapchainImageIndex)
+void SceneRenderer::Render(const Frame& frame)
 {
     using namespace VulkanHelpers;
 
@@ -140,12 +140,12 @@ void SceneRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t f
         return;
     }
 
-    uniformBuffers[frameIndex].Fill(std::as_bytes(std::span(&ubo, 1)));
+    uniformBuffers[frame.index].Fill(std::as_bytes(std::span(&ubo, 1)));
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = renderPass.GetVkRenderPass();
-    renderPassInfo.framebuffer = framebuffers[swapchainImageIndex];
+    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = vulkanContext->GetSwapchain().GetExtent();
 
@@ -155,6 +155,8 @@ void SceneRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t f
 
     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
     renderPassInfo.pClearValues = clearValues.data();
+    
+    const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
@@ -172,7 +174,7 @@ void SceneRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t f
 
     vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    std::vector<VkDescriptorSet> descriptors = { uniformDescriptors[frameIndex] };
+    std::vector<VkDescriptorSet> descriptors = { uniformDescriptors[frame.index] };
     std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),

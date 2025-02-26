@@ -2,9 +2,9 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Frame.hpp"
 #include "Engine/Systems/System.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/Frame.hpp"
 
 namespace ES
 {
@@ -34,9 +34,8 @@ public:
     void Render();
 
 private:
-    uint32_t AcquireNextImage(const Frame& frame) const;
-    void RenderScene(const Frame& frame, VkFramebuffer framebuffer) const;
-    void Present(const Frame& frame, uint32_t imageIndex) const;
+    uint32_t AcquireNextSwapchainImage(VkSemaphore signalSemaphore) const;
+    void Present(const std::vector<VkSemaphore>& waitSemaphores, uint32_t imageIndex) const;
 
     void OnKeyInput(const ES::KeyInput& event);
 

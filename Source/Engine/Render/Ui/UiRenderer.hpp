@@ -14,6 +14,7 @@ DISABLE_WARNINGS_END
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
 #include "Engine/Render/Resources/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Frame.hpp"
 #include "Utils/Constants.hpp"
 
 class VulkanContext;
@@ -50,7 +51,7 @@ public:
 
 	void Process(float deltaSeconds);
 
-	void Render(VkCommandBuffer commandBuffer, uint32_t frameIndex, uint32_t swapchainImageIndex);
+	void Render(const Frame& frame);
 
 private:
 	void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);

@@ -20,7 +20,7 @@ namespace VulkanConfig
 #endif
 	};
 
-    constexpr int maxFramesInFlight = 2;
+    constexpr uint32_t maxFramesInFlight = 2;
 
     constexpr VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT;
 

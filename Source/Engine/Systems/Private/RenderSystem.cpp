@@ -6,14 +6,45 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 
+namespace RenderSystemDetails
+{
+    static CommandBufferSync CreateFrameSync(const VulkanContext& vulkanContext)
+    {
+        using namespace VulkanHelpers;
+        
+        const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+        
+        std::vector<VkSemaphore> waitSemaphores = { CreateSemaphore(device) };
+        std::vector<VkPipelineStageFlags> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        std::vector<VkSemaphore> signalSemaphores = { CreateSemaphore(device) };
+        VkFence fence = CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT);
+        
+        return { waitSemaphores, waitStages, signalSemaphores, fence, device };
+    }
+
+    static VkCommandBuffer CreateCommandBuffer(const VulkanContext& vulkanContext)
+    {
+        const Device& device = vulkanContext.GetDevice();
+        const VkCommandPool longLivedPool = device.GetCommandPool(CommandBufferType::eLongLived);
+        
+        return VulkanHelpers::CreateCommandBuffers(device.GetVkDevice(), 1, longLivedPool)[0];
+    }
+}
+
 RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
     , eventSystem{ aEventSystem }
     , sceneRenderer{ std::make_unique<SceneRenderer>(eventSystem, vulkanContext) }
     , uiRenderer{ std::make_unique<UiRenderer>(window, eventSystem, vulkanContext) }
 {
-    frames.resize(VulkanConfig::maxFramesInFlight);
-    std::ranges::generate(frames, [&]() { return Frame(&vulkanContext); });
+    using namespace RenderSystemDetails;
+    
+    const auto createFrame = [&](const uint32_t index) {
+        return Frame(index, 0, CreateCommandBuffer(vulkanContext), CreateFrameSync(vulkanContext));
+    };
+    
+    const auto frameIndices = std::views::iota(static_cast<uint32_t>(0), VulkanConfig::maxFramesInFlight);
+    std::ranges::transform(frameIndices, std::back_inserter(frames), createFrame);
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
@@ -37,9 +68,9 @@ void RenderSystem::Render()
 {
     using namespace VulkanHelpers;
 
-    const Frame& frame = frames[currentFrame];
+    Frame& frame = frames[currentFrame];
 
-    const auto& [waitSemaphores, waitStages, signalSemaphores, fence] = frame.GetSync().AsTuple();
+    const auto& [waitSemaphores, waitStages, signalSemaphores, fence] = frame.sync.AsTuple();
 
     const Device& device = vulkanContext.GetDevice();
 
@@ -49,44 +80,41 @@ void RenderSystem::Render()
 
     // Acquire next image from the swapchain, frame wait semaphore will be signaled by the presentation engine when it
     // finishes using the image so we can start rendering
-    const uint32_t imageIndex = AcquireNextImage(frame);
+    frame.swapchainImageIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
 
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer buffer) {
-        sceneRenderer->Render(frame.GetCommandBuffer(), currentFrame, imageIndex);
-        uiRenderer->Render(frame.GetCommandBuffer(), currentFrame, imageIndex);
+        sceneRenderer->Render(frame);
+        uiRenderer->Render(frame);
     };
 
-    SubmitCommandBuffer(frame.GetCommandBuffer(), device.GetQueues().graphics, renderCommands, frame.GetSync());
+    SubmitCommandBuffer(frame.commandBuffer, device.GetQueues().graphics, renderCommands, frame.sync);
 
-    // Present will happen when rendering is finished and the frame signal semaphore is signaled
-    Present(frame, imageIndex);
+    // Present will happen when rendering is finished and the frame signal semaphores are signaled
+    Present(signalSemaphores, frame.swapchainImageIndex);
 
     currentFrame = (currentFrame + 1) % VulkanConfig::maxFramesInFlight;
 }
 
-uint32_t RenderSystem::AcquireNextImage(const Frame& frame) const
+uint32_t RenderSystem::AcquireNextSwapchainImage(const VkSemaphore signalSemaphore) const
 {
     const VkSwapchainKHR swapchain = vulkanContext.GetSwapchain().GetVkSwapchainKHR();
 
     uint32_t imageIndex;
     const VkResult acquireResult = vkAcquireNextImageKHR(vulkanContext.GetDevice().GetVkDevice(), swapchain,
-        std::numeric_limits<uint64_t>::max(), frame.GetSync().GetWaitSemaphores()[0], VK_NULL_HANDLE, &imageIndex);
+        std::numeric_limits<uint64_t>::max(), signalSemaphore, VK_NULL_HANDLE, &imageIndex);
     Assert(acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR);
 
     return imageIndex;
 }
 
-void RenderSystem::Present(const Frame& frame, const uint32_t imageIndex) const
+void RenderSystem::Present(const std::vector<VkSemaphore>& waitSemaphores, const uint32_t imageIndex) const
 {
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    const std::vector<VkSemaphore> signalSemaphores = frame.GetSync().GetSignalSemaphores();
-    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
-    presentInfo.pWaitSemaphores = signalSemaphores.data();
-
     VkSwapchainKHR swapchains[] = { vulkanContext.GetSwapchain().GetVkSwapchainKHR() };
+    
+    VkPresentInfoKHR presentInfo = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
+    presentInfo.pWaitSemaphores = waitSemaphores.data();
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapchains;
     presentInfo.pImageIndices = &imageIndex;

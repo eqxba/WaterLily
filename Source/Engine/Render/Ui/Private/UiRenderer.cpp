@@ -229,24 +229,25 @@ void UiRenderer::Process(const float deltaSeconds)
     pushConstants.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
 }
 
-void UiRenderer::Render(const VkCommandBuffer commandBuffer, const uint32_t frameIndex, 
-	const uint32_t swapchainImageIndex)
+void UiRenderer::Render(const Frame& frame)
 {
 	using namespace VulkanHelpers;
 
-	UpdateBuffers(frameIndex);
+    UpdateBuffers(frame.index);
 
-	const Buffer& vertexBuffer = vertexBuffers[frameIndex];
-	const Buffer& indexBuffer = indexBuffers[frameIndex];
+    const Buffer& vertexBuffer = vertexBuffers[frame.index];
+    const Buffer& indexBuffer = indexBuffers[frame.index];
 
     const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass.GetVkRenderPass();
-	renderPassInfo.framebuffer = framebuffers[swapchainImageIndex];
+    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = extent;
+    
+    const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
