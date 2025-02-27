@@ -8,11 +8,12 @@ DISABLE_WARNINGS_BEGIN
 #include <glm/gtx/hash.hpp>
 DISABLE_WARNINGS_END
 
-#include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
+#include "Engine/Render/Vulkan/Pipeline.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Resources/Buffer.hpp"
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
+#include "Engine/Render/Resources/Shaders/ShaderModule.hpp"
 #include "Engine/Render/Resources/DescriptorSets/DescriptorSetLayout.hpp"
 #include "Engine/Render/Frame.hpp"
 #include "Utils/Constants.hpp"
@@ -76,7 +77,7 @@ private:
 	const Window* window = nullptr;
 
 	RenderPass renderPass;
-	GraphicsPipeline graphicsPipeline;
+	Pipeline graphicsPipeline;
 
 	std::vector<VkFramebuffer> framebuffers;
 

@@ -273,19 +273,6 @@ VkRect2D VulkanHelpers::GetScissor(const VkExtent2D extent)
     return scissor;
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> VulkanHelpers::GetShaderStageCreateInfos(
-    const std::vector<ShaderModule>& shaders)
-{
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-    shaderStages.reserve(shaders.size());
-
-    std::ranges::transform(shaders, std::back_inserter(shaderStages), [](const ShaderModule& shader) {
-        return shader.GetVkPipelineShaderStageCreateInfo();
-    });
-
-    return shaderStages;
-}
-
 VkPipelineLayout VulkanHelpers::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
     const std::vector<VkPushConstantRange>& pushConstantRanges, const VkDevice device)
 {

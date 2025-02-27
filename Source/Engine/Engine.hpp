@@ -31,7 +31,7 @@ public:
     EventSystem& GetEventSystem() const;
 
     void Run();
-	
+    
 private:
     void CreateSystems();
 
@@ -39,7 +39,7 @@ private:
     void OnKeyInput(const ES::KeyInput& event);
     
     void TryOpenScene();
-	
+    
     std::unique_ptr<EventSystem> eventSystem;
     std::unique_ptr<Window> window;
     std::unique_ptr<VulkanContext> vulkanContext;

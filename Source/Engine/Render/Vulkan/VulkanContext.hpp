@@ -23,7 +23,7 @@ class VulkanContext
 {
 public:
     VulkanContext(const Window& window, EventSystem& eventSystem);
-	~VulkanContext();
+    ~VulkanContext();
 
     VulkanContext(const VulkanContext&) = delete;
     VulkanContext& operator=(const VulkanContext&) = delete;
@@ -32,39 +32,39 @@ public:
     VulkanContext& operator=(VulkanContext&&) = delete;
 
     const Instance& GetInstance() const
-	{
-	    return *instance;
-	}
+    {
+        return *instance;
+    }
 
     const Surface& GetSurface() const
-	{
-	    return *surface;
-	}
+    {
+        return *surface;
+    }
 
     const Device& GetDevice() const
-	{
-	    return *device;
-	}
+    {
+        return *device;
+    }
 
     Swapchain& GetSwapchain() const
-	{
-	    return *swapchain;
-	}
+    {
+        return *swapchain;
+    }
 
     MemoryManager& GetMemoryManager() const
-	{
-	    return *memoryManager;
-	}
+    {
+        return *memoryManager;
+    }
 
     const ShaderManager& GetShaderManager() const
-	{
-	    return *shaderManager;
-	}
+    {
+        return *shaderManager;
+    }
 
     DescriptorSetManager& GetDescriptorSetsManager() const
-	{
-	    return *descriptorSetsManager;
-	}
+    {
+        return *descriptorSetsManager;
+    }
 
 private:
     void OnResize(const ES::WindowResized& event);

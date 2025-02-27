@@ -29,7 +29,7 @@ class Window
 {
 public:
     Window(const WindowDescription& description, EventSystem& eventSystem);
-	~Window();
+    ~Window();
 
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
@@ -41,26 +41,26 @@ public:
     void PollEvents() const;
 
     Extent2D GetExtentInPixels() const
-	{
-	    return extentInPixels;
-	}
+    {
+        return extentInPixels;
+    }
 
     GLFWwindow* GetGlfwWindow() const
-	{
-	    return glfwWindow;
-	}
+    {
+        return glfwWindow;
+    }
 
     WindowMode GetMode() const
-	{
-	    return mode;
-	}
+    {
+        return mode;
+    }
 
     void SetMode(WindowMode mode);
 
     CursorMode GetCursorMode() const
-	{
-	    return cursorMode;
-	}
+    {
+        return cursorMode;
+    }
 
     void SetCursorMode(CursorMode cursorMode, bool force = false);
 

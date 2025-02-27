@@ -1,11 +1,10 @@
-#include "Engine/Render/Vulkan/GraphicsPipeline.hpp"
+#include "Engine/Render/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanHelpers.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/FileSystem/FilePath.hpp"
 
-namespace GraphicsPipelineDetails
+namespace GraphicsPipelineBuilderDetails
 {
     static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
         const std::vector<VkVertexInputBindingDescription>& bindings, 
@@ -126,59 +125,25 @@ namespace GraphicsPipelineDetails
         colorBlendStateCreateInfo.pAttachments = &attachmentState;
         return colorBlendStateCreateInfo;
     }
-}
 
-GraphicsPipeline::GraphicsPipeline(const VkPipelineLayout aPipelineLayout, const VkPipeline aPipeline, 
-    const VulkanContext& aVulkanContext)
-    : vulkanContext{&aVulkanContext}
-    , pipelineLayout{aPipelineLayout}
-    , pipeline{aPipeline}
-{
-    Assert(IsValid());
-}
-
-GraphicsPipeline::~GraphicsPipeline()
-{
-    // TODO: Deletion queue? Don't care now
-    if (pipeline != VK_NULL_HANDLE)
+    static std::vector<VkPipelineShaderStageCreateInfo> GetShaderStageCreateInfos(
+        const std::vector<ShaderModule>& shaders)
     {
-        Assert(pipelineLayout != VK_NULL_HANDLE);
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+        shaderStages.reserve(shaders.size());
 
-        const Device& device = vulkanContext->GetDevice();
+        std::ranges::transform(shaders, std::back_inserter(shaderStages), [](const ShaderModule& shader) {
+            return shader.GetVkPipelineShaderStageCreateInfo();
+        });
 
-        device.WaitIdle();
-
-        vkDestroyPipeline(device.GetVkDevice(), pipeline, nullptr);
-        vkDestroyPipelineLayout(device.GetVkDevice(), pipelineLayout, nullptr);
+        return shaderStages;
     }
-}
-
-GraphicsPipeline::GraphicsPipeline(GraphicsPipeline&& other) noexcept
-    : vulkanContext{other.vulkanContext}
-    , pipelineLayout{other.pipelineLayout}
-    , pipeline{other.pipeline}
-{
-    other.vulkanContext = nullptr;
-    other.pipeline = VK_NULL_HANDLE;
-    other.pipelineLayout = VK_NULL_HANDLE;
-}
-
-GraphicsPipeline& GraphicsPipeline::operator=(GraphicsPipeline&& other) noexcept
-{
-    if (this != &other)
-    {
-        std::swap(vulkanContext, other.vulkanContext);
-        std::swap(pipelineLayout, other.pipelineLayout);
-        std::swap(pipeline, other.pipeline);
-    }
-
-    return *this;
 }
 
 GraphicsPipelineBuilder::GraphicsPipelineBuilder(const VulkanContext& aVulkanContext)
     : vulkanContext{&aVulkanContext}
 {
-    using namespace GraphicsPipelineDetails;
+    using namespace GraphicsPipelineBuilderDetails;
     
     inputAssembly = GetTriangleListInputAssembly();
     viewportState = GetViewportState(1, 1);
@@ -190,23 +155,24 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(const VulkanContext& aVulkanCon
     dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 }
 
-GraphicsPipeline GraphicsPipelineBuilder::Build() const
+Pipeline GraphicsPipelineBuilder::Build() const
 {
-    using namespace GraphicsPipelineDetails;
+    using namespace GraphicsPipelineBuilderDetails;
     using namespace VulkanHelpers;
 
     Assert(!shaderModules.empty());
     Assert(!vertexBindings.empty());
     Assert(!vertexAttributes.empty());
     Assert(renderPass != nullptr);
+    
+    const VkDevice device = vulkanContext->GetDevice().GetVkDevice();
 
-    VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayouts, pushConstantRanges,
-        vulkanContext->GetDevice().GetVkDevice());
-
+    const VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayouts, pushConstantRanges, device);
+    
     const std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
-
+    
     const VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
-
+    
     const VkPipelineDynamicStateCreateInfo dynamicState = GetPipelineDynamicStateCreateInfo(dynamicStates);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
@@ -229,11 +195,10 @@ GraphicsPipeline GraphicsPipelineBuilder::Build() const
     pipelineInfo.basePipelineIndex = -1;
 
     VkPipeline pipeline;
-    const VkResult result = vkCreateGraphicsPipelines(vulkanContext->GetDevice().GetVkDevice(),
-        VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+    const VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
     Assert(result == VK_SUCCESS);
 
-    return { pipelineLayout, pipeline, *vulkanContext };
+    return { pipeline, pipelineLayout, PipelineType::eGraphics, *vulkanContext };
 }
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetDescriptorSetLayouts(

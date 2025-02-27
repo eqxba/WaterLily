@@ -9,7 +9,7 @@ class RenderPass
 public:
     RenderPass() = default;
     RenderPass(VkRenderPass renderPass, const VulkanContext& vulkanContext);
-	~RenderPass();
+    ~RenderPass();
 
     RenderPass(const RenderPass&) = delete;
     RenderPass& operator=(const RenderPass&) = delete;

@@ -2,6 +2,7 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/Pipeline.hpp"
 #include "Engine/Render/Resources/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
@@ -23,53 +24,25 @@ enum class CullMode
     eNone,
 };
 
-class GraphicsPipeline
-{
-public:
-    GraphicsPipeline() = default;
-    GraphicsPipeline(VkPipelineLayout pipelineLayout, VkPipeline pipeline, const VulkanContext& vulkanContext);
-	~GraphicsPipeline();
-
-    GraphicsPipeline(const GraphicsPipeline&) = delete;
-    GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
-
-    GraphicsPipeline(GraphicsPipeline&& other) noexcept;
-    GraphicsPipeline& operator=(GraphicsPipeline&& other) noexcept;
-
-    VkPipeline GetVkPipeline() const
-	{
-	    return pipeline;
-	}
-
-    VkPipelineLayout GetPipelineLayout() const
-	{
-	    return pipelineLayout;
-	}
-
-    bool IsValid() const
-    {
-        return pipelineLayout != VK_NULL_HANDLE && pipeline != VK_NULL_HANDLE;
-    }
-
-private:
-    const VulkanContext* vulkanContext = nullptr;
-
-    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkPipeline pipeline = VK_NULL_HANDLE;
-};
-
 class GraphicsPipelineBuilder
 {
 public:
     using VertexBindings = std::vector<VkVertexInputBindingDescription>;
     using VertexAttributes = std::vector<VkVertexInputAttributeDescription>;
 
-	// TODO: Add pipeline cache and manager
+    // TODO: Add pipeline cache and manager
     GraphicsPipelineBuilder(const VulkanContext& vulkanContext);
+    ~GraphicsPipelineBuilder() = default;
 
-    GraphicsPipeline Build() const;
+    GraphicsPipelineBuilder(const GraphicsPipelineBuilder&) = delete;
+    GraphicsPipelineBuilder& operator=(const GraphicsPipelineBuilder&) = delete;
 
-	// TODO: Get set layouts and push constants from reflection
+    GraphicsPipelineBuilder(GraphicsPipelineBuilder&& other) = delete;
+    GraphicsPipelineBuilder& operator=(GraphicsPipelineBuilder&& other) = delete;
+
+    Pipeline Build() const;
+
+    // TODO: Get set layouts and push constants from reflection
     GraphicsPipelineBuilder& SetDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> descriptorSetLayouts); // Temp!
     GraphicsPipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
 

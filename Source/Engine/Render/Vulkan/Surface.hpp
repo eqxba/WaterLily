@@ -9,7 +9,7 @@ class Surface
 {
 public:
     Surface(const Window& window, const VulkanContext& aVulkanContext);
-	~Surface();
+    ~Surface();
 
     Surface(const Surface&) = delete;
     Surface& operator=(const Surface&) = delete;

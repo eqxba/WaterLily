@@ -6,6 +6,7 @@
 #include "Engine/Render/Resources/Image.hpp"
 #include "Engine/Render/Resources/ImageView.hpp"
 #include "Engine/Render/Resources/Buffer.hpp"
+#include "Engine/Render/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -159,7 +160,7 @@ void SceneRenderer::Render(const Frame& frame)
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetVkPipeline());
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.Get());
 
     const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
     VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
@@ -177,7 +178,7 @@ void SceneRenderer::Render(const Frame& frame)
     std::vector<VkDescriptorSet> descriptors = { uniformDescriptors[frame.index] };
     std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetPipelineLayout(),
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
     vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->GetVkBuffer(), 0, indirectDrawCount,

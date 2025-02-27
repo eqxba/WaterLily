@@ -14,7 +14,7 @@ struct QueueFamilyIndices
 };
 
 struct Queues
-{	
+{    
     VkQueue graphics;
     VkQueue present;
     QueueFamilyIndices familyIndices;
@@ -24,7 +24,7 @@ class Device
 {
 public:
     Device(const VulkanContext& aVulkanContext);
-	~Device();
+    ~Device();
 
     Device(const Device&) = delete;
     Device& operator=(const Device&) = delete;
@@ -40,24 +40,24 @@ public:
     VkSampleCountFlagBits GetMaxSampleCount() const;
 
     VkDevice GetVkDevice() const
-	{
-	    return device;
-	}
-	
+    {
+        return device;
+    }
+    
     VkPhysicalDevice GetPhysicalDevice() const
-	{
-	    return physicalDevice;
-	}
+    {
+        return physicalDevice;
+    }
 
     const VkPhysicalDeviceProperties& GetPhysicalDeviceProperties() const
-	{
-	    return physicalDeviceProperties;
-	}
+    {
+        return physicalDeviceProperties;
+    }
 
     const Queues& GetQueues() const
-	{
-	    return queues;
-	}
+    {
+        return queues;
+    }
 
 private:
     const VulkanContext& vulkanContext;

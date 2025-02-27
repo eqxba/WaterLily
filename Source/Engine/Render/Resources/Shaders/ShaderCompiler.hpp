@@ -9,7 +9,7 @@ public:
     static std::vector<uint32_t> Compile(std::string_view glslCode, ShaderType shaderType, const FilePath& includeDir);
 
     ShaderCompiler();
-	~ShaderCompiler();
+    ~ShaderCompiler();
 
     ShaderCompiler(const ShaderCompiler&) = delete;
     ShaderCompiler& operator=(const ShaderCompiler&) = delete;

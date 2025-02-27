@@ -19,7 +19,7 @@ public:
         return instance;
     }
 
-private:	
+private:    
     VkInstance instance;
 
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;

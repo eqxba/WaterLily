@@ -14,7 +14,7 @@ class ShaderModule
 {
 public:
     ShaderModule(const VkShaderModule shaderModule, const ShaderType shaderType, const VulkanContext& aVulkanContext);
-	~ShaderModule();
+    ~ShaderModule();
 
     ShaderModule(const ShaderModule&) = delete;
     ShaderModule& operator=(const ShaderModule&) = delete;

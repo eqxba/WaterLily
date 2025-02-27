@@ -21,7 +21,7 @@ class RenderSystem : public System
 {
 public:
     RenderSystem(const Window& window, EventSystem& aEventSystem, const VulkanContext& vulkanContext);
-	~RenderSystem() override;
+    ~RenderSystem() override;
 
     RenderSystem(const RenderSystem&) = delete;
     RenderSystem& operator=(const RenderSystem&) = delete;

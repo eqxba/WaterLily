@@ -51,8 +51,6 @@ namespace VulkanHelpers
     VkViewport GetViewport(float width, float height);
     VkRect2D GetScissor(VkExtent2D extent);
 
-    std::vector<VkPipelineShaderStageCreateInfo> GetShaderStageCreateInfos(const std::vector<ShaderModule>& shaders);
-
     VkPipelineLayout CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device);
 
