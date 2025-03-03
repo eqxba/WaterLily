@@ -2,7 +2,8 @@
 
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Resources/ResourceHelpers.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageUtils.hpp"
+#include "Engine/Render/Resources/StbImage.hpp"
 #include "Engine/FileSystem/FileSystem.hpp"
 #include "Utils/Helpers.hpp"
 
@@ -40,9 +41,9 @@ Scene::~Scene()
 {
     vulkanContext.GetDevice().WaitIdle();
 
-    vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eScene);
+    vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
 
-    VulkanHelpers::DestroySampler(vulkanContext.GetDevice().GetVkDevice(), sampler);
+    VulkanUtils::DestroySampler(vulkanContext.GetDevice().GetVkDevice(), sampler);
 }
 
 void Scene::InitFromGltfScene()
@@ -97,25 +98,46 @@ void Scene::InitBuffers()
 
 void Scene::InitTextureResources()
 {
-    const Device& device = vulkanContext.GetDevice();
+    using namespace ImageUtils;
+    
+    const auto stbImage = StbImage(FilePath(SceneDetails::imagePath));
+    const std::span<const std::byte> pixelData = std::as_bytes(stbImage.GetPixels());
+    
+    const BufferDescription stagingBufferDescription = { .size = pixelData.size(),
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+    
+    const auto stagingBuffer = Buffer(stagingBufferDescription, false, pixelData, vulkanContext);
 
-    const auto& [buffer, extent] = ResourceHelpers::LoadImageToBuffer(FilePath(SceneDetails::imagePath), vulkanContext);
-
-    const int maxDimension = std::max(extent.width, extent.height);
+    const VkExtent3D extent = stbImage.GetExtent();
+    const uint32_t maxDimension = std::max(extent.width, extent.height);
     const uint32_t mipLevelsCount = static_cast<uint32_t>(std::floor(std::log2(maxDimension))) + 1;
 
     ImageDescription imageDescription{ .extent = extent, .mipLevelsCount = mipLevelsCount,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .format = VK_FORMAT_R8G8B8A8_SRGB,
-        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT ,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     image = Image(imageDescription, vulkanContext);
-    image.FillMipLevel0(buffer, true);
+    
+    vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
+        
+        TransitionLayout(commandBuffer, image, LayoutTransitions::undefinedToDstOptimal, {
+            .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
 
+        CopyBufferToImage(commandBuffer, stagingBuffer, image);
+        GenerateMipMaps(commandBuffer, image);
+        
+        TransitionLayout(commandBuffer, image, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal, {
+            .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
+    });
+    
     imageView = ImageView(image, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
-
-    sampler = VulkanHelpers::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
+    
+    const Device& device = vulkanContext.GetDevice();
+    sampler = VulkanUtils::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
 }
 
 void Scene::InitGlobalDescriptors()
@@ -124,7 +146,7 @@ void Scene::InitGlobalDescriptors()
 
     const auto [descriptor, layout] = vulkanContext.GetDescriptorSetsManager().GetDescriptorSetBuilder(globalDescriptorSetLayout)
         .Bind(0, transformsBuffer)
-        .Bind(1, imageView)
+        .Bind(1, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         .Bind(2, sampler)
         .Build();
 

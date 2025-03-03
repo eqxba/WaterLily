@@ -6,12 +6,22 @@
 #define VOLK_IMPLEMENTATION
 #include <volk.h>
 
-static bool volkInitialized = false;
+namespace VulkanContextDetails
+{
+    static bool volkInitialized = false;
+
+    static VkExtent2D ToVkExtent2D(const Extent2D windowExtent)
+    {
+        return { static_cast<uint32_t>(windowExtent.width), static_cast<uint32_t>(windowExtent.height) };
+    }
+}
 
 VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
     : eventSystem{ aEventSystem }
 {
-    if (!volkInitialized) 
+    using namespace VulkanContextDetails;
+    
+    if (!volkInitialized)
     {
         const VkResult volkInitializeResult = volkInitialize();
         Assert(volkInitializeResult == VK_SUCCESS);
@@ -21,7 +31,7 @@ VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
     instance = std::make_unique<Instance>();
     surface = std::make_unique<Surface>(window, *this);
     device = std::make_unique<Device>(*this);
-    swapchain = std::make_unique<Swapchain>(window.GetExtentInPixels(), *this);
+    swapchain = std::make_unique<Swapchain>(ToVkExtent2D(window.GetExtentInPixels()), *this);
 
     memoryManager = std::make_unique<MemoryManager>(*this);
     shaderManager = std::make_unique<ShaderManager>(*this);
@@ -48,7 +58,7 @@ void VulkanContext::OnResize(const ES::WindowResized& event)
     
     eventSystem.Fire<ES::BeforeSwapchainRecreated>();
     
-    swapchain->Recreate(event.newExtent);
+    swapchain->Recreate(VulkanContextDetails::ToVkExtent2D(event.newExtent));
     
     eventSystem.Fire<ES::SwapchainRecreated>();
 }
@@ -66,7 +76,7 @@ void VulkanContext::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& eve
 void VulkanContext::OnWindowRecreated(const ES::WindowRecreated& event)
 {
     surface = std::make_unique<Surface>(*event.window, *this);
-    swapchain = std::make_unique<Swapchain>(event.window->GetExtentInPixels(), *this);
+    swapchain = std::make_unique<Swapchain>(VulkanContextDetails::ToVkExtent2D(event.window->GetExtentInPixels()), *this);
     
     eventSystem.Fire<ES::SwapchainRecreated>();
 }

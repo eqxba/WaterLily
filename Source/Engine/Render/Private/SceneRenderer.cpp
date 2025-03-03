@@ -3,10 +3,10 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/EventSystem.hpp"
-#include "Engine/Render/Resources/Image.hpp"
-#include "Engine/Render/Resources/ImageView.hpp"
-#include "Engine/Render/Resources/Buffer.hpp"
-#include "Engine/Render/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
+#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
+#include "Engine/Render/Vulkan/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -134,7 +134,7 @@ void SceneRenderer::Process(const float deltaSeconds)
 
 void SceneRenderer::Render(const Frame& frame)
 {
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
     if (!scene)
     {
@@ -169,11 +169,11 @@ void SceneRenderer::Render(const Frame& frame)
     const VkRect2D scissor = GetScissor(extent);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = { scene->GetVertexBuffer().GetVkBuffer() };
+    VkBuffer vertexBuffers[] = { scene->GetVertexBuffer().Get() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().Get(), 0, VK_INDEX_TYPE_UINT32);
 
     std::vector<VkDescriptorSet> descriptors = { uniformDescriptors[frame.index] };
     std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
@@ -181,7 +181,7 @@ void SceneRenderer::Render(const Frame& frame)
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
-    vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->GetVkBuffer(), 0, indirectDrawCount,
+    vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->Get(), 0, indirectDrawCount,
         sizeof(VkDrawIndexedIndirectCommand));
 
     vkCmdEndRenderPass(commandBuffer);
@@ -189,10 +189,10 @@ void SceneRenderer::Render(const Frame& frame)
 
 void SceneRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
 {
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
-    std::vector layouts = { layout.GetVkDescriptorSetLayout(),
-        Scene::GetGlobalDescriptorSetLayout(*vulkanContext).GetVkDescriptorSetLayout() };
+    std::vector<VkDescriptorSetLayout> layouts = { layout.Get(),
+        Scene::GetGlobalDescriptorSetLayout(*vulkanContext).Get() };
 
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
         .SetDescriptorSetLayouts(std::move(layouts))
@@ -210,7 +210,7 @@ void SceneRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderMod
 
 void SceneRenderer::CreateAttachmentsAndFramebuffers()
 {
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
     const Swapchain& swapchain = vulkanContext->GetSwapchain();
 
@@ -235,7 +235,7 @@ void SceneRenderer::CreateAttachmentsAndFramebuffers()
 
 void SceneRenderer::DestroyAttachmentsAndFramebuffers()
 {
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
     DestroyFramebuffers(framebuffers, *vulkanContext);
 
@@ -270,7 +270,7 @@ void SceneRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
 void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
 {
     using namespace SceneRendererDetails;
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
     scene = &event.scene;
 

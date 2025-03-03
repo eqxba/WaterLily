@@ -2,12 +2,12 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/Pipeline.hpp"
-#include "Engine/Render/Resources/Shaders/ShaderModule.hpp"
-#include "Engine/Render/Resources/DescriptorSets/DescriptorSetLayout.hpp"
-#include "Engine/Render/Frame.hpp"
 #include "Shaders/Common.h"
+#include "Engine/Render/Renderer.hpp"
+#include "Engine/Render/Vulkan/Pipeline.hpp"
+#include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Render/Vulkan/Resources/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayout.hpp"
 
 class VulkanContext;
 class EventSystem;
@@ -25,11 +25,11 @@ namespace ES
     struct SceneClosed;
 }
 
-class SceneRenderer
+class SceneRenderer : public Renderer
 {
 public:
     SceneRenderer(EventSystem& eventSystem, const VulkanContext& vulkanContext);
-    ~SceneRenderer();
+    ~SceneRenderer() override;
 
     SceneRenderer(const SceneRenderer&) = delete;
     SceneRenderer& operator=(const SceneRenderer&) = delete;
@@ -37,9 +37,9 @@ public:
     SceneRenderer(SceneRenderer&&) = delete;
     SceneRenderer& operator=(SceneRenderer&&) = delete;
 
-    void Process(float deltaSeconds);
+    void Process(float deltaSeconds) override;
 
-    void Render(const Frame& frame);
+    void Render(const Frame& frame) override;
 
 private:
     void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);

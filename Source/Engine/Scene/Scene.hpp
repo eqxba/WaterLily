@@ -2,11 +2,11 @@
 
 #include "Engine/Scene/SceneDataStructures.hpp"
 #include "Engine/Components/CameraComponent.hpp"
-#include "Engine/Render/Resources/Buffer.hpp"
-#include "Engine/Render/Resources/Image.hpp"
-#include "Engine/Render/Resources/ImageView.hpp"
+#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 #include "Engine/FileSystem/FilePath.hpp"
-#include "Engine/Render/Resources/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayout.hpp"
 
 #include <volk.h>
 

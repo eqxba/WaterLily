@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Engine/Window.hpp"
-#include "Engine/Render/Resources/ImageView.hpp"
+#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
 
 #include <volk.h>
 
@@ -16,7 +17,7 @@ struct SwapchainSupportDetails
 class Swapchain
 {
 public:
-    Swapchain(const Extent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext);
+    Swapchain(const VkExtent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext);
     ~Swapchain();
 
     Swapchain(const Swapchain&) = delete;
@@ -26,7 +27,7 @@ public:
     Swapchain& operator=(Swapchain&&) = delete;
 
     // Call in case of simple resize (not when window's been recreated!)
-    void Recreate(const Extent2D& requiredExtentInPixels);
+    void Recreate(const VkExtent2D& requiredExtentInPixels);
 
     VkSwapchainKHR GetVkSwapchainKHR() const
     {
@@ -43,7 +44,7 @@ public:
         return extent;
     }
 
-    const std::vector<VkImage>& GetImages() const
+    const std::vector<Image>& GetImages() const
     {
         return images;
     }
@@ -54,8 +55,10 @@ public:
     }
 
 private:
-    void Create(const Extent2D& requiredExtentInPixels);
+    void Create(const VkExtent2D& requiredExtentInPixels);
     void Cleanup();
+    
+    ImageDescription GetImageDescription() const;
 
     const VulkanContext& vulkanContext;
     
@@ -66,6 +69,7 @@ private:
     VkSurfaceFormatKHR surfaceFormat; 
     VkExtent2D extent;
 
-    std::vector<VkImage> images;
+    // TODO: Render target???
+    std::vector<Image> images;
     std::vector<ImageView> imageViews;
 };

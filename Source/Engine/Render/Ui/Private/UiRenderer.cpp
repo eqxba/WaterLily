@@ -3,12 +3,14 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 
-#include "Engine/EngineConfig.hpp"
-#include "Engine/EventSystem.hpp"
 #include "Engine/Window.hpp"
+#include "Engine/EventSystem.hpp"
+#include "Engine/EngineConfig.hpp"
+#include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
-#include "Engine/Render/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
+#include "Engine/Render/Vulkan/Resources/ImageUtils.hpp"
+#include "Engine/Render/Vulkan/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
 
 namespace UiRendererDetails
 {
@@ -19,12 +21,15 @@ namespace UiRendererDetails
 
     static Image CreateFontImage(const ImGuiIO& io, const VulkanContext& vulkanContext)
     {
+        using namespace ImageUtils;
+        
         unsigned char* fontData = nullptr;
-        Extent2D extent = { 0, 0 };
+        int width = 0;
+        int height = 0;
 
-        io.Fonts->GetTexDataAsRGBA32(&fontData, &extent.width, &extent.height);
+        io.Fonts->GetTexDataAsRGBA32(&fontData, &width, &height);
 
-        const auto dataSize = static_cast<size_t>(extent.width) * extent.height * 4;
+        const auto dataSize = static_cast<size_t>(width) * height * 4;
         const std::span<const unsigned char> fontDataSpan = { fontData, dataSize };
 
         const BufferDescription bufferDescription = { .size = dataSize,
@@ -34,7 +39,7 @@ namespace UiRendererDetails
         const Buffer fontDataBuffer(bufferDescription, false, fontDataSpan, vulkanContext);
          
         const ImageDescription fontImageDescription{
-            .extent = extent,
+            .extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1 },
             .mipLevelsCount = 1,
             .samples = VK_SAMPLE_COUNT_1_BIT,
             .format = VK_FORMAT_R8G8B8A8_UNORM,
@@ -42,7 +47,17 @@ namespace UiRendererDetails
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         auto fontImage = Image(fontImageDescription, vulkanContext);
-        fontImage.FillMipLevel0(fontDataBuffer);
+        
+        vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
+            TransitionLayout(commandBuffer, fontImage, LayoutTransitions::undefinedToDstOptimal, {
+                .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
+
+            CopyBufferToImage(commandBuffer, fontDataBuffer, fontImage);
+            
+            TransitionLayout(commandBuffer, fontImage, LayoutTransitions::dstOptimalToShaderReadOnlyOptimal, {
+                .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
+        });
 
         return fontImage;
     }
@@ -84,7 +99,7 @@ namespace UiRendererDetails
 
     static std::vector<VkFramebuffer> CreateFramebuffers(const RenderPass& renderPass, const VulkanContext& vulkanContext)
     {
-        using namespace VulkanHelpers;
+        using namespace VulkanUtils;
         
         const Swapchain& swapchain = vulkanContext.GetSwapchain();
         
@@ -205,8 +220,8 @@ UiRenderer::~UiRenderer()
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    VulkanHelpers::DestroySampler(vulkanContext->GetDevice().GetVkDevice(), fontImageSampler);
-    VulkanHelpers::DestroyFramebuffers(framebuffers, *vulkanContext);
+    VulkanUtils::DestroySampler(vulkanContext->GetDevice().GetVkDevice(), fontImageSampler);
+    VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
 }
 
 void UiRenderer::Process(const float deltaSeconds)
@@ -232,7 +247,7 @@ void UiRenderer::Process(const float deltaSeconds)
 
 void UiRenderer::Render(const Frame& frame)
 {
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
     UpdateBuffers(frame.index);
 
@@ -264,11 +279,11 @@ void UiRenderer::Render(const Frame& frame)
 
     if (const ImDrawData* drawData = ImGui::GetDrawData(); !drawData->CmdLists.empty())
     {
-        const VkBuffer vkVertexBuffers[] = { vertexBuffer.GetVkBuffer() };
+        const VkBuffer vkVertexBuffers[] = { vertexBuffer.Get() };
         constexpr VkDeviceSize offsets[] = { 0 };
 
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vkVertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer.GetVkBuffer(), 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer.Get(), 0, VK_INDEX_TYPE_UINT16);
         
         int32_t vertexOffset = 0;
         int32_t indexOffset = 0;
@@ -299,7 +314,7 @@ void UiRenderer::Render(const Frame& frame)
 void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
 {
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts({ layout.GetVkDescriptorSetLayout() })
+        .SetDescriptorSetLayouts({ layout.Get() })
         .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants) })
         .SetShaderModules(std::move(shaderModules))
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())
@@ -330,6 +345,15 @@ void UiRenderer::BuildUI()
     const float fps = (avgFrameTime > 0.0f) ? (1.0f / avgFrameTime) : 0.0f;
     
     ImGui::Text("Fps: %.2f", fps);
+    
+    // TODO: Widgets
+    {
+        const char* rendererOptions[] = { "Scene", "Compute" };
+        
+        ImGui::Text("Renderer:");
+        ImGui::SameLine();
+        ImGui::Combo("##Renderer", &RenderOptions::renderer, rendererOptions, 2);
+    }
 
     ImGui::Checkbox("Show demo window", &UiRendererDetails::showDemoWindow);
     
@@ -407,7 +431,7 @@ void UiRenderer::UpdateImGuiInputState() const
 
 void UiRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
 {
-    VulkanHelpers::DestroyFramebuffers(framebuffers, *vulkanContext);
+    VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
 }
 
 void UiRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)

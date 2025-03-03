@@ -2,9 +2,9 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Frame.hpp"
 #include "Engine/Systems/System.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Render/Vulkan/Resources/Frame.hpp"
 
 namespace ES
 {
@@ -14,8 +14,7 @@ namespace ES
 class VulkanContext;
 class Window;
 class EventSystem;
-class SceneRenderer;
-class UiRenderer;
+class Renderer;
 
 class RenderSystem : public System
 {
@@ -43,8 +42,12 @@ private:
 
     EventSystem& eventSystem;
 
-    std::unique_ptr<SceneRenderer> sceneRenderer;
-    std::unique_ptr<UiRenderer> uiRenderer;
+    std::unique_ptr<Renderer> sceneRenderer;
+    std::unique_ptr<Renderer> computeRenderer;
+    std::unique_ptr<Renderer> uiRenderer;
+    
+    int cachedRenderer;
+    Renderer* renderer = nullptr;
     
     std::vector<Frame> frames;
     uint32_t currentFrame = 0;

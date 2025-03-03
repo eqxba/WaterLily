@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
-#include "Engine/Render/Resources/CommandBufferSync.hpp"
+#include "Engine/Render/Vulkan/VulkanUtils.hpp"
+#include "Engine/Render/Vulkan/Synchronization/CommandBufferSync.hpp"
 
 #include <volk.h>
 
@@ -9,13 +9,13 @@ class VulkanContext;
 
 struct QueueFamilyIndices
 {
-    uint32_t graphicsFamily;
+    uint32_t graphicsAndComputeFamily;
     uint32_t presentFamily;
 };
 
 struct Queues
 {    
-    VkQueue graphics;
+    VkQueue graphicsAndCompute;
     VkQueue present;
     QueueFamilyIndices familyIndices;
 };

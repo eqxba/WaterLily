@@ -1,16 +1,18 @@
 #include "Engine/Systems/RenderSystem.hpp"
 
 #include "Engine/EventSystem.hpp"
+#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/SceneRenderer.hpp"
 #include "Engine/Render/Ui/UiRenderer.hpp"
+#include "Engine/Render/ComputeRenderer.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
+#include "Engine/Render/Vulkan/VulkanUtils.hpp"
 
 namespace RenderSystemDetails
 {
     static CommandBufferSync CreateFrameSync(const VulkanContext& vulkanContext)
     {
-        using namespace VulkanHelpers;
+        using namespace VulkanUtils;
         
         const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
         
@@ -27,7 +29,7 @@ namespace RenderSystemDetails
         const Device& device = vulkanContext.GetDevice();
         const VkCommandPool longLivedPool = device.GetCommandPool(CommandBufferType::eLongLived);
         
-        return VulkanHelpers::CreateCommandBuffers(device.GetVkDevice(), 1, longLivedPool)[0];
+        return VulkanUtils::CreateCommandBuffers(device.GetVkDevice(), 1, longLivedPool)[0];
     }
 }
 
@@ -35,6 +37,7 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     : vulkanContext{ aVulkanContext }
     , eventSystem{ aEventSystem }
     , sceneRenderer{ std::make_unique<SceneRenderer>(eventSystem, vulkanContext) }
+    , computeRenderer{ std::make_unique<ComputeRenderer>(eventSystem, vulkanContext) }
     , uiRenderer{ std::make_unique<UiRenderer>(window, eventSystem, vulkanContext) }
 {
     using namespace RenderSystemDetails;
@@ -45,6 +48,9 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     
     const auto frameIndices = std::views::iota(static_cast<uint32_t>(0), VulkanConfig::maxFramesInFlight);
     std::ranges::transform(frameIndices, std::back_inserter(frames), createFrame);
+    
+    cachedRenderer = RenderOptions::renderer;
+    renderer = cachedRenderer == 0 ? sceneRenderer.get() : computeRenderer.get();
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
@@ -60,13 +66,19 @@ RenderSystem::~RenderSystem()
 
 void RenderSystem::Process(const float deltaSeconds)
 {
-    sceneRenderer->Process(deltaSeconds);
+    if (cachedRenderer != RenderOptions::renderer)
+    {
+        cachedRenderer = RenderOptions::renderer;
+        renderer = cachedRenderer == 0 ? sceneRenderer.get() : computeRenderer.get();
+    }
+    
+    renderer->Process(deltaSeconds);
     uiRenderer->Process(deltaSeconds);
 }
 
 void RenderSystem::Render()
 {
-    using namespace VulkanHelpers;
+    using namespace VulkanUtils;
 
     Frame& frame = frames[currentFrame];
 
@@ -84,11 +96,11 @@ void RenderSystem::Render()
 
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer buffer) {
-        sceneRenderer->Render(frame);
+        renderer->Render(frame);
         uiRenderer->Render(frame);
     };
 
-    SubmitCommandBuffer(frame.commandBuffer, device.GetQueues().graphics, renderCommands, frame.sync);
+    SubmitCommandBuffer(frame.commandBuffer, device.GetQueues().graphicsAndCompute, renderCommands, frame.sync);
 
     // Present will happen when rendering is finished and the frame signal semaphores are signaled
     Present(signalSemaphores, frame.swapchainImageIndex);

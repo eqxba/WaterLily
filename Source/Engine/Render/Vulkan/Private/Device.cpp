@@ -1,7 +1,7 @@
 #include "Engine/Render/Vulkan/Device.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
+#include "Engine/Render/Vulkan/VulkanUtils.hpp"
 
 namespace DeviceDetails
 {    
@@ -29,10 +29,11 @@ namespace DeviceDetails
         return std::ranges::all_of(extensions, isSupported);    
     }
 
-    static std::optional<uint32_t> FindGraphicsQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies)
+    // TODO: Handle compute queue separatelly
+    static std::optional<uint32_t> FindGraphicsAndComputetQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies)
     {
         const auto isGraphicsFamily = [](const VkQueueFamilyProperties& properties) {
-            return properties.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+            return properties.queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT);
         };
 
         const auto it = std::ranges::find_if(queueFamilies, isGraphicsFamily);
@@ -68,13 +69,13 @@ namespace DeviceDetails
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-        std::optional<uint32_t> graphicsFamily = FindGraphicsQueueFamilyIndex(queueFamilies);
-        Assert(graphicsFamily.has_value());
+        std::optional<uint32_t> graphicsAndComputeFamily = FindGraphicsAndComputetQueueFamilyIndex(queueFamilies);
+        Assert(graphicsAndComputeFamily.has_value());
 
         std::optional<uint32_t> presentFamily = FindPresentQueueFamilyIndex(queueFamilies, device, vulkanContext.GetSurface().GetVkSurfaceKHR());
         Assert(presentFamily.has_value());        
         
-        return { graphicsFamily.value(), presentFamily.value()};
+        return { graphicsAndComputeFamily.value(), presentFamily.value()};
     }
 
     static Queues GetQueues(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice, VkDevice device)
@@ -82,7 +83,7 @@ namespace DeviceDetails
         Queues queues{};
         queues.familyIndices = DeviceDetails::GetQueueFamilyIndices(vulkanContext, physicalDevice);
         
-        vkGetDeviceQueue(device, queues.familyIndices.graphicsFamily, 0, &queues.graphics);
+        vkGetDeviceQueue(device, queues.familyIndices.graphicsAndComputeFamily, 0, &queues.graphicsAndCompute);
         vkGetDeviceQueue(device, queues.familyIndices.presentFamily, 0, &queues.present);
 
         return queues;
@@ -123,7 +124,7 @@ namespace DeviceDetails
 
         float queuePriority = 1.0f;
                 
-        std::set<uint32_t> uniqueQueueFamilyIndices = { indices.graphicsFamily, indices.presentFamily };
+        std::set<uint32_t> uniqueQueueFamilyIndices = { indices.graphicsAndComputeFamily, indices.presentFamily };
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
         queueCreateInfos.reserve(uniqueQueueFamilyIndices.size());
 
@@ -190,13 +191,13 @@ Device::Device(const VulkanContext& aVulkanContext)
     queues = DeviceDetails::GetQueues(vulkanContext, physicalDevice, device);
 
     commandPools.emplace(CommandBufferType::eLongLived, 
-        CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queues.familyIndices.graphicsFamily));
+        CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queues.familyIndices.graphicsAndComputeFamily));
     commandPools.emplace(CommandBufferType::eOneTime,
         CreateCommandPool(device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | 
-        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsFamily));
+        VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queues.familyIndices.graphicsAndComputeFamily));
 
-    oneTimeCommandBuffer = VulkanHelpers::CreateCommandBuffers(device, 1, commandPools[CommandBufferType::eOneTime])[0];
-    oneTimeCommandBufferSync = CommandBufferSync{ {}, {}, {}, VulkanHelpers::CreateFence(device, {}), device };
+    oneTimeCommandBuffer = VulkanUtils::CreateCommandBuffers(device, 1, commandPools[CommandBufferType::eOneTime])[0];
+    oneTimeCommandBufferSync = CommandBufferSync{ {}, {}, {}, VulkanUtils::CreateFence(device, {}), device };
 }
 
 Device::~Device()
@@ -223,7 +224,7 @@ VkCommandPool Device::GetCommandPool(CommandBufferType type) const
 
 void Device::ExecuteOneTimeCommandBuffer(const DeviceCommands& commands) const
 {
-    VulkanHelpers::SubmitCommandBuffer(oneTimeCommandBuffer, queues.graphics, commands, oneTimeCommandBufferSync);
+    VulkanUtils::SubmitCommandBuffer(oneTimeCommandBuffer, queues.graphicsAndCompute, commands, oneTimeCommandBufferSync);
 
     VkFence fence = oneTimeCommandBufferSync.GetFence();
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);

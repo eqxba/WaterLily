@@ -2,7 +2,7 @@
 
 #include "Engine/Window.hpp"
 #include "Engine/Scene/Scene.hpp"
-#include "Engine/InputHelpers.hpp"
+#include "Engine/InputUtils.hpp"
 
 namespace ES // Event system
 {

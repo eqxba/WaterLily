@@ -1,11 +1,19 @@
 #include "Engine/Render/Vulkan/Swapchain.hpp"
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanHelpers.hpp"
-#include "Engine/Render/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/VulkanUtils.hpp"
 
 namespace SwapchainDetails
 {
+    static constexpr ImageDescription staticSwapchainImageDescription = {
+        .mipLevelsCount = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        // Runtime params:
+        // VkExtent3D extent
+        // VkFormat format
+    };
+
     static VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(const VulkanContext& vulkanContext)
     {
         const VkPhysicalDevice physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
@@ -77,7 +85,7 @@ namespace SwapchainDetails
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    static VkExtent2D SelectExtent(const VkSurfaceCapabilitiesKHR& capabilities, const Extent2D& requiredExtentInPixels)
+    static VkExtent2D SelectExtent(const VkSurfaceCapabilitiesKHR& capabilities, const VkExtent2D& requiredExtentInPixels)
     {
         // currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF)
         // indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
@@ -89,10 +97,8 @@ namespace SwapchainDetails
         {
             const VkExtent2D actualExtent =
             {
-                std::clamp(static_cast<uint32_t>(requiredExtentInPixels.width),
-                    capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-                std::clamp(static_cast<uint32_t>(requiredExtentInPixels.height),
-                    capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
+                std::clamp(requiredExtentInPixels.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+                std::clamp(requiredExtentInPixels.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
             };
             
             return actualExtent;
@@ -124,13 +130,12 @@ namespace SwapchainDetails
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
         createInfo.imageExtent = extent;
         createInfo.imageArrayLayers = 1;
-        // For now i'm going to render directly to swapchain images w/out anything like post-processing.
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        createInfo.imageUsage = staticSwapchainImageDescription.usage;
 
         const QueueFamilyIndices& familyIndices = vulkanContext.GetDevice().GetQueues().familyIndices;
-        const uint32_t queueFamilyIndices[] = { familyIndices.graphicsFamily, familyIndices.presentFamily };
+        const uint32_t queueFamilyIndices[] = { familyIndices.graphicsAndComputeFamily, familyIndices.presentFamily };
 
-        if (familyIndices.graphicsFamily != familyIndices.presentFamily)
+        if (familyIndices.graphicsAndComputeFamily != familyIndices.presentFamily)
         {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             createInfo.queueFamilyIndexCount = 2;
@@ -158,33 +163,48 @@ namespace SwapchainDetails
     }
 
     static std::vector<VkImage> GetSwapchainImages(VkDevice device, VkSwapchainKHR swapchain)
-    {        
+    {
         uint32_t imageCount;
         vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
 
         std::vector<VkImage> images(imageCount);
         vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.data());
-
+        
         return images;
     }
 
-    static std::vector<ImageView> CreateImageViews(const std::vector<VkImage>& images, VkFormat format, 
-        VkImageAspectFlags aspectFlags, const VulkanContext& vulkanContext)
+    // TODO: vulkan utils?
+    static std::vector<Image> CreateImages(VkSwapchainKHR swapchain, ImageDescription imageDescription,
+        const VulkanContext& vulkanContext)
+    {
+        const std::vector<VkImage> vkImages = GetSwapchainImages(vulkanContext.GetDevice().GetVkDevice(), swapchain);
+        
+        std::vector<Image> images;
+        images.reserve(vkImages.size());
+        
+        std::ranges::transform(vkImages, std::back_inserter(images), [&](const VkImage vkImage) {
+            return Image(vkImage, imageDescription, vulkanContext);
+        });
+        
+        return images;
+    }
+
+    // TODO: vulkan utils?
+    static std::vector<ImageView> CreateImageViews(const std::vector<Image>& images, VkImageAspectFlags aspectFlags,
+        const VulkanContext& vulkanContext)
     {
         std::vector<ImageView> imageViews;
         imageViews.reserve(images.size());
 
-        const ImageDescription description = { .format = format };
-
-        std::ranges::transform(images, std::back_inserter(imageViews), [&](VkImage image) {
-            return ImageView(image, description, aspectFlags, vulkanContext);
+        std::ranges::transform(images, std::back_inserter(imageViews), [&](const Image& image) {
+            return ImageView(image, aspectFlags, vulkanContext);
         });
 
         return imageViews;
     }
 }
 
-Swapchain::Swapchain(const Extent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext)
+Swapchain::Swapchain(const VkExtent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {
     using namespace SwapchainDetails;
@@ -200,13 +220,13 @@ Swapchain::~Swapchain()
     Cleanup();
 }
 
-void Swapchain::Recreate(const Extent2D& requiredExtentInPixels)
+void Swapchain::Recreate(const VkExtent2D& requiredExtentInPixels)
 {
     Cleanup();
     Create(requiredExtentInPixels);
 }
 
-void Swapchain::Create(const Extent2D& requiredExtentInPixels)
+void Swapchain::Create(const VkExtent2D& requiredExtentInPixels)
 {
     using namespace SwapchainDetails;
 
@@ -215,9 +235,8 @@ void Swapchain::Create(const Extent2D& requiredExtentInPixels)
 
     swapchain = CreateSwapchain(vulkanContext, supportDetails, surfaceCapabilities, surfaceFormat, extent);
 
-    const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-    images = GetSwapchainImages(device, swapchain);
-    imageViews = CreateImageViews(images, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
+    images = CreateImages(swapchain, GetImageDescription(), vulkanContext);
+    imageViews = CreateImageViews(images, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
 }
 
 void Swapchain::Cleanup()
@@ -225,6 +244,16 @@ void Swapchain::Cleanup()
     const VkDevice vkDevice = vulkanContext.GetDevice().GetVkDevice();
 
     imageViews.clear();
+    images.clear();
 
     vkDestroySwapchainKHR(vkDevice, swapchain, nullptr);
+}
+
+ImageDescription Swapchain::GetImageDescription() const
+{
+    ImageDescription swapchainImageDescription = SwapchainDetails::staticSwapchainImageDescription;
+    swapchainImageDescription.extent = { extent.width, extent.height, 1 };
+    swapchainImageDescription.format = surfaceFormat.format;
+    
+    return swapchainImageDescription;
 }

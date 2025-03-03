@@ -2,7 +2,7 @@
 
 #include "Engine/Systems/System.hpp"
 #include "Utils/DataStructures.hpp"
-#include "Engine/InputHelpers.hpp"
+#include "Engine/InputUtils.hpp"
 
 #include <glm/glm.hpp>
 

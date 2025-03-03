@@ -1,14 +1,13 @@
 #pragma once
 
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
-#include "Engine/Render/Resources/Shaders/ShaderManager.hpp"
 #include "Engine/Render/Vulkan/Instance.hpp"
 #include "Engine/Render/Vulkan/Surface.hpp"
 #include "Engine/Render/Vulkan/Device.hpp"
 #include "Engine/Render/Vulkan/Swapchain.hpp"
-#include "Engine/Render/Resources/MemoryManager.hpp"
-#include "Engine/Render/Resources/Shaders/ShaderManager.hpp"
-#include "Engine/Render/Resources/DescriptorSets/DescriptorSetManager.hpp"
+#include "Engine/Render/Vulkan/Managers/MemoryManager.hpp"
+#include "Engine/Render/Vulkan/Managers/ShaderManager.hpp"
+#include "Engine/Render/Vulkan/Managers/DescriptorSetManager.hpp"
 
 namespace ES
 {
