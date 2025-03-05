@@ -247,7 +247,7 @@ void UiRenderer::Render(const Frame& frame)
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = framebuffers[frame.swapchainRenderTargetIndex];
+    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = extent;
     

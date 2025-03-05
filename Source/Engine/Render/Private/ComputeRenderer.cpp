@@ -76,7 +76,7 @@ void ComputeRenderer::Render(const Frame& frame)
     using namespace ImageUtils;
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
-    const RenderTarget& swapchainRenderTarget = vulkanContext->GetSwapchain().GetRenderTargets()[frame.swapchainRenderTargetIndex];
+    const RenderTarget& swapchainTarget = vulkanContext->GetSwapchain().GetRenderTargets()[frame.swapchainImageIndex];
     const VkExtent3D targetExtent = renderTarget.image.GetDescription().extent;
     
     TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::undefinedToGeneral, {
@@ -93,12 +93,12 @@ void ComputeRenderer::Render(const Frame& frame)
         .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
         .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT });
     
-    TransitionLayout(commandBuffer, swapchainRenderTarget, LayoutTransitions::undefinedToDstOptimal, {
+    TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::undefinedToDstOptimal, {
         .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
     
-    BlitImageToImage(commandBuffer, renderTarget, swapchainRenderTarget);
+    BlitImageToImage(commandBuffer, renderTarget, swapchainTarget);
     
-    TransitionLayout(commandBuffer, swapchainRenderTarget, LayoutTransitions::dstOptimalToColorAttachmentOptimal, {
+    TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::dstOptimalToColorAttachmentOptimal, {
         .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT });
 }

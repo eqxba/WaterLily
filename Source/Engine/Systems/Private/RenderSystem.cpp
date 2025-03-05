@@ -92,7 +92,7 @@ void RenderSystem::Render()
 
     // Acquire next image from the swapchain, frame wait semaphore will be signaled by the presentation engine when it
     // finishes using the image so we can start rendering
-    frame.swapchainRenderTargetIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
+    frame.swapchainImageIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
 
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer buffer) {
@@ -103,7 +103,7 @@ void RenderSystem::Render()
     SubmitCommandBuffer(frame.commandBuffer, device.GetQueues().graphicsAndCompute, renderCommands, frame.sync);
 
     // Present will happen when rendering is finished and the frame signal semaphores are signaled
-    Present(signalSemaphores, frame.swapchainRenderTargetIndex);
+    Present(signalSemaphores, frame.swapchainImageIndex);
 
     currentFrame = (currentFrame + 1) % VulkanConfig::maxFramesInFlight;
 }
