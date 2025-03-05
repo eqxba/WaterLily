@@ -54,8 +54,8 @@ namespace ES // Event system
         glm::vec2 offset{};
     };
 
-    struct BeforeCursorModeUpdated
+    struct BeforeInputModeUpdated
     {
-        CursorMode newCursorMode{};
+        InputMode newInputMode{};
     };
 }

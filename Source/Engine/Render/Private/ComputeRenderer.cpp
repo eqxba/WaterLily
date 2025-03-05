@@ -86,8 +86,11 @@ void ComputeRenderer::Render(const Frame& frame)
     
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.GetLayout(), 0, 1, &descriptor, 0, nullptr);
-    
-    vkCmdDispatch(commandBuffer, std::ceil(targetExtent.width / 16.0), std::ceil(targetExtent.height / 16.0), 1);
+
+    const VkExtent3D groupCount = { static_cast<uint32_t>(std::ceil(targetExtent.width / 16.0)),
+        static_cast<uint32_t>(std::ceil(targetExtent.height / 16.0)), 1 };
+
+    vkCmdDispatch(commandBuffer, groupCount.width, groupCount.height, groupCount.depth);
     
     TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::generalToSrcOptimal, {
         .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,

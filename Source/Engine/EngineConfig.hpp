@@ -11,7 +11,7 @@ namespace EngineConfig
         .extent = { 1980 / 2, 1080 / 2},
         .title = engineName,
         .mode = WindowMode::eWindowed,
-        .cursorMode = CursorMode::eDisabled };
+        .inputMode = InputMode::eEngine };
 
     constexpr std::string_view defaultScenePath = "~/Assets/Scenes/Sponza/glTF/Sponza.gltf";
 }

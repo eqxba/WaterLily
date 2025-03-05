@@ -54,9 +54,9 @@ std::tuple<VkDescriptorSet, DescriptorSetLayout> DescriptorSetBuilder::Build()
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const RenderTarget& renderTarget,
-    const VkImageLayout layout, const VkShaderStageFlags shaderStages)
+    const VkImageLayout aLayout, const VkShaderStageFlags shaderStages)
 {
-    return Bind(binding, renderTarget.view, layout, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, shaderStages);
+    return Bind(binding, renderTarget.view, aLayout, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, shaderStages);
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const Texture& texture,
@@ -76,10 +76,10 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const B
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const ImageView& imageView,
-    const VkImageLayout layout, const VkDescriptorType type, const VkShaderStageFlags shaderStages)
+    const VkImageLayout aLayout, const VkDescriptorType type, const VkShaderStageFlags shaderStages)
 {
     AddBinding(binding, type, shaderStages);
-    Bind(binding, imageView, layout);
+    Bind(binding, imageView, aLayout);
 
     return *this;
 }
@@ -94,18 +94,18 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const V
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const ImageView& imageView, 
-    const VkImageLayout layout, const VkSampler sampler, const VkShaderStageFlags shaderStages)
+    const VkImageLayout aLayout, const VkSampler sampler, const VkShaderStageFlags shaderStages)
 {
     AddBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shaderStages);
-    Bind(binding, imageView, layout, sampler);
+    Bind(binding, imageView, aLayout, sampler);
 
     return *this;
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const RenderTarget& renderTarget,
-    const VkImageLayout layout)
+    const VkImageLayout aLayout)
 {
-    return Bind(binding, renderTarget.view, layout);
+    return Bind(binding, renderTarget.view, aLayout);
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const Texture& texture)
@@ -127,9 +127,9 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const B
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const ImageView& imageView,
-    const VkImageLayout layout)
+    const VkImageLayout aLayout)
 {
-    imageInfos.emplace_back(VK_NULL_HANDLE, imageView, layout);
+    imageInfos.emplace_back(VK_NULL_HANDLE, imageView, aLayout);
 
     // Hack: store index (1-based) of the element in the imageInfos vector and resolve it to the actual pointer in the
     // Build() function to handle possible buffer reallocations
@@ -152,9 +152,9 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, VkSampl
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const ImageView& imageView, 
-    const VkImageLayout layout, const VkSampler sampler)
+    const VkImageLayout aLayout, const VkSampler sampler)
 {
-    imageInfos.emplace_back(sampler, imageView, layout);
+    imageInfos.emplace_back(sampler, imageView, aLayout);
 
     // Hack: store index (1-based) of the element in the imageInfos vector and resolve it to the actual pointer in the
     // Build() function to handle possible buffer reallocations

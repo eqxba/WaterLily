@@ -29,7 +29,7 @@ namespace ES
     struct BeforeWindowRecreated;
     struct WindowRecreated;
     struct TryReloadShaders;
-    struct BeforeCursorModeUpdated;
+    struct BeforeInputModeUpdated;
 }
 
 class UiRenderer : public Renderer
@@ -68,7 +68,7 @@ private:
     void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
     void OnWindowRecreated(const ES::WindowRecreated& event);
     void OnTryReloadShaders(const ES::TryReloadShaders& event);
-    void OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event);
+    void OnBeforeInputModeUpdated(const ES::BeforeInputModeUpdated& event);
 
     const VulkanContext* vulkanContext = nullptr;
 
@@ -91,7 +91,7 @@ private:
 
     PushConstants pushConstants;
 
-    CursorMode cursorMode = CursorMode::eDisabled;
+    InputMode inputMode = InputMode::eEngine;
     
     std::array<float, 50> frameTimes = {};
 };

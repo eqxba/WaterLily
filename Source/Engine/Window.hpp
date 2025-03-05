@@ -22,7 +22,7 @@ struct WindowDescription
     Extent2D extent{ 960, 540 };
     std::string_view title;
     WindowMode mode = WindowMode::eWindowed;
-    CursorMode cursorMode = CursorMode::eDisabled;
+    InputMode inputMode = InputMode::eEngine;
 };
 
 class Window
@@ -57,12 +57,12 @@ public:
 
     void SetMode(WindowMode mode);
 
-    CursorMode GetCursorMode() const
+    InputMode GetInputMode() const
     {
-        return cursorMode;
+        return inputMode;
     }
 
-    void SetCursorMode(CursorMode cursorMode, bool force = false);
+    void SetInputMode(InputMode inputMode, bool force = false);
 
 private:
     static void FramebufferSizeCallback(GLFWwindow* glfwWindow, int32_t width, int32_t height);
@@ -71,6 +71,7 @@ private:
     static void MouseCallback(GLFWwindow* glfwWindow, double xPos, double yPos);
     static void MouseButtonCallback(GLFWwindow* glfwWindow, int button, int action, int mods);
     static void ScrollCallback(GLFWwindow* glfwWindow, double xOffset, double yOffset);
+    static void FocusCallback(GLFWwindow* glfwWindow, int focused);
 
     void Init();
     void Cleanup();
@@ -90,5 +91,5 @@ private:
     std::optional<Extent2D> extentInWindowedMode{};
     std::string_view title{};
     WindowMode mode = WindowMode::eWindowed;
-    CursorMode cursorMode = CursorMode::eDisabled;
+    InputMode inputMode = InputMode::eEngine;
 };

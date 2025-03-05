@@ -80,7 +80,7 @@ void Engine::CreateSystems()
     renderSystem = renderSystemPtr.get();
 
     systems.emplace_back(std::move(renderSystemPtr));
-    systems.emplace_back(std::make_unique<CameraSystem>(window->GetExtentInPixels(), window->GetCursorMode(), 
+    systems.emplace_back(std::make_unique<CameraSystem>(window->GetExtentInPixels(), window->GetInputMode(), 
         *eventSystem));
 }
 
@@ -102,9 +102,9 @@ void Engine::OnKeyInput(const ES::KeyInput& event)
 
     if (event.key == Key::eEscape && event.action == KeyAction::ePress)
     {
-        window->SetCursorMode(window->GetCursorMode() == CursorMode::eDisabled
-            ? CursorMode::eEnabled
-            : CursorMode::eDisabled);
+        window->SetInputMode(window->GetInputMode() == InputMode::eEngine
+            ? InputMode::eUi
+            : InputMode::eEngine);
     }
     
     if (event.key == Key::eO && event.action == KeyAction::ePress &&

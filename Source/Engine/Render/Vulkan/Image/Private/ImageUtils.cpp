@@ -43,14 +43,14 @@ void ImageUtils::TransitionLayout(const VkCommandBuffer commandBuffer, const Ima
     
     const VkImageMemoryBarrier imageMemoryBarrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = barrier.srcAccessMask,
+        .dstAccessMask = barrier.dstAccessMask,
         .oldLayout = transition.oldLayout,
         .newLayout = transition.newLayout,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = image,
-        .subresourceRange = subresourceRange,
-        .srcAccessMask = barrier.srcAccessMask,
-        .dstAccessMask = barrier.dstAccessMask, };
+        .subresourceRange = subresourceRange, };
 
     vkCmdPipelineBarrier(commandBuffer, barrier.srcStage, barrier.dstStage, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
@@ -80,10 +80,10 @@ void ImageUtils::BlitImageToImage(const VkCommandBuffer commandBuffer, const Ima
         .layerCount = 1, };
     
     const VkImageBlit blit = {
-        .srcOffsets = { { 0, 0, 0 }, sourceOffset },
         .srcSubresource = srcSubresource,
-        .dstOffsets = { { 0, 0, 0 }, destinationOffset },
-        .dstSubresource = dstSubresource, };
+        .srcOffsets = { { 0, 0, 0 }, sourceOffset },
+        .dstSubresource = dstSubresource,
+        .dstOffsets = { { 0, 0, 0 }, destinationOffset }, };
 
     vkCmdBlitImage(commandBuffer, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
@@ -139,8 +139,7 @@ void ImageUtils::GenerateMipMaps(const VkCommandBuffer commandBuffer, const Imag
 
 void ImageUtils::FillImage(const VkCommandBuffer commandBuffer, const Image& image, const glm::vec4& color)
 {
-    const VkClearColorValue clearValue = {
-        .float32[0] = color.r, .float32[1] = color.g, .float32[2] = color.b, .float32[3] = color.a };
+    const VkClearColorValue clearValue = { .float32 = { color.r, color.g, color.b, color.a } };
     
     const VkImageSubresourceRange clearRange = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,

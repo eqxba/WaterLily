@@ -31,10 +31,10 @@ namespace CameraSystemDetails
     }
 }
 
-CameraSystem::CameraSystem(const Extent2D windowExtent, CursorMode aCursorMode, EventSystem& aEventSystem)
+CameraSystem::CameraSystem(const Extent2D windowExtent, InputMode aInputMode, EventSystem& aEventSystem)
     : eventSystem{ aEventSystem }
     , mainCameraAspectRatio{ static_cast<float>(windowExtent.width) / static_cast<float>(windowExtent.height) }
-    , cursorMode{ aCursorMode }
+    , inputMode{ aInputMode }
 {
     eventSystem.Subscribe<ES::SceneOpened>(this, &CameraSystem::OnSceneOpen);
     eventSystem.Subscribe<ES::WindowResized>(this, &CameraSystem::OnResize);
@@ -42,7 +42,7 @@ CameraSystem::CameraSystem(const Extent2D windowExtent, CursorMode aCursorMode, 
     eventSystem.Subscribe<ES::KeyInput>(this, &CameraSystem::OnKeyInput);
     eventSystem.Subscribe<ES::MouseMoved>(this, &CameraSystem::OnMouseMoved);
     eventSystem.Subscribe<ES::MouseWheelScrolled>(this, &CameraSystem::OnMouseWheelScrolled);
-    eventSystem.Subscribe<ES::BeforeCursorModeUpdated>(this, &CameraSystem::OnBeforeCursorModeUpdated);
+    eventSystem.Subscribe<ES::BeforeInputModeUpdated>(this, &CameraSystem::OnBeforeInputModeUpdated);
 }
 
 CameraSystem::~CameraSystem()
@@ -135,7 +135,7 @@ void CameraSystem::OnKeyInput(const ES::KeyInput& event)
 {
     using namespace CameraSystemDetails;
 
-    if (event.action == KeyAction::eRepeat || cursorMode == CursorMode::eEnabled)
+    if (event.action == KeyAction::eRepeat || inputMode == InputMode::eUi)
     {
         return;
     }
@@ -160,7 +160,7 @@ void CameraSystem::OnKeyInput(const ES::KeyInput& event)
 
 void CameraSystem::OnMouseMoved(const ES::MouseMoved& event)
 {
-    if (cursorMode == CursorMode::eEnabled)
+    if (inputMode == InputMode::eUi)
     {
         return;
     }
@@ -179,7 +179,7 @@ void CameraSystem::OnMouseWheelScrolled(const ES::MouseWheelScrolled& event)
 {
     using namespace CameraSystemDetails;
 
-    if (cursorMode == CursorMode::eDisabled && mainCamera)
+    if (inputMode == InputMode::eEngine && mainCamera)
     {
         const float deltaFov = - static_cast<float>(event.offset.y) * mouseScrollSensitivity;
         const float newFov = std::clamp(mainCamera->GetVerticalFov() + deltaFov, minVerticalFov, maxVerticalFov);
@@ -188,13 +188,13 @@ void CameraSystem::OnMouseWheelScrolled(const ES::MouseWheelScrolled& event)
     }
 }
 
-void CameraSystem::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event)
+void CameraSystem::OnBeforeInputModeUpdated(const ES::BeforeInputModeUpdated& event)
 {
     lastMousePosition.reset();
 
-    cursorMode = event.newCursorMode;
+    inputMode = event.newInputMode;
 
-    if (cursorMode == CursorMode::eEnabled)
+    if (inputMode == InputMode::eUi)
     {
         pressedMovementKeys.clear();
     }

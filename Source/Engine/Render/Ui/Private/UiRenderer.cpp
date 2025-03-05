@@ -51,10 +51,8 @@ namespace UiRendererDetails
             .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
         
-        SamplerDescription samplerDescription = {
-            .addressMode[0] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-            .addressMode[1] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-            .addressMode[2] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, };
+        SamplerDescription samplerDescription = { .addressMode = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE } };
 
         auto fontTexture = Texture(std::move(fontImageDescription), std::move(samplerDescription), vulkanContext);
         
@@ -169,6 +167,7 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     , window{ &aWindow }
     , vertexBuffers{ VulkanConfig::maxFramesInFlight }
     , indexBuffers{ VulkanConfig::maxFramesInFlight }
+    , inputMode{ window->GetInputMode() }
 {
     using namespace UiRendererDetails;
 
@@ -199,7 +198,7 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     eventSystem->Subscribe<ES::BeforeWindowRecreated>(this, &UiRenderer::OnBeforeWindowRecreated);
     eventSystem->Subscribe<ES::WindowRecreated>(this, &UiRenderer::OnWindowRecreated);
     eventSystem->Subscribe<ES::TryReloadShaders>(this, &UiRenderer::OnTryReloadShaders);
-    eventSystem->Subscribe<ES::BeforeCursorModeUpdated>(this, &UiRenderer::OnBeforeCursorModeUpdated);
+    eventSystem->Subscribe<ES::BeforeInputModeUpdated>(this, &UiRenderer::OnBeforeInputModeUpdated);
 }
 
 UiRenderer::~UiRenderer()
@@ -407,7 +406,7 @@ void UiRenderer::UpdateImGuiInputState() const
 {
     ImGuiIO& io = ImGui::GetIO();
     
-    if (cursorMode == CursorMode::eEnabled)
+    if (inputMode == InputMode::eUi)
     {
         io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoKeyboard);
     }
@@ -446,8 +445,8 @@ void UiRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
     }
 }
 
-void UiRenderer::OnBeforeCursorModeUpdated(const ES::BeforeCursorModeUpdated& event)
+void UiRenderer::OnBeforeInputModeUpdated(const ES::BeforeInputModeUpdated& event)
 {
-    cursorMode = event.newCursorMode;
+    inputMode = event.newInputMode;
     UpdateImGuiInputState();
 }

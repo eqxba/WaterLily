@@ -65,7 +65,7 @@ Window::Window(const WindowDescription& description, EventSystem& aEventSystem)
     , extent{ description.extent }
     , title{ description.title }
     , mode{ description.mode }
-    , cursorMode{ description.cursorMode }
+    , inputMode{ description.inputMode }
 {
     glfwInit();
 
@@ -106,23 +106,23 @@ void Window::SetMode(const WindowMode aMode)
     eventSystem.Fire<ES::WindowRecreated>({ this });
 }
 
-void Window::SetCursorMode(const CursorMode aCursorMode, const bool force /* = false */)
+void Window::SetInputMode(const InputMode aInputMode, const bool force /* = false */)
 {
-    if (cursorMode == aCursorMode && !force)
+    if (inputMode == aInputMode && !force)
     {
         return;
     }
 
-    eventSystem.Fire<ES::BeforeCursorModeUpdated>({ aCursorMode });
+    eventSystem.Fire<ES::BeforeInputModeUpdated>({ aInputMode });
 
-    cursorMode = aCursorMode;
+    inputMode = aInputMode;
 
-    if (cursorMode == CursorMode::eDisabled)
+    if (inputMode == InputMode::eEngine)
     {
         glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         glfwSetInputMode(glfwWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     }
-    else if (cursorMode == CursorMode::eEnabled)
+    else if (inputMode == InputMode::eUi)
     {
         glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         glfwSetInputMode(glfwWindow, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
@@ -175,6 +175,16 @@ void Window::ScrollCallback(GLFWwindow* glfwWindow, const double xOffset, const 
     eventSystem.Fire<ES::MouseWheelScrolled>({ .offset = { static_cast<float>(xOffset), static_cast<float>(yOffset) } });
 }
 
+void Window::FocusCallback(GLFWwindow* glfwWindow, const int focused)
+{
+    const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
+
+    if (!focused)
+    {
+        window->SetInputMode(InputMode::eUi);
+    }
+}
+
 void Window::Init()
 {
     if (extentInWindowedMode && mode == WindowMode::eWindowed)
@@ -192,7 +202,7 @@ void Window::Init()
         extentInWindowedMode = extent;
     }
 
-    SetCursorMode(cursorMode, true);
+    SetInputMode(inputMode, true);
     RegisterCallbacks();
 }
 
@@ -211,6 +221,7 @@ void Window::RegisterCallbacks()
     glfwSetCursorPosCallback(glfwWindow, MouseCallback);
     glfwSetMouseButtonCallback(glfwWindow, MouseButtonCallback);
     glfwSetScrollCallback(glfwWindow, ScrollCallback);
+    glfwSetWindowFocusCallback(glfwWindow, FocusCallback);
 }
 
 void Window::CenterCursor()

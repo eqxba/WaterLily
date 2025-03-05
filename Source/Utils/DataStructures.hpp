@@ -6,8 +6,8 @@ struct Extent2D
     int height = 0;
 };
 
-enum class CursorMode
+enum class InputMode
 {
-    eDisabled,
-    eEnabled,
+    eEngine,
+    eUi,
 };
