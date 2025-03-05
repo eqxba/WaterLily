@@ -4,7 +4,7 @@
 
 #include "Engine/Systems/System.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/Resources/Frame.hpp"
+#include "Engine/Render/Vulkan/Frame.hpp"
 
 namespace ES
 {

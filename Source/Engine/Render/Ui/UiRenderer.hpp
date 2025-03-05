@@ -9,14 +9,14 @@ DISABLE_WARNINGS_BEGIN
 DISABLE_WARNINGS_END
 
 #include "Utils/Constants.hpp"
+#include "Utils/DataStructures.hpp"
 #include "Engine/Render/Renderer.hpp"
-#include "Engine/Render/Vulkan/Pipeline.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
-#include "Engine/Render/Vulkan/Resources/Shaders/ShaderModule.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
+#include "Engine/Render/Vulkan/Image/Texture.hpp"
+#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 class VulkanContext;
 class EventSystem;
@@ -84,9 +84,7 @@ private:
     std::vector<Buffer> vertexBuffers;
     std::vector<Buffer> indexBuffers;
 
-    Image fontImage;
-    ImageView fontImageView;
-    VkSampler fontImageSampler = VK_NULL_HANDLE;
+    Texture fontTexture;
 
     VkDescriptorSet descriptor = VK_NULL_HANDLE;
     DescriptorSetLayout layout;

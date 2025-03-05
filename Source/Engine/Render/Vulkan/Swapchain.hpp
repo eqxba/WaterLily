@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Engine/Window.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
+#include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
 
 #include <volk.h>
 
@@ -29,11 +28,6 @@ public:
     // Call in case of simple resize (not when window's been recreated!)
     void Recreate(const VkExtent2D& requiredExtentInPixels);
 
-    VkSwapchainKHR GetVkSwapchainKHR() const
-    {
-        return swapchain;
-    }
-
     VkSurfaceFormatKHR GetSurfaceFormat() const
     {
         return surfaceFormat;
@@ -44,21 +38,21 @@ public:
         return extent;
     }
 
-    const std::vector<Image>& GetImages() const
+    const std::vector<RenderTarget>& GetRenderTargets() const
     {
-        return images;
+        return renderTargets;
     }
-
-    const std::vector<ImageView>& GetImageViews() const
+    
+    operator VkSwapchainKHR() const
     {
-        return imageViews;
+        return swapchain;
     }
 
 private:
     void Create(const VkExtent2D& requiredExtentInPixels);
     void Cleanup();
     
-    ImageDescription GetImageDescription() const;
+    ImageDescription GetRenderTargetDescription() const;
 
     const VulkanContext& vulkanContext;
     
@@ -69,7 +63,5 @@ private:
     VkSurfaceFormatKHR surfaceFormat; 
     VkExtent2D extent;
 
-    // TODO: Render target???
-    std::vector<Image> images;
-    std::vector<ImageView> imageViews;
+    std::vector<RenderTarget> renderTargets;
 };

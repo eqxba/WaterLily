@@ -75,7 +75,7 @@ ShaderModule ShaderManager::CreateShaderModule(const std::span<const uint32_t> s
     createInfo.pCode = spirvCode.data();
 
     VkShaderModule shaderModule;
-    const VkResult result = vkCreateShaderModule(vulkanContext.GetDevice().GetVkDevice(), &createInfo, nullptr, &shaderModule);
+    const VkResult result = vkCreateShaderModule(vulkanContext.GetDevice(), &createInfo, nullptr, &shaderModule);
     Assert(result == VK_SUCCESS);
     
     return { shaderModule, shaderType, vulkanContext };

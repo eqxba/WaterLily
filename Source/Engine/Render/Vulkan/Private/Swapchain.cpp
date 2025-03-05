@@ -17,7 +17,7 @@ namespace SwapchainDetails
     static VkSurfaceCapabilitiesKHR GetSurfaceCapabilities(const VulkanContext& vulkanContext)
     {
         const VkPhysicalDevice physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
-        const VkSurfaceKHR surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
+        const VkSurfaceKHR surface = vulkanContext.GetSurface();
 
         VkSurfaceCapabilitiesKHR capabilities;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
@@ -27,7 +27,7 @@ namespace SwapchainDetails
     static SwapchainSupportDetails GetSwapchainSupportDetails(const VulkanContext& vulkanContext)
     {
         const VkPhysicalDevice physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
-        const VkSurfaceKHR surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
+        const VkSurfaceKHR surface = vulkanContext.GetSurface();
 
         SwapchainSupportDetails details;
         
@@ -124,7 +124,7 @@ namespace SwapchainDetails
     {
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = vulkanContext.GetSurface().GetVkSurfaceKHR();
+        createInfo.surface = vulkanContext.GetSurface();
         createInfo.minImageCount = SelectImageCount(capabilities);
         createInfo.imageFormat = surfaceFormat.format;
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -156,7 +156,7 @@ namespace SwapchainDetails
         createInfo.oldSwapchain = VK_NULL_HANDLE;
 
         VkSwapchainKHR swapchain;
-        const VkResult result = vkCreateSwapchainKHR(vulkanContext.GetDevice().GetVkDevice(), &createInfo, nullptr, &swapchain);
+        const VkResult result = vkCreateSwapchainKHR(vulkanContext.GetDevice(), &createInfo, nullptr, &swapchain);
         Assert(result == VK_SUCCESS);
 
         return swapchain;
@@ -173,34 +173,19 @@ namespace SwapchainDetails
         return images;
     }
 
-    // TODO: vulkan utils?
-    static std::vector<Image> CreateImages(VkSwapchainKHR swapchain, ImageDescription imageDescription,
+    static std::vector<RenderTarget> CreateRenderTargets(VkSwapchainKHR swapchain, ImageDescription description,
         const VulkanContext& vulkanContext)
     {
-        const std::vector<VkImage> vkImages = GetSwapchainImages(vulkanContext.GetDevice().GetVkDevice(), swapchain);
+        const std::vector<VkImage> images = GetSwapchainImages(vulkanContext.GetDevice(), swapchain);
         
-        std::vector<Image> images;
-        images.reserve(vkImages.size());
+        std::vector<RenderTarget> renderTargets;
+        renderTargets.reserve(images.size());
         
-        std::ranges::transform(vkImages, std::back_inserter(images), [&](const VkImage vkImage) {
-            return Image(vkImage, imageDescription, vulkanContext);
+        std::ranges::transform(images, std::back_inserter(renderTargets), [&](const VkImage image) {
+            return RenderTarget(image, description, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext, true);
         });
         
-        return images;
-    }
-
-    // TODO: vulkan utils?
-    static std::vector<ImageView> CreateImageViews(const std::vector<Image>& images, VkImageAspectFlags aspectFlags,
-        const VulkanContext& vulkanContext)
-    {
-        std::vector<ImageView> imageViews;
-        imageViews.reserve(images.size());
-
-        std::ranges::transform(images, std::back_inserter(imageViews), [&](const Image& image) {
-            return ImageView(image, aspectFlags, vulkanContext);
-        });
-
-        return imageViews;
+        return renderTargets;
     }
 }
 
@@ -235,21 +220,17 @@ void Swapchain::Create(const VkExtent2D& requiredExtentInPixels)
 
     swapchain = CreateSwapchain(vulkanContext, supportDetails, surfaceCapabilities, surfaceFormat, extent);
 
-    images = CreateImages(swapchain, GetImageDescription(), vulkanContext);
-    imageViews = CreateImageViews(images, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
+    renderTargets = CreateRenderTargets(swapchain, GetRenderTargetDescription(), vulkanContext);
 }
 
 void Swapchain::Cleanup()
 {
-    const VkDevice vkDevice = vulkanContext.GetDevice().GetVkDevice();
+    renderTargets.clear();
 
-    imageViews.clear();
-    images.clear();
-
-    vkDestroySwapchainKHR(vkDevice, swapchain, nullptr);
+    vkDestroySwapchainKHR(vulkanContext.GetDevice(), swapchain, nullptr);
 }
 
-ImageDescription Swapchain::GetImageDescription() const
+ImageDescription Swapchain::GetRenderTargetDescription() const
 {
     ImageDescription swapchainImageDescription = SwapchainDetails::staticSwapchainImageDescription;
     swapchainImageDescription.extent = { extent.width, extent.height, 1 };

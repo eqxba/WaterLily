@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/Resources/Shaders/ShaderModule.hpp"
-#include "Engine/Render/Vulkan/Resources/Shaders/ShaderCompiler.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderCompiler.hpp"
 #include "Engine/FileSystem/FileSystem.hpp"
 
 class VulkanContext;

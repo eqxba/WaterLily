@@ -3,14 +3,13 @@
 #include <volk.h>
 
 #include "Engine/Render/Renderer.hpp"
-#include "Engine/Render/Vulkan/Pipeline.hpp"
-#include "Engine/Render/Vulkan/Resources/Shaders/ShaderModule.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
+#include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 class VulkanContext;
 class EventSystem;
-class Image;
-class ImageView;
 
 namespace ES
 {
@@ -38,9 +37,6 @@ public:
 private:
     void CreatePipeline(ShaderModule&& shaderModule);
 
-    void CreateRenderTarget();
-    void DestroyRenderTarget();
-
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
     void OnTryReloadShaders(const ES::TryReloadShaders& event);
@@ -51,8 +47,7 @@ private:
 
     Pipeline computePipeline;
 
-    std::unique_ptr<Image> renderTarget;
-    std::unique_ptr<ImageView> renderTargetView;
+    RenderTarget renderTarget;
 
     std::vector<VkFramebuffer> framebuffers;
 

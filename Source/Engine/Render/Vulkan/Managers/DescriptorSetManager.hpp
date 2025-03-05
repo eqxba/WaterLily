@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayoutBuilder.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetBuilder.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetAllocator.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayoutCache.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayoutBuilder.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetBuilder.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetAllocator.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayoutCache.hpp"
 
 class VulkanContext;
 

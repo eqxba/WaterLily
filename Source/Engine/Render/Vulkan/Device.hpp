@@ -38,11 +38,6 @@ public:
     void ExecuteOneTimeCommandBuffer(const DeviceCommands& commands) const;
 
     VkSampleCountFlagBits GetMaxSampleCount() const;
-
-    VkDevice GetVkDevice() const
-    {
-        return device;
-    }
     
     VkPhysicalDevice GetPhysicalDevice() const
     {
@@ -57,6 +52,11 @@ public:
     const Queues& GetQueues() const
     {
         return queues;
+    }
+    
+    operator VkDevice() const
+    {
+        return device;
     }
 
 private:

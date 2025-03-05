@@ -13,9 +13,9 @@ MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.vulkanApiVersion = VulkanConfig::apiVersion;
     allocatorInfo.physicalDevice = vulkanContext.GetDevice().GetPhysicalDevice();
-    allocatorInfo.device = vulkanContext.GetDevice().GetVkDevice();
+    allocatorInfo.device = vulkanContext.GetDevice();
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-    allocatorInfo.instance = vulkanContext.GetInstance().GetVkInstance();
+    allocatorInfo.instance = vulkanContext.GetInstance();
 
     vmaCreateAllocator(&allocatorInfo, &allocator);
 }

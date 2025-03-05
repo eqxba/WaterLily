@@ -72,7 +72,7 @@ namespace DeviceDetails
         std::optional<uint32_t> graphicsAndComputeFamily = FindGraphicsAndComputetQueueFamilyIndex(queueFamilies);
         Assert(graphicsAndComputeFamily.has_value());
 
-        std::optional<uint32_t> presentFamily = FindPresentQueueFamilyIndex(queueFamilies, device, vulkanContext.GetSurface().GetVkSurfaceKHR());
+        std::optional<uint32_t> presentFamily = FindPresentQueueFamilyIndex(queueFamilies, device, vulkanContext.GetSurface());
         Assert(presentFamily.has_value());        
         
         return { graphicsAndComputeFamily.value(), presentFamily.value()};
@@ -98,7 +98,7 @@ namespace DeviceDetails
     static std::tuple<VkPhysicalDevice, VkPhysicalDeviceProperties> SelectPhysicalDevice(
         const VulkanContext& vulkanContext)
     {
-        const VkInstance vkInstance = vulkanContext.GetInstance().GetVkInstance();
+        const VkInstance vkInstance = vulkanContext.GetInstance();
 
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(vkInstance, &deviceCount, nullptr);

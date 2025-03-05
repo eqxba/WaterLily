@@ -14,7 +14,7 @@ namespace RenderSystemDetails
     {
         using namespace VulkanUtils;
         
-        const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
+        const VkDevice device = vulkanContext.GetDevice();
         
         std::vector<VkSemaphore> waitSemaphores = { CreateSemaphore(device) };
         std::vector<VkPipelineStageFlags> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -29,7 +29,7 @@ namespace RenderSystemDetails
         const Device& device = vulkanContext.GetDevice();
         const VkCommandPool longLivedPool = device.GetCommandPool(CommandBufferType::eLongLived);
         
-        return VulkanUtils::CreateCommandBuffers(device.GetVkDevice(), 1, longLivedPool)[0];
+        return VulkanUtils::CreateCommandBuffers(device, 1, longLivedPool)[0];
     }
 }
 
@@ -87,12 +87,12 @@ void RenderSystem::Render()
     const Device& device = vulkanContext.GetDevice();
 
     // Wait for frame to finish execution and signal fence
-    vkWaitForFences(device.GetVkDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device.GetVkDevice(), 1, &fence);
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &fence);
 
     // Acquire next image from the swapchain, frame wait semaphore will be signaled by the presentation engine when it
     // finishes using the image so we can start rendering
-    frame.swapchainImageIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
+    frame.swapchainRenderTargetIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
 
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer buffer) {
@@ -103,17 +103,15 @@ void RenderSystem::Render()
     SubmitCommandBuffer(frame.commandBuffer, device.GetQueues().graphicsAndCompute, renderCommands, frame.sync);
 
     // Present will happen when rendering is finished and the frame signal semaphores are signaled
-    Present(signalSemaphores, frame.swapchainImageIndex);
+    Present(signalSemaphores, frame.swapchainRenderTargetIndex);
 
     currentFrame = (currentFrame + 1) % VulkanConfig::maxFramesInFlight;
 }
 
 uint32_t RenderSystem::AcquireNextSwapchainImage(const VkSemaphore signalSemaphore) const
 {
-    const VkSwapchainKHR swapchain = vulkanContext.GetSwapchain().GetVkSwapchainKHR();
-
     uint32_t imageIndex;
-    const VkResult acquireResult = vkAcquireNextImageKHR(vulkanContext.GetDevice().GetVkDevice(), swapchain,
+    const VkResult acquireResult = vkAcquireNextImageKHR(vulkanContext.GetDevice(), vulkanContext.GetSwapchain(),
         std::numeric_limits<uint64_t>::max(), signalSemaphore, VK_NULL_HANDLE, &imageIndex);
     Assert(acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR);
 
@@ -122,7 +120,7 @@ uint32_t RenderSystem::AcquireNextSwapchainImage(const VkSemaphore signalSemapho
 
 void RenderSystem::Present(const std::vector<VkSemaphore>& waitSemaphores, const uint32_t imageIndex) const
 {
-    VkSwapchainKHR swapchains[] = { vulkanContext.GetSwapchain().GetVkSwapchainKHR() };
+    VkSwapchainKHR swapchains[] = { vulkanContext.GetSwapchain() };
     
     VkPresentInfoKHR presentInfo = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     presentInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());

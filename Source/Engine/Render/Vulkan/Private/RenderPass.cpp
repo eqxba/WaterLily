@@ -13,7 +13,7 @@ RenderPass::~RenderPass()
 {
     if (renderPass != VK_NULL_HANDLE)
     {
-        vkDestroyRenderPass(vulkanContext->GetDevice().GetVkDevice(), renderPass, nullptr);
+        vkDestroyRenderPass(vulkanContext->GetDevice(), renderPass, nullptr);
     }
 }
 
@@ -79,7 +79,7 @@ RenderPass RenderPassBuilder::Build()
     renderPassInfo.pDependencies = &dependency;
 
     VkRenderPass renderPass;
-    const VkResult result = vkCreateRenderPass(vulkanContext->GetDevice().GetVkDevice(), &renderPassInfo, nullptr, &renderPass);
+    const VkResult result = vkCreateRenderPass(vulkanContext->GetDevice(), &renderPassInfo, nullptr, &renderPass);
     Assert(result == VK_SUCCESS);
 
     return { renderPass, *vulkanContext };

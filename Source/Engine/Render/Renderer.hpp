@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/Resources/Frame.hpp"
+#include "Engine/Render/Vulkan/Frame.hpp"
 
 class Renderer
 {

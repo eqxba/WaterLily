@@ -3,9 +3,9 @@
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/Synchronization/CommandBufferSync.hpp"
-#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
+#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
+#include "Engine/Render/Vulkan/Image/ImageView.hpp"
+#include "Engine/Render/Vulkan/Image/Image.hpp"
 #include "Engine/Scene/Scene.hpp"
 
 std::vector<VkCommandBuffer> VulkanUtils::CreateCommandBuffers(VkDevice device, const size_t count, 
@@ -84,7 +84,7 @@ void VulkanUtils::DestroyFences(VkDevice device, std::vector<VkFence>& fences)
 {
     std::ranges::for_each(fences, [&](VkFence fence) {
         vkDestroyFence(device, fence, nullptr);
-        });
+    });
 
     fences.clear();
 }
@@ -124,50 +124,12 @@ void VulkanUtils::DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& s
     semaphores.clear();
 }
 
-VkSampler VulkanUtils::CreateSampler(VkDevice device, const VkPhysicalDeviceProperties& properties, 
-    uint32_t mipLevelsCount)
-{
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = static_cast<float>(mipLevelsCount);
-
-    VkSampler sampler;
-    VkResult result = vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
-    Assert(result == VK_SUCCESS);
-
-    return sampler;
-}
-
-void VulkanUtils::DestroySampler(VkDevice device, VkSampler sampler)
-{
-    if (sampler != VK_NULL_HANDLE)
-    {
-        vkDestroySampler(device, sampler, nullptr);
-    }
-}
-
 VkFramebuffer VulkanUtils::CreateFrameBuffer(const RenderPass& renderPass, const VkExtent2D extent,
     const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext)
 {
-    const VkDevice device = vulkanContext.GetDevice().GetVkDevice();
-
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = renderPass.GetVkRenderPass();
+    framebufferInfo.renderPass = renderPass;
     framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
     framebufferInfo.pAttachments = attachments.data();
     framebufferInfo.width = extent.width;
@@ -175,7 +137,7 @@ VkFramebuffer VulkanUtils::CreateFrameBuffer(const RenderPass& renderPass, const
     framebufferInfo.layers = 1;
 
     VkFramebuffer framebuffer;
-    const VkResult result = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer);
+    const VkResult result = vkCreateFramebuffer(vulkanContext.GetDevice(), &framebufferInfo, nullptr, &framebuffer);
     Assert(result == VK_SUCCESS);
 
     return framebuffer;
@@ -184,36 +146,10 @@ VkFramebuffer VulkanUtils::CreateFrameBuffer(const RenderPass& renderPass, const
 void VulkanUtils::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext)
 {
     std::ranges::for_each(framebuffers, [&](VkFramebuffer framebuffer) {
-        vkDestroyFramebuffer(vulkanContext.GetDevice().GetVkDevice(), framebuffer, nullptr);
+        vkDestroyFramebuffer(vulkanContext.GetDevice(), framebuffer, nullptr);
     });
 
     framebuffers.clear();
-}
-
-std::unique_ptr<Image> VulkanUtils::CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
-{
-    ImageDescription imageDescription{
-        .extent = { extent.width, extent.height, 1 },
-        .mipLevelsCount = 1,
-        .samples = vulkanContext.GetDevice().GetMaxSampleCount(),
-        .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
-        .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    return std::make_unique<Image>(imageDescription, vulkanContext);
-}
-
-std::unique_ptr<Image> VulkanUtils::CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext)
-{
-    ImageDescription imageDescription{
-        .extent = { extent.width, extent.height, 1 },
-        .mipLevelsCount = 1,
-        .samples = vulkanContext.GetDevice().GetMaxSampleCount(),
-        .format = VulkanConfig::depthImageFormat,
-        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    return std::make_unique<Image>(imageDescription, vulkanContext);
 }
 
 std::tuple<std::unique_ptr<Buffer>, uint32_t> VulkanUtils::CreateIndirectBuffer(const Scene& scene,

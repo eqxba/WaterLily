@@ -1,12 +1,10 @@
 #include "Engine/Render/SceneRenderer.hpp"
 
-#include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/EventSystem.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
-#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
-#include "Engine/Render/Vulkan/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
+#include "Engine/Render/Vulkan/VulkanConfig.hpp"
+#include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
+#include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -97,7 +95,7 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
 
     renderPass = CreateRenderPass(*vulkanContext);
 
-    CreateAttachmentsAndFramebuffers();
+    CreateRenderTargetsAndFramebuffers();
 
     uniformBuffers.resize(VulkanConfig::maxFramesInFlight);
     std::ranges::generate(uniformBuffers, [&]() { return CreateUniformBuffer(*vulkanContext); });
@@ -115,7 +113,7 @@ SceneRenderer::~SceneRenderer()
 {
     eventSystem->UnsubscribeAll(this);
 
-    DestroyAttachmentsAndFramebuffers();
+    DestroyRenderTargetsAndFramebuffers();
 }
 
 void SceneRenderer::Process(const float deltaSeconds)
@@ -145,8 +143,8 @@ void SceneRenderer::Render(const Frame& frame)
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass.GetVkRenderPass();
-    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = framebuffers[frame.swapchainRenderTargetIndex];
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = vulkanContext->GetSwapchain().GetExtent();
 
@@ -160,7 +158,7 @@ void SceneRenderer::Render(const Frame& frame)
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.Get());
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
     VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
@@ -169,11 +167,11 @@ void SceneRenderer::Render(const Frame& frame)
     const VkRect2D scissor = GetScissor(extent);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = { scene->GetVertexBuffer().Get() };
+    VkBuffer vertexBuffers[] = { scene->GetVertexBuffer() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer().Get(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, scene->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     std::vector<VkDescriptorSet> descriptors = { uniformDescriptors[frame.index] };
     std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
@@ -181,8 +179,7 @@ void SceneRenderer::Render(const Frame& frame)
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
-    vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer->Get(), 0, indirectDrawCount,
-        sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirect(commandBuffer, *indirectBuffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -191,8 +188,7 @@ void SceneRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderMod
 {
     using namespace VulkanUtils;
 
-    std::vector<VkDescriptorSetLayout> layouts = { layout.Get(),
-        Scene::GetGlobalDescriptorSetLayout(*vulkanContext).Get() };
+    std::vector<VkDescriptorSetLayout> layouts = { layout, Scene::GetGlobalDescriptorSetLayout(*vulkanContext) };
 
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
         .SetDescriptorSetLayouts(std::move(layouts))
@@ -208,52 +204,61 @@ void SceneRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderMod
         .Build();
 }
 
-void SceneRenderer::CreateAttachmentsAndFramebuffers()
+void SceneRenderer::CreateRenderTargetsAndFramebuffers()
 {
-    using namespace VulkanUtils;
-
     const Swapchain& swapchain = vulkanContext->GetSwapchain();
+    const VkExtent2D swapchainExtent = swapchain.GetExtent();
 
-    // Attachments
-    colorAttachment = CreateColorAttachment(swapchain.GetExtent(), *vulkanContext);
-    colorAttachmentView = std::make_unique<ImageView>(*colorAttachment, VK_IMAGE_ASPECT_COLOR_BIT, *vulkanContext);
-
-    depthAttachment = CreateDepthAttachment(swapchain.GetExtent(), *vulkanContext);
-    depthAttachmentView = std::make_unique<ImageView>(*depthAttachment, VK_IMAGE_ASPECT_DEPTH_BIT, *vulkanContext);
+    // Render targets
+    ImageDescription colorTargetDescription = {
+        .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
+        .mipLevelsCount = 1,
+        .samples = vulkanContext->GetDevice().GetMaxSampleCount(),
+        .format = swapchain.GetSurfaceFormat().format,
+        .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+    
+    ImageDescription depthTargetDescription = {
+        .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
+        .mipLevelsCount = 1,
+        .samples = vulkanContext->GetDevice().GetMaxSampleCount(),
+        .format = VulkanConfig::depthImageFormat,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+    
+    colorTarget = RenderTarget(colorTargetDescription, VK_IMAGE_ASPECT_COLOR_BIT, *vulkanContext);
+    depthTarget = RenderTarget(depthTargetDescription, VK_IMAGE_ASPECT_DEPTH_BIT, *vulkanContext);
 
     // Framebuffers
-    framebuffers.reserve(swapchain.GetImageViews().size());
+    const std::vector<RenderTarget>& swapchainTargets = swapchain.GetRenderTargets();
+    framebuffers.reserve(swapchainTargets.size());
 
-    std::vector<VkImageView> attachments = { colorAttachmentView->GetVkImageView(), VK_NULL_HANDLE,
-        depthAttachmentView->GetVkImageView() };
+    std::vector<VkImageView> attachments = { colorTarget.view, VK_NULL_HANDLE, depthTarget.view };
 
-    std::ranges::transform(swapchain.GetImageViews(), std::back_inserter(framebuffers), [&](const ImageView& imageView) {
-        attachments[1] = imageView.GetVkImageView();
-        return CreateFrameBuffer(renderPass, swapchain.GetExtent(), attachments, *vulkanContext);
+    std::ranges::transform(swapchainTargets, std::back_inserter(framebuffers), [&](const RenderTarget& target) {
+        attachments[1] = target.view;
+        return VulkanUtils::CreateFrameBuffer(renderPass, swapchain.GetExtent(), attachments, *vulkanContext);
     });
 }
 
-void SceneRenderer::DestroyAttachmentsAndFramebuffers()
+void SceneRenderer::DestroyRenderTargetsAndFramebuffers()
 {
     using namespace VulkanUtils;
 
     DestroyFramebuffers(framebuffers, *vulkanContext);
 
-    colorAttachmentView.reset();
-    colorAttachment.reset();
-
-    depthAttachmentView.reset();
-    depthAttachment.reset();
+    colorTarget.~RenderTarget();
+    depthTarget.~RenderTarget();
 }
 
 void SceneRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
 {
-    DestroyAttachmentsAndFramebuffers();
+    DestroyRenderTargetsAndFramebuffers();
 }
 
 void SceneRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
 {
-    CreateAttachmentsAndFramebuffers();
+    CreateRenderTargetsAndFramebuffers();
 }
 
 void SceneRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)

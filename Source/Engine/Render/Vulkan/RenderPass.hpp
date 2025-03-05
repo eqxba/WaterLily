@@ -17,14 +17,14 @@ public:
     RenderPass(RenderPass&& other) noexcept;
     RenderPass& operator=(RenderPass&& other) noexcept;
 
-    VkRenderPass GetVkRenderPass() const
-    {
-        return renderPass;
-    }
-
     bool IsValid() const
     {
         return renderPass != VK_NULL_HANDLE;
+    }
+    
+    operator VkRenderPass() const
+    {
+        return renderPass;
     }
 
 private:

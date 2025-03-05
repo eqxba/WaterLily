@@ -4,15 +4,14 @@
 
 #include "Shaders/Common.h"
 #include "Engine/Render/Renderer.hpp"
-#include "Engine/Render/Vulkan/Pipeline.hpp"
+#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/Resources/Shaders/ShaderModule.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 class VulkanContext;
 class EventSystem;
-class Image;
-class ImageView;
 class Buffer;
 class Scene;
 
@@ -44,8 +43,8 @@ public:
 private:
     void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
 
-    void CreateAttachmentsAndFramebuffers();
-    void DestroyAttachmentsAndFramebuffers();
+    void CreateRenderTargetsAndFramebuffers();
+    void DestroyRenderTargetsAndFramebuffers();
 
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
@@ -60,11 +59,8 @@ private:
     RenderPass renderPass;
     Pipeline graphicsPipeline;
 
-    std::unique_ptr<Image> colorAttachment;
-    std::unique_ptr<ImageView> colorAttachmentView;
-
-    std::unique_ptr<Image> depthAttachment;
-    std::unique_ptr<ImageView> depthAttachmentView;
+    RenderTarget colorTarget;
+    RenderTarget depthTarget;
 
     std::vector<VkFramebuffer> framebuffers;
 

@@ -2,7 +2,7 @@
 
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageUtils.hpp"
+#include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
 #include "Engine/Render/Resources/StbImage.hpp"
 #include "Engine/FileSystem/FileSystem.hpp"
 #include "Utils/Helpers.hpp"
@@ -33,7 +33,7 @@ Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
 {
     InitFromGltfScene();
     InitBuffers();
-    InitTextureResources();
+    InitTexture();
     InitGlobalDescriptors();
 }
 
@@ -42,8 +42,6 @@ Scene::~Scene()
     vulkanContext.GetDevice().WaitIdle();
 
     vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
-
-    VulkanUtils::DestroySampler(vulkanContext.GetDevice().GetVkDevice(), sampler);
 }
 
 void Scene::InitFromGltfScene()
@@ -96,7 +94,7 @@ void Scene::InitBuffers()
     transformsBuffer.DestroyStagingBuffer();
 }
 
-void Scene::InitTextureResources()
+void Scene::InitTexture()
 {
     using namespace ImageUtils;
     
@@ -113,31 +111,31 @@ void Scene::InitTextureResources()
     const uint32_t maxDimension = std::max(extent.width, extent.height);
     const uint32_t mipLevelsCount = static_cast<uint32_t>(std::floor(std::log2(maxDimension))) + 1;
 
-    ImageDescription imageDescription{ .extent = extent, .mipLevelsCount = mipLevelsCount,
+    ImageDescription textureDescription = {
+        .extent = extent,
+        .mipLevelsCount = mipLevelsCount,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .format = VK_FORMAT_R8G8B8A8_SRGB,
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, };
 
-    image = Image(imageDescription, vulkanContext);
+    SamplerDescription samplerDescription = {
+        .maxAnisotropy = vulkanContext.GetDevice().GetPhysicalDeviceProperties().limits.maxSamplerAnisotropy,
+        .maxLod = static_cast<float>(mipLevelsCount), };
+    
+    texture = Texture(std::move(textureDescription), std::move(samplerDescription), vulkanContext);
     
     vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
-        
-        TransitionLayout(commandBuffer, image, LayoutTransitions::undefinedToDstOptimal, {
+        TransitionLayout(commandBuffer, texture, LayoutTransitions::undefinedToDstOptimal, {
             .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
 
-        CopyBufferToImage(commandBuffer, stagingBuffer, image);
-        GenerateMipMaps(commandBuffer, image);
+        CopyBufferToImage(commandBuffer, stagingBuffer, texture);
+        GenerateMipMaps(commandBuffer, texture);
         
-        TransitionLayout(commandBuffer, image, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal, {
+        TransitionLayout(commandBuffer, texture, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal, {
             .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
             .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
     });
-    
-    imageView = ImageView(image, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
-    
-    const Device& device = vulkanContext.GetDevice();
-    sampler = VulkanUtils::CreateSampler(device.GetVkDevice(), device.GetPhysicalDeviceProperties(), mipLevelsCount);
 }
 
 void Scene::InitGlobalDescriptors()
@@ -146,8 +144,8 @@ void Scene::InitGlobalDescriptors()
 
     const auto [descriptor, layout] = vulkanContext.GetDescriptorSetsManager().GetDescriptorSetBuilder(globalDescriptorSetLayout)
         .Bind(0, transformsBuffer)
-        .Bind(1, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-        .Bind(2, sampler)
+        .Bind(1, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        .Bind(2, texture.sampler)
         .Build();
 
     globalDescriptors.push_back(descriptor);

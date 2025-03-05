@@ -1,12 +1,11 @@
 #pragma once
 
+#include "Engine/FileSystem/FilePath.hpp"
 #include "Engine/Scene/SceneDataStructures.hpp"
 #include "Engine/Components/CameraComponent.hpp"
-#include "Engine/Render/Vulkan/Resources/Buffer.hpp"
-#include "Engine/Render/Vulkan/Resources/Image.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageView.hpp"
-#include "Engine/FileSystem/FilePath.hpp"
-#include "Engine/Render/Vulkan/Resources/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
+#include "Engine/Render/Vulkan/Image/Texture.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 #include <volk.h>
 
@@ -67,19 +66,9 @@ public:
         return indices;
     }
 
-    const Image& GetImage() const
+    const Texture& GetTexture() const
     {
-        return image;
-    }
-
-    const ImageView& GetImageView() const
-    {
-        return imageView;
-    }
-
-    VkSampler GetSampler() const
-    {
-        return sampler;
+        return texture;
     }
 
     CameraComponent& GetCamera()
@@ -91,7 +80,7 @@ private:
     void InitFromGltfScene();
 
     void InitBuffers();
-    void InitTextureResources();
+    void InitTexture();
     void InitGlobalDescriptors();
 
     const VulkanContext& vulkanContext;
@@ -104,9 +93,7 @@ private:
 
     Buffer transformsBuffer;
 
-    Image image;
-    ImageView imageView;
-    VkSampler sampler = VK_NULL_HANDLE; // TODO: move away to a proper location, pool or smth
+    Texture texture;
 
     std::vector<VkDescriptorSet> globalDescriptors;
     DescriptorSetLayout globalDescriptorSetLayout;

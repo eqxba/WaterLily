@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Vulkan/Resources/Shaders/ShaderModule.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
 class RenderPass;
@@ -35,16 +35,10 @@ namespace VulkanUtils
     VkSemaphore CreateSemaphore(VkDevice device);
     std::vector<VkSemaphore> CreateSemaphores(VkDevice device, size_t count);
     void DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& semaphores);
-    
-    VkSampler CreateSampler(VkDevice device, const VkPhysicalDeviceProperties& properties, uint32_t mipLevelsCount);
-    void DestroySampler(VkDevice device, VkSampler sampler);
 
     VkFramebuffer CreateFrameBuffer(const RenderPass& renderPass, VkExtent2D extent,
         const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext);
     void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext);
-
-    std::unique_ptr<Image> CreateColorAttachment(VkExtent2D extent, const VulkanContext& vulkanContext);
-    std::unique_ptr<Image> CreateDepthAttachment(VkExtent2D extent, const VulkanContext& vulkanContext);
 
     std::tuple<std::unique_ptr<Buffer>, uint32_t> CreateIndirectBuffer(const Scene& scene, const VulkanContext& vulkanContext);
 

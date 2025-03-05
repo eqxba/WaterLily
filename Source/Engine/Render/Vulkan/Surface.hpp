@@ -17,7 +17,7 @@ public:
     Surface(Surface&&) = delete;
     Surface& operator=(Surface&&) = delete;
 
-    VkSurfaceKHR GetVkSurfaceKHR() const
+    operator VkSurfaceKHR() const
     {
         return surface;
     }

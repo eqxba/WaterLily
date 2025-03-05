@@ -8,12 +8,11 @@
 Surface::Surface(const Window& window, const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {
-    const VkResult result = glfwCreateWindowSurface(vulkanContext.GetInstance().GetVkInstance(), 
-        window.GetGlfwWindow(), nullptr, &surface);
+    const VkResult result = glfwCreateWindowSurface(vulkanContext.GetInstance(), window.GetGlfwWindow(), nullptr, &surface);
     Assert(result == VK_SUCCESS);
 }
 
 Surface::~Surface()
 {
-    vkDestroySurfaceKHR(vulkanContext.GetInstance().GetVkInstance(), surface, nullptr);
+    vkDestroySurfaceKHR(vulkanContext.GetInstance(), surface, nullptr);
 }

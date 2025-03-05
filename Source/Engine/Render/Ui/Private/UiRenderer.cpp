@@ -9,8 +9,8 @@
 #include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Resources/ImageUtils.hpp"
-#include "Engine/Render/Vulkan/Resources/Pipelines/GraphicsPipelineBuilder.hpp"
+#include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
+#include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
 namespace UiRendererDetails
 {
@@ -19,10 +19,8 @@ namespace UiRendererDetails
 
     static bool showDemoWindow = false;
 
-    static Image CreateFontImage(const ImGuiIO& io, const VulkanContext& vulkanContext)
+    static std::tuple<Buffer, int, int> LoadFontTexture(const ImGuiIO& io, const VulkanContext& vulkanContext)
     {
-        using namespace ImageUtils;
-        
         unsigned char* fontData = nullptr;
         int width = 0;
         int height = 0;
@@ -36,49 +34,42 @@ namespace UiRendererDetails
             .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
-        const Buffer fontDataBuffer(bufferDescription, false, fontDataSpan, vulkanContext);
+        return { Buffer(bufferDescription, false, fontDataSpan, vulkanContext), width, height };
+    }
+
+    static Texture CreateFontTexture(const ImGuiIO& io, const VulkanContext& vulkanContext)
+    {
+        using namespace ImageUtils;
+        
+        const auto [fontDataBuffer, width, height] = LoadFontTexture(io, vulkanContext);
          
-        const ImageDescription fontImageDescription{
+        ImageDescription fontImageDescription = {
             .extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1 },
             .mipLevelsCount = 1,
             .samples = VK_SAMPLE_COUNT_1_BIT,
             .format = VK_FORMAT_R8G8B8A8_UNORM,
             .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+        
+        SamplerDescription samplerDescription = {
+            .addressMode[0] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .addressMode[1] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .addressMode[2] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, };
 
-        auto fontImage = Image(fontImageDescription, vulkanContext);
+        auto fontTexture = Texture(std::move(fontImageDescription), std::move(samplerDescription), vulkanContext);
         
         vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
-            TransitionLayout(commandBuffer, fontImage, LayoutTransitions::undefinedToDstOptimal, {
+            TransitionLayout(commandBuffer, fontTexture, LayoutTransitions::undefinedToDstOptimal, {
                 .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
 
-            CopyBufferToImage(commandBuffer, fontDataBuffer, fontImage);
+            CopyBufferToImage(commandBuffer, fontDataBuffer, fontTexture);
             
-            TransitionLayout(commandBuffer, fontImage, LayoutTransitions::dstOptimalToShaderReadOnlyOptimal, {
+            TransitionLayout(commandBuffer, fontTexture, LayoutTransitions::dstOptimalToShaderReadOnlyOptimal, {
                 .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
                 .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
         });
 
-        return fontImage;
-    }
-
-    static VkSampler CreateFontImageSampler(const VkDevice device)
-    {
-        VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.maxAnisotropy = 1.0f;
-        samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-        VkSampler sampler;
-        const VkResult result = vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
-        Assert(result == VK_SUCCESS);
-
-        return sampler;
+        return fontTexture;
     }
 
     static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
@@ -102,12 +93,13 @@ namespace UiRendererDetails
         using namespace VulkanUtils;
         
         const Swapchain& swapchain = vulkanContext.GetSwapchain();
+        const std::vector<RenderTarget>& swapchainTargets = swapchain.GetRenderTargets();
         
         std::vector<VkFramebuffer> framebuffers;
-        framebuffers.reserve(swapchain.GetImageViews().size());
+        framebuffers.reserve(swapchainTargets.size());
 
-        std::ranges::transform(swapchain.GetImageViews(), std::back_inserter(framebuffers), [&](const ImageView& view) {
-            return CreateFrameBuffer(renderPass, swapchain.GetExtent(), { view.GetVkImageView() }, vulkanContext);
+        std::ranges::transform(swapchainTargets, std::back_inserter(framebuffers), [&](const RenderTarget& target) {
+            return CreateFrameBuffer(renderPass, swapchain.GetExtent(), { target.view }, vulkanContext);
         });
         
         return framebuffers;
@@ -191,13 +183,10 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
 
     renderPass = CreateRenderPass(*vulkanContext);
     framebuffers = CreateFramebuffers(renderPass, *vulkanContext);
-
-    fontImage = CreateFontImage(ImGui::GetIO(), *vulkanContext);
-    fontImageView = ImageView(fontImage, VK_IMAGE_ASPECT_COLOR_BIT, *vulkanContext);
-    fontImageSampler = CreateFontImageSampler(vulkanContext->GetDevice().GetVkDevice());
+    fontTexture = CreateFontTexture(ImGui::GetIO(), *vulkanContext);
 
     std::tie(descriptor, layout) = vulkanContext->GetDescriptorSetsManager().GetDescriptorSetBuilder()
-        .Bind(0, fontImageView, fontImageSampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Bind(0, fontTexture, VK_SHADER_STAGE_FRAGMENT_BIT)
         .Build();
 
     std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext->GetShaderManager());
@@ -220,7 +209,6 @@ UiRenderer::~UiRenderer()
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    VulkanUtils::DestroySampler(vulkanContext->GetDevice().GetVkDevice(), fontImageSampler);
     VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
 }
 
@@ -258,15 +246,15 @@ void UiRenderer::Render(const Frame& frame)
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass.GetVkRenderPass();
-    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = framebuffers[frame.swapchainRenderTargetIndex];
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = extent;
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.Get());
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     const VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -279,11 +267,11 @@ void UiRenderer::Render(const Frame& frame)
 
     if (const ImDrawData* drawData = ImGui::GetDrawData(); !drawData->CmdLists.empty())
     {
-        const VkBuffer vkVertexBuffers[] = { vertexBuffer.Get() };
+        const VkBuffer vkVertexBuffers[] = { vertexBuffer };
         constexpr VkDeviceSize offsets[] = { 0 };
 
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vkVertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer.Get(), 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
         
         int32_t vertexOffset = 0;
         int32_t indexOffset = 0;
@@ -314,7 +302,7 @@ void UiRenderer::Render(const Frame& frame)
 void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
 {
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts({ layout.Get() })
+        .SetDescriptorSetLayouts({ layout })
         .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants) })
         .SetShaderModules(std::move(shaderModules))
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())

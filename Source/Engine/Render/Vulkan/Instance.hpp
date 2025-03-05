@@ -14,7 +14,7 @@ public:
     Instance(Instance&&) = delete;
     Instance& operator=(Instance&&) = delete;
 
-    VkInstance GetVkInstance() const
+    operator VkInstance() const
     {
         return instance;
     }
