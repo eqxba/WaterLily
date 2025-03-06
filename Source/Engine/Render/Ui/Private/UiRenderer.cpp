@@ -5,10 +5,10 @@
 
 #include "Engine/Window.hpp"
 #include "Engine/EventSystem.hpp"
-#include "Engine/EngineConfig.hpp"
-#include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Ui/StatsWidget.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Ui/SettingsWidget.hpp"
 #include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
@@ -16,8 +16,6 @@ namespace UiRendererDetails
 {
     static constexpr std::string_view vertexShaderPath = "~/Shaders/ui.vert";
     static constexpr std::string_view fragmentShaderPath = "~/Shaders/ui.frag";
-
-    static bool showDemoWindow = false;
 
     static std::tuple<Buffer, int, int> LoadFontTexture(const ImGuiIO& io, const VulkanContext& vulkanContext)
     {
@@ -159,6 +157,12 @@ namespace UiRendererDetails
 
         return scissor;
     }
+
+    static void CreateWidgets(std::vector<std::unique_ptr<Widget>>& widgets, const VulkanContext& vulkanContext)
+    {
+        widgets.push_back(std::make_unique<StatsWidget>(vulkanContext));
+        widgets.push_back(std::make_unique<SettingsWidget>(vulkanContext));
+    }
 }
 
 UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
@@ -192,6 +196,8 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
 
     CreateGraphicsPipeline(std::move(shaderModules));
+    
+    CreateWidgets(widgets, *vulkanContext);
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &UiRenderer::OnBeforeSwapchainRecreated);
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &UiRenderer::OnSwapchainRecreated);
@@ -213,15 +219,19 @@ UiRenderer::~UiRenderer()
 
 void UiRenderer::Process(const float deltaSeconds)
 {
-    std::ranges::rotate(frameTimes, frameTimes.begin() + 1);
-    frameTimes.back() = deltaSeconds;
-    
     // Handles i/o and other different window events
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     
-    // All our UI elements
-    BuildUI();
+    for (const auto& widget : widgets)
+    {
+        widget->Process(deltaSeconds);
+        
+        if (inputMode == InputMode::eUi || widget->IsAlwaysVisible())
+        {
+            widget->Build();
+        }
+    }
 
     // Creates all abstract rendering commands
     ImGui::Render();
@@ -313,43 +323,6 @@ void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModule
         .SetDepthState(false, false, VK_COMPARE_OP_NEVER)
         .SetRenderPass(renderPass)
         .Build();
-}
-
-void UiRenderer::BuildUI()
-{
-    using namespace EngineConfig;
-
-    ImGui::Begin(engineName);
-
-    const VkPhysicalDeviceProperties& deviceProperties = vulkanContext->GetDevice().GetPhysicalDeviceProperties();
-
-    ImGui::TextUnformatted(deviceProperties.deviceName);
-    
-    ImGui::Text("Vulkan API %i.%i.%i", VK_API_VERSION_MAJOR(deviceProperties.apiVersion),
-        VK_API_VERSION_MINOR(deviceProperties.apiVersion), VK_API_VERSION_PATCH(deviceProperties.apiVersion));
-    
-    const float avgFrameTime = std::accumulate(frameTimes.begin(), frameTimes.end(), 0.0f) / frameTimes.size();
-    const float fps = (avgFrameTime > 0.0f) ? (1.0f / avgFrameTime) : 0.0f;
-    
-    ImGui::Text("Fps: %.2f", fps);
-    
-    // TODO: Widgets
-    {
-        const char* rendererOptions[] = { "Scene", "Compute" };
-        
-        ImGui::Text("Renderer:");
-        ImGui::SameLine();
-        ImGui::Combo("##Renderer", &RenderOptions::renderer, rendererOptions, 2);
-    }
-
-    ImGui::Checkbox("Show demo window", &UiRendererDetails::showDemoWindow);
-    
-    ImGui::End();
-
-    if (UiRendererDetails::showDemoWindow)
-    {
-        ImGui::ShowDemoWindow();
-    }
 }
 
 void UiRenderer::UpdateBuffers(const uint32_t frameIndex)

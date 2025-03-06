@@ -21,6 +21,7 @@ DISABLE_WARNINGS_END
 class VulkanContext;
 class EventSystem;
 class Window;
+class Widget;
 
 namespace ES
 {
@@ -56,8 +57,6 @@ public:
 
 private:
     void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
-
-    void BuildUI();
     
     void UpdateBuffers(uint32_t frameIndex);
     
@@ -93,5 +92,5 @@ private:
 
     InputMode inputMode = InputMode::eEngine;
     
-    std::array<float, 50> frameTimes = {};
+    std::vector<std::unique_ptr<Widget>> widgets;
 };
