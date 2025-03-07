@@ -51,12 +51,33 @@ namespace SceneRendererDetails
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+        
+        std::vector<PipelineBarrier> previousBarriers = { {
+            // Wait for any previous depth output
+            .srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }, {
+            // Wait for any previous color output
+            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
+        
+        std::vector<PipelineBarrier> followingBarriers = { {
+            // Make UI renderer wait for our color output
+            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
 
         return RenderPassBuilder(vulkanContext)
             .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
             .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
             .AddColorAndResolveAttachments(colorAttachmentDescription, resolveAttachmentDescription)
             .AddDepthStencilAttachment(depthStencilAttachmentDescription)
+            .SetPreviousBarriers(std::move(previousBarriers))
+            .SetFollowingBarriers(std::move(followingBarriers))
             .Build();
     }
 

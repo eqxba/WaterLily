@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/Synchronization/Synchronization.hpp"
+
 class VulkanContext;
 
 class RenderPass
@@ -58,6 +60,8 @@ public:
     RenderPassBuilder& AddColorAttachment(const AttachmentDescription& description);
     RenderPassBuilder& AddColorAndResolveAttachments(const AttachmentDescription& colorDescription, const AttachmentDescription& resolveDescription);
     RenderPassBuilder& AddDepthStencilAttachment(const AttachmentDescription& description);
+    RenderPassBuilder& SetPreviousBarriers(std::vector<PipelineBarrier> barriers);
+    RenderPassBuilder& SetFollowingBarriers(std::vector<PipelineBarrier> barriers);
 
 private:
     void AddAttachment(const AttachmentDescription& description);
@@ -69,6 +73,9 @@ private:
     std::vector<VkAttachmentReference> colorAttachmentReferences;
     std::vector<VkAttachmentReference> resolveAttachmentReferences;
     std::optional<VkAttachmentReference> depthStencilAttachmentReference;
+    
+    std::vector<PipelineBarrier> previousBarriers;
+    std::vector<PipelineBarrier> followingBarriers;
 
     VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;

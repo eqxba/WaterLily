@@ -103,7 +103,8 @@ void ComputeRenderer::Render(const Frame& frame)
     
     TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::dstOptimalToColorAttachmentOptimal, {
         .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT });
+        .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT });
 }
 
 void ComputeRenderer::CreatePipeline(ShaderModule&& shaderModule)
