@@ -3,7 +3,6 @@
 #include "Engine/EventSystem.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -200,7 +199,7 @@ void SceneRenderer::Render(const Frame& frame)
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
-    vkCmdDrawIndexedIndirect(commandBuffer, *indirectBuffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
 
     vkCmdEndRenderPass(commandBuffer);
 }

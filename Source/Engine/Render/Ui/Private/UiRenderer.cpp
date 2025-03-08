@@ -346,7 +346,7 @@ void UiRenderer::UpdateBuffers(const uint32_t frameIndex)
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
         vertexBuffer = Buffer(vertexBufferDescription, false, *vulkanContext);
-        std::ignore = vertexBuffer.MapMemory(true); // persistent mapping
+        std::ignore = vertexBuffer.MapMemory(); // persistent mapping
     }
 
     if (!indexBuffer.IsValid() || indexBuffer.GetDescription().size < indexBufferSize)
@@ -355,7 +355,7 @@ void UiRenderer::UpdateBuffers(const uint32_t frameIndex)
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
         indexBuffer = Buffer(indexBufferDescription, false, *vulkanContext);
-        std::ignore = indexBuffer.MapMemory(true); // persistent mapping
+        std::ignore = indexBuffer.MapMemory(); // persistent mapping
     }
 
     std::span<std::byte> vertexBufferMemory = vertexBuffer.MapMemory();

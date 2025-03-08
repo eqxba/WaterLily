@@ -3,6 +3,18 @@
 #include "Engine/Render/Vulkan/Managers/MemoryManager.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
+namespace MemoryManagerDetails
+{
+    template<typename T>
+    static VmaAllocation GetAllocation(const T resource, std::unordered_map<T, VmaAllocation>& allocations)
+    {
+        const auto it = allocations.find(resource);
+        Assert(it != allocations.end());
+
+        return it->second;
+    }
+}
+
 MemoryManager::MemoryManager(const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {   
@@ -44,54 +56,39 @@ VkBuffer MemoryManager::CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo,
     return buffer;
 }
 
-void MemoryManager::DestroyBuffer(VkBuffer buffer)
+void MemoryManager::DestroyBuffer(const VkBuffer buffer)
 {
-    const auto it = bufferAllocations.find(buffer);
-    Assert(it != bufferAllocations.end());
+    const VmaAllocation allocation = MemoryManagerDetails::GetAllocation(buffer, bufferAllocations);
 
-    vmaDestroyBuffer(allocator, buffer, it->second);
+    vmaDestroyBuffer(allocator, buffer, allocation);
 
-    bufferAllocations.erase(it);
+    bufferAllocations.erase(buffer);
 }
 
-void MemoryManager::FlushBuffer(VkBuffer buffer)
+void MemoryManager::CopyMemoryToBuffer(const VkBuffer buffer, const std::span<const std::byte> data, const size_t offset)
 {
-    const auto it = bufferAllocations.find(buffer);
-    Assert(it != bufferAllocations.end());
-    
-    vmaFlushAllocation(allocator, it->second, 0, VK_WHOLE_SIZE);
+    const VmaAllocation allocation = MemoryManagerDetails::GetAllocation(buffer, bufferAllocations);
+
+    const VkResult result = vmaCopyMemoryToAllocation(allocator, data.data(), allocation, offset, data.size());
+    Assert(result == VK_SUCCESS);
 }
 
-// TODO: Make generic on the 1st need
-MemoryBlock MemoryManager::GetBufferMemoryBlock(VkBuffer buffer)
+void* MemoryManager::MapBufferMemory(const VkBuffer buffer)
 {
-    const auto it = bufferAllocations.find(buffer);
-    Assert(it != bufferAllocations.end());
-
-    VmaAllocationInfo allocationInfo;
-    vmaGetAllocationInfo(allocator, it->second, &allocationInfo);
-
-    return MemoryBlock{ allocationInfo.deviceMemory, allocationInfo.offset, allocationInfo.size };
-}
-
-void* MemoryManager::MapBufferMemory(VkBuffer buffer)
-{
-    const auto it = bufferAllocations.find(buffer);
-    Assert(it != bufferAllocations.end());
+    const VmaAllocation allocation = MemoryManagerDetails::GetAllocation(buffer, bufferAllocations);
 
     void* mappedData;
-    const VkResult result = vmaMapMemory(allocator, it->second, &mappedData);
+    const VkResult result = vmaMapMemory(allocator, allocation, &mappedData);
     Assert(result == VK_SUCCESS);
     
     return mappedData;
 }
 
-void MemoryManager::UnmapBufferMemory(VkBuffer buffer)
+void MemoryManager::UnmapBufferMemory(const VkBuffer buffer)
 {
-    const auto it = bufferAllocations.find(buffer);
-    Assert(it != bufferAllocations.end());
+    const VmaAllocation allocation = MemoryManagerDetails::GetAllocation(buffer, bufferAllocations);
 
-    vmaUnmapMemory(allocator, it->second);
+    vmaUnmapMemory(allocator, allocation);
 }
 
 VkImage MemoryManager::CreateImage(const VkImageCreateInfo& imageCreateInfo, 
@@ -111,12 +108,11 @@ VkImage MemoryManager::CreateImage(const VkImageCreateInfo& imageCreateInfo,
     return image;
 }
 
-void MemoryManager::DestroyImage(VkImage image)
+void MemoryManager::DestroyImage(const VkImage image)
 {
-    const auto it = imageAllocations.find(image);
-    Assert(it != imageAllocations.end());
+    const VmaAllocation allocation = MemoryManagerDetails::GetAllocation(image, imageAllocations);
 
-    vmaDestroyImage(allocator, image, it->second);
+    vmaDestroyImage(allocator, image, allocation);
 
-    imageAllocations.erase(it);
+    imageAllocations.erase(image);
 }

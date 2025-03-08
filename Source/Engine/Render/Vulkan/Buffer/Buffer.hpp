@@ -16,9 +16,11 @@ class Buffer
 public:
     Buffer() = default;
     Buffer(BufferDescription description, bool createStagingBuffer, const VulkanContext& vulkanContext);
+    Buffer(BufferDescription description, bool createStagingBuffer, std::span<const std::byte> initialData,
+        const VulkanContext& vulkanContext);
 
     template <typename T>
-    Buffer(BufferDescription description, bool createStagingBuffer, const std::span<const T> initialData,
+    Buffer(BufferDescription description, bool createStagingBuffer, std::span<const T> initialData,
         const VulkanContext& vulkanContext);
 
     ~Buffer();
@@ -29,30 +31,28 @@ public:
     Buffer(Buffer&& other) noexcept;
     Buffer& operator=(Buffer&& other) noexcept;
 
-    void CreateStagingBuffer();
+    Buffer& CreateStagingBuffer();
     void DestroyStagingBuffer();
 
     template <typename T>
-    void Fill(const std::span<const T> data);
+    void Fill(std::span<const T> data, size_t offset = 0);
 
-    void Flush() const;
-
-    std::span<std::byte> MapMemory(bool persistentMapping = false) const;
-    void UnmapMemory() const;
+    std::span<std::byte> MapMemory();
+    void UnmapMemory();
     
     const BufferDescription& GetDescription() const
     {
         return description;
     }
 
-    const Buffer* GetStagingBuffer() const
+    bool HasStagingBuffer() const
     {
-        return stagingBuffer.get();
+        return stagingBuffer != nullptr;
     }
 
-    const std::span<std::byte> GetMappedMemory() const
+    Buffer& GetStagingBuffer()
     {
-        return mappedMemory;
+        return *stagingBuffer;
     }
     
     bool IsValid() const
@@ -66,33 +66,27 @@ public:
     }
 
 private:
-    void FillImpl(const std::span<const std::byte> span);
+    void FillImpl(std::span<const std::byte> data, size_t offset = 0);
 
     const VulkanContext* vulkanContext = nullptr;
 
     VkBuffer buffer = VK_NULL_HANDLE;
-    
+
     BufferDescription description = {};
 
-    std::unique_ptr<Buffer> stagingBuffer;
+    std::span<std::byte> mappedMemory;
 
-    mutable std::span<std::byte> mappedMemory;
-    mutable bool persistentMapping = false; 
+    std::unique_ptr<Buffer> stagingBuffer;
 };
 
 template <typename T>
-Buffer::Buffer(BufferDescription description, bool createStagingBuffer, const std::span<const T> initialData,
+Buffer::Buffer(BufferDescription description, const bool createStagingBuffer, const std::span<const T> initialData,
     const VulkanContext& vulkanContext)
-    : Buffer{ std::move(description), createStagingBuffer, vulkanContext }
-{
-    if (!initialData.empty())
-    {
-        Fill(initialData);
-    }
-}
+    : Buffer{ std::move(description), createStagingBuffer, std::as_bytes(initialData), vulkanContext }
+{}
 
 template <typename T>
-void Buffer::Fill(const std::span<const T> span)
+void Buffer::Fill(const std::span<const T> data, const size_t offset /* = 0 */)
 {
-    FillImpl(std::as_bytes(span));
+    FillImpl(std::as_bytes(data), offset);
 }

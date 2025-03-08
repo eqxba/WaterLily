@@ -9,3 +9,8 @@ struct PipelineBarrier
     VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     VkAccessFlags dstAccessMask = VK_ACCESS_NONE;
 };
+
+namespace SynchronizationUtils
+{
+    void SetMemoryBarrier(VkCommandBuffer commandBuffer, PipelineBarrier barrier);
+}

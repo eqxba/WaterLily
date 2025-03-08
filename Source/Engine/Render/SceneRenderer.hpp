@@ -4,15 +4,15 @@
 
 #include "Shaders/Common.h"
 #include "Engine/Render/Renderer.hpp"
-#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
+#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
 #include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 class VulkanContext;
 class EventSystem;
-class Buffer;
 class Scene;
 
 namespace ES
@@ -64,7 +64,7 @@ private:
 
     std::vector<VkFramebuffer> framebuffers;
 
-    std::unique_ptr<Buffer> indirectBuffer;
+    Buffer indirectBuffer;
     uint32_t indirectDrawCount = 0;
 
     std::vector<Buffer> uniformBuffers;

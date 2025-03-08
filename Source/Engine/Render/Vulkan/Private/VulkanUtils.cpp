@@ -1,12 +1,11 @@
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 
-#include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/RenderPass.hpp"
-#include "Engine/Render/Vulkan/Synchronization/CommandBufferSync.hpp"
-#include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
-#include "Engine/Render/Vulkan/Image/ImageView.hpp"
-#include "Engine/Render/Vulkan/Image/Image.hpp"
 #include "Engine/Scene/Scene.hpp"
+#include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
+#include "Engine/Render/Vulkan/Synchronization/CommandBufferSync.hpp"
+#include "Engine/Render/Vulkan/Synchronization/SynchronizationUtils.hpp"
 
 std::vector<VkCommandBuffer> VulkanUtils::CreateCommandBuffers(VkDevice device, const size_t count, 
     VkCommandPool commandPool)
@@ -152,9 +151,10 @@ void VulkanUtils::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, 
     framebuffers.clear();
 }
 
-std::tuple<std::unique_ptr<Buffer>, uint32_t> VulkanUtils::CreateIndirectBuffer(const Scene& scene,
-    const VulkanContext& vulkanContext)
+std::tuple<Buffer, uint32_t> VulkanUtils::CreateIndirectBuffer(const Scene& scene, const VulkanContext& vulkanContext)
 {
+    using namespace BufferUtils;
+
     std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 
     const auto createDrawCommand = [&](const Primitive& primitive) {
@@ -179,12 +179,26 @@ std::tuple<std::unique_ptr<Buffer>, uint32_t> VulkanUtils::CreateIndirectBuffer(
 
     std::span indirectCommandsSpan(std::as_const(indirectCommands));
 
-    BufferDescription indirectBufferDescription{ .size = static_cast<VkDeviceSize>(indirectCommandsSpan.size_bytes()),
+    BufferDescription indirectBufferDescription = {
+        .size = indirectCommandsSpan.size_bytes(),
         .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    return { std::make_unique<Buffer>(indirectBufferDescription, true, indirectCommandsSpan, vulkanContext),
-        static_cast<uint32_t>(indirectCommands.size()) };
+    auto indirectBuffer = Buffer(indirectBufferDescription, true, indirectCommandsSpan, vulkanContext);
+
+    vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
+        CopyBufferToBuffer(commandBuffer, indirectBuffer.GetStagingBuffer(), indirectBuffer);
+
+        SynchronizationUtils::SetMemoryBarrier(commandBuffer, {
+            .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
+            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT });
+    });
+
+    indirectBuffer.DestroyStagingBuffer();
+
+    return { std::move(indirectBuffer), static_cast<uint32_t>(indirectCommands.size()) };
 }
 
 VkViewport VulkanUtils::GetViewport(const float width, const float height)

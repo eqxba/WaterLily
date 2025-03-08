@@ -1,11 +1,10 @@
 #pragma once
 
-#include <volk.h>
 #include <glm/glm.hpp>
 
 #include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/ImageView.hpp"
-#include "Engine/Render/Vulkan/Synchronization/Synchronization.hpp"
+#include "Engine/Render/Vulkan/Synchronization/SynchronizationUtils.hpp"
 
 struct LayoutTransition
 {
@@ -27,7 +26,7 @@ namespace LayoutTransitions
 namespace ImageUtils
 {
     // All mips
-    void TransitionLayout(VkCommandBuffer commandBuffer, const Image& image, LayoutTransition transition, PipelineBarrier barrier = {});
+    void TransitionLayout(VkCommandBuffer commandBuffer, const Image& image, LayoutTransition transition, PipelineBarrier barrier);
     void TransitionLayout(VkCommandBuffer commandBuffer, const Image& image, LayoutTransition transition, PipelineBarrier barrier,
         uint32_t baseMipLevel, uint32_t mipLevelsCount = 1);
 

@@ -10,8 +10,8 @@ namespace RenderPassDetails
             .srcSubpass = previous ? VK_SUBPASS_EXTERNAL : 0,
             .dstSubpass = previous ? 0 : VK_SUBPASS_EXTERNAL,
             .srcStageMask = barrier.srcStage,
-            .srcAccessMask = barrier.srcAccessMask,
             .dstStageMask = barrier.dstStage,
+            .srcAccessMask = barrier.srcAccessMask,
             .dstAccessMask = barrier.dstAccessMask, };
     }
 }

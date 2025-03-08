@@ -26,13 +26,14 @@ namespace ImageUtilsDetails
 }
 
 void ImageUtils::TransitionLayout(const VkCommandBuffer commandBuffer, const Image& image,
-    const LayoutTransition transition, const PipelineBarrier barrier /* = {} */)
+    const LayoutTransition transition, const PipelineBarrier barrier)
 {
     TransitionLayout(commandBuffer, image, transition, barrier, 0, image.GetDescription().mipLevelsCount);
 }
 
-void ImageUtils::TransitionLayout(const VkCommandBuffer commandBuffer, const Image& image,
-    const LayoutTransition transition, PipelineBarrier barrier, const uint32_t baseMipLevel, const uint32_t mipLevelsCount /* = 1 */)
+void ImageUtils::TransitionLayout(const VkCommandBuffer commandBuffer, const Image& image, 
+    const LayoutTransition transition, const PipelineBarrier barrier, const uint32_t baseMipLevel,
+    const uint32_t mipLevelsCount /* = 1 */)
 {
     const VkImageSubresourceRange subresourceRange = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,

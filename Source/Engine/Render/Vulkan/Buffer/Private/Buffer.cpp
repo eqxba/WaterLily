@@ -4,8 +4,10 @@
 
 namespace BufferDetails
 {
-    static VkBuffer CreateBuffer(BufferDescription description, const VulkanContext& vulkanContext)
+    static VkBuffer CreateBuffer(const BufferDescription& description, const VulkanContext& vulkanContext)
     {
+        Assert(description.size != 0);
+
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = description.size;
@@ -16,33 +18,25 @@ namespace BufferDetails
 
         return vulkanContext.GetMemoryManager().CreateBuffer(bufferInfo, description.memoryProperties);
     }
-
-    // TODO: 100% will need sync on this later
-    static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const Device& device)
-    {
-        device.ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
-            VkBufferCopy copyRegion{};
-            copyRegion.srcOffset = 0; // Optional
-            copyRegion.dstOffset = 0; // Optional
-            copyRegion.size = size;
-            vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-        });
-    }
 }
 
-Buffer::Buffer(BufferDescription aDescription, bool createStagingBuffer, const VulkanContext& aVulkanContext)
+Buffer::Buffer(BufferDescription aDescription, const bool createStagingBuffer, const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
-    , description { std::move(aDescription) }
+    , buffer{ BufferDetails::CreateBuffer(aDescription, aVulkanContext) }
+    , description{ std::move(aDescription) }
 {
     if (createStagingBuffer)
     {
-        description.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         CreateStagingBuffer();
     }
+}
 
-    buffer = BufferDetails::CreateBuffer(description, *vulkanContext);
-
-    Assert(IsValid());
+Buffer::Buffer(BufferDescription description, const bool createStagingBuffer, 
+    const std::span<const std::byte> initialData, const VulkanContext& vulkanContext)
+    : Buffer(std::move(description), createStagingBuffer, vulkanContext)
+{
+    Buffer& bufferToFill = createStagingBuffer ? *stagingBuffer : *this;
+    bufferToFill.FillImpl(initialData);
 }
 
 Buffer::~Buffer()
@@ -54,7 +48,6 @@ Buffer::~Buffer()
 
     if (!mappedMemory.empty())
     {
-        Assert(persistentMapping);
         vulkanContext->GetMemoryManager().UnmapBufferMemory(buffer);
         mappedMemory = {};
     }
@@ -67,16 +60,14 @@ Buffer::Buffer(Buffer&& other) noexcept
     : vulkanContext{ other.vulkanContext }
     , buffer{ other.buffer }
     , description{ other.description }
-    , stagingBuffer{ std::move(other.stagingBuffer) }
     , mappedMemory{ other.mappedMemory }
-    , persistentMapping{ other.persistentMapping }
+    , stagingBuffer{ std::move(other.stagingBuffer) }
 {
     other.vulkanContext = nullptr;
     other.description = {};
     other.buffer = VK_NULL_HANDLE;
-    other.stagingBuffer = {};
     other.mappedMemory = {};
-    other.persistentMapping = false;
+    other.stagingBuffer = {};
 }
 
 Buffer& Buffer::operator=(Buffer&& other) noexcept
@@ -86,43 +77,41 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept
         std::swap(vulkanContext, other.vulkanContext);
         std::swap(buffer, other.buffer);
         std::swap(description, other.description);
-        std::swap(stagingBuffer, other.stagingBuffer);
         std::swap(mappedMemory, other.mappedMemory);
-        std::swap(persistentMapping, other.persistentMapping);
+        std::swap(stagingBuffer, other.stagingBuffer);
     }
+
     return *this;
 }
 
-void Buffer::CreateStagingBuffer()
+Buffer& Buffer::CreateStagingBuffer()
 {
-    BufferDescription stagingBufferDescription = { .size = description.size,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+    Assert(!stagingBuffer);
+
+    BufferDescription stagingBufferDescription = {
+        .size = description.size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
 
     stagingBuffer = std::make_unique<Buffer>(stagingBufferDescription, false, *vulkanContext);
+
+    return *stagingBuffer;
 }
 
 void Buffer::DestroyStagingBuffer()
 {
+    Assert(stagingBuffer);
+
     stagingBuffer.reset();
 }
 
-void Buffer::Flush() const
+std::span<std::byte> Buffer::MapMemory()
 {
-    Assert((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) !=
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    Assert((description.memoryProperties & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+        == (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
 
-    vulkanContext->GetMemoryManager().FlushBuffer(buffer);
-}
-
-std::span<std::byte> Buffer::MapMemory(bool aPersistentMapping /* = false */) const
-{
-    Assert((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-    if (!persistentMapping)
+    if (mappedMemory.empty())
     {
-        Assert(mappedMemory.empty());
-        persistentMapping = aPersistentMapping;
         void* mappedMemoryPointer = vulkanContext->GetMemoryManager().MapBufferMemory(buffer);
         mappedMemory = { static_cast<std::byte*>(mappedMemoryPointer), description.size };
     }
@@ -130,41 +119,17 @@ std::span<std::byte> Buffer::MapMemory(bool aPersistentMapping /* = false */) co
     return mappedMemory;
 }
 
-void Buffer::UnmapMemory() const
+void Buffer::UnmapMemory()
 {
-    if (!persistentMapping)
-    {
-        Assert(!mappedMemory.empty());
-        vulkanContext->GetMemoryManager().UnmapBufferMemory(buffer);
-        mappedMemory = {};
-    }    
+    Assert(!mappedMemory.empty());
+
+    vulkanContext->GetMemoryManager().UnmapBufferMemory(buffer);
+    mappedMemory = {};
 }
 
-// TODO: 100% will need sync on this later
-void Buffer::FillImpl(const std::span<const std::byte> span)
+void Buffer::FillImpl(const std::span<const std::byte> data, const size_t offset /* = 0 */)
 {
-    Assert(span.size() == description.size);
+    Assert(!data.empty() && (data.size() + offset <= description.size));
 
-    const Device& device = vulkanContext->GetDevice();
-
-    if ((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-    {
-        std::span<std::byte> memory = MapMemory();
-        std::ranges::copy(span, memory.begin());
-        UnmapMemory();
-
-        if ((description.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 
-            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
-        {
-            Flush();
-        }
-    }
-    else
-    {
-        Assert(stagingBuffer);
-        Assert((description.usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT) == VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        stagingBuffer->Fill(span);
-        BufferDetails::CopyBuffer(*stagingBuffer, buffer, span.size(), device);
-    }
+    vulkanContext->GetMemoryManager().CopyMemoryToBuffer(buffer, data, offset);
 }

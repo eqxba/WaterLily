@@ -2,7 +2,7 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Vulkan/Synchronization/Synchronization.hpp"
+#include "Engine/Render/Vulkan/Synchronization/SynchronizationUtils.hpp"
 
 class VulkanContext;
 

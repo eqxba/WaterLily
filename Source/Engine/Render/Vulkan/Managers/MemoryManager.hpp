@@ -8,13 +8,6 @@ DISABLE_WARNINGS_END
 
 class VulkanContext;
 
-struct MemoryBlock
-{
-    VkDeviceMemory memory;
-    VkDeviceSize offset;
-    VkDeviceSize size;
-};
-
 class MemoryManager
 {
 public:
@@ -30,9 +23,8 @@ public:
     VkBuffer CreateBuffer(const VkBufferCreateInfo& bufferCreateInfo, const VkMemoryPropertyFlags memoryProperties);
     void DestroyBuffer(VkBuffer buffer);
 
-    void FlushBuffer(VkBuffer buffer);
+    void CopyMemoryToBuffer(VkBuffer buffer, std::span<const std::byte> data, size_t offset);
 
-    MemoryBlock GetBufferMemoryBlock(VkBuffer buffer);
     void* MapBufferMemory(VkBuffer buffer);
     void UnmapBufferMemory(VkBuffer buffer);
 

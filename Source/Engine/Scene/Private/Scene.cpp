@@ -1,11 +1,11 @@
 #include "Engine/Scene/Scene.hpp"
 
+#include "Utils/Helpers.hpp"
 #include "Engine/Scene/SceneHelpers.hpp"
+#include "Engine/Render/Resources/StbImage.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
-#include "Engine/Render/Resources/StbImage.hpp"
-#include "Engine/FileSystem/FileSystem.hpp"
-#include "Utils/Helpers.hpp"
+#include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
 
 DISABLE_WARNINGS_BEGIN
 #include <tiny_gltf.h>
@@ -66,31 +66,50 @@ void Scene::InitFromGltfScene()
 
 void Scene::InitBuffers()
 {
-    std::span verticesSpan(std::as_const(vertices));
-    std::span indicesSpan(std::as_const(indices));
+    using namespace BufferUtils;
 
-    BufferDescription vertexBufferDescription{ .size = static_cast<VkDeviceSize>(verticesSpan.size_bytes()),
+    const std::span verticesSpan(std::as_const(vertices));
+
+    BufferDescription vertexBufferDescription{
+        .size = verticesSpan.size_bytes(),
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, vulkanContext);
-    vertexBuffer.DestroyStagingBuffer();
+    vertexBuffer = Buffer(std::move(vertexBufferDescription), true, verticesSpan, vulkanContext);
 
-    BufferDescription indexBufferDescription{ .size = static_cast<VkDeviceSize>(indicesSpan.size_bytes()),
+    const std::span indicesSpan(std::as_const(indices));
+
+    BufferDescription indexBufferDescription{
+        .size = indicesSpan.size_bytes(),
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, vulkanContext);
-    indexBuffer.DestroyStagingBuffer();
+    indexBuffer = Buffer(std::move(indexBufferDescription), true, indicesSpan, vulkanContext);
 
     const std::vector<glm::mat4> transforms = SceneHelpers::GetBakedTransforms(*root);
-    std::span transformsSpan(std::as_const(transforms));
+    const std::span transformsSpan(std::as_const(transforms));
 
-    BufferDescription transformsBufferDescription{ .size = static_cast<VkDeviceSize>(transformsSpan.size_bytes()),
+    BufferDescription transformsBufferDescription{
+        .size = transformsSpan.size_bytes(),
         .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    transformsBuffer = Buffer(transformsBufferDescription, true, transformsSpan, vulkanContext);
+    transformsBuffer = Buffer(std::move(transformsBufferDescription), true, transformsSpan, vulkanContext);
+
+    vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
+        CopyBufferToBuffer(commandBuffer, vertexBuffer.GetStagingBuffer(), vertexBuffer);
+        CopyBufferToBuffer(commandBuffer, indexBuffer.GetStagingBuffer(), indexBuffer);
+        CopyBufferToBuffer(commandBuffer, transformsBuffer.GetStagingBuffer(), transformsBuffer);
+
+        SynchronizationUtils::SetMemoryBarrier(commandBuffer, {
+            .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
+            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+            .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_SHADER_READ_BIT });
+    });
+
+    vertexBuffer.DestroyStagingBuffer();
+    indexBuffer.DestroyStagingBuffer();
     transformsBuffer.DestroyStagingBuffer();
 }
 
