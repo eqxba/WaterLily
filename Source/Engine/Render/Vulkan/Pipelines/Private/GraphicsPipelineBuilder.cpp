@@ -6,10 +6,15 @@
 
 namespace GraphicsPipelineBuilderDetails
 {
-    static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
+    static std::optional<VkPipelineVertexInputStateCreateInfo> GetVertexInputStateCreateInfo(
         const std::vector<VkVertexInputBindingDescription>& bindings, 
         const std::vector<VkVertexInputAttributeDescription>& attributes)
     {
+        if (bindings.empty() || attributes.empty())
+        {
+            return std::nullopt;
+        }
+
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
@@ -59,7 +64,7 @@ namespace GraphicsPipelineBuilderDetails
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f; 
@@ -144,8 +149,7 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(const VulkanContext& aVulkanCon
     : vulkanContext{&aVulkanContext}
 {
     using namespace GraphicsPipelineBuilderDetails;
-    
-    inputAssembly = GetTriangleListInputAssembly();
+
     viewportState = GetViewportState(1, 1);
     rasterizer = GetDefaultRasterizer();
     multisamplingState = GetMultisamplingNone();
@@ -161,8 +165,6 @@ Pipeline GraphicsPipelineBuilder::Build() const
     using namespace VulkanUtils;
 
     Assert(!shaderModules.empty());
-    Assert(!vertexBindings.empty());
-    Assert(!vertexAttributes.empty());
     Assert(renderPass != nullptr);
     
     const VkDevice device = vulkanContext->GetDevice();
@@ -170,16 +172,17 @@ Pipeline GraphicsPipelineBuilder::Build() const
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayouts, pushConstantRanges, device);
     
     const std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
-    
-    const VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
+
+    const std::optional<VkPipelineVertexInputStateCreateInfo> vertexInputInfo
+        = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
     
     const VkPipelineDynamicStateCreateInfo dynamicState = GetPipelineDynamicStateCreateInfo(dynamicStates);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
     pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
     pipelineInfo.pStages = shaderStages.data();
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pVertexInputState = vertexInputInfo ? &vertexInputInfo.value() : nullptr;
+    pipelineInfo.pInputAssemblyState = inputAssembly ? &inputAssembly.value() : nullptr;
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisamplingState;
@@ -233,6 +236,11 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetVertexData(VertexBindings b
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetInputTopology(const InputTopology aTopology)
 {
+    if (!inputAssembly)
+    {
+        inputAssembly = GraphicsPipelineBuilderDetails::GetTriangleListInputAssembly();
+    }
+
     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
 
     switch (aTopology)
@@ -243,7 +251,7 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetInputTopology(const InputTo
     }
 
     Assert(topology != VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
-    inputAssembly.topology = topology;
+    inputAssembly->topology = topology;
 
     return *this;
 }

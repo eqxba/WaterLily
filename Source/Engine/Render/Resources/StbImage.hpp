@@ -1,7 +1,11 @@
 #pragma once
 
 #include <volk.h>
+
+DISABLE_WARNINGS_BEGIN
 #include <stb_image.h>
+DISABLE_WARNINGS_END
+
 
 #include "Engine/FileSystem/FilePath.hpp"
 

@@ -1,5 +1,10 @@
 #include "Engine/Render/Resources/StbImage.hpp"
 
+DISABLE_WARNINGS_BEGIN
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+DISABLE_WARNINGS_END
+
 StbImage::StbImage(const FilePath& path)
 {
     Assert(path.Exists());

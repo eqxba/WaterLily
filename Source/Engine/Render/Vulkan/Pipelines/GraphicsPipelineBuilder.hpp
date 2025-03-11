@@ -66,7 +66,7 @@ private:
     std::vector<ShaderModule> shaderModules;
     VertexBindings vertexBindings;
     VertexAttributes vertexAttributes;
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly;
+    std::optional<VkPipelineInputAssemblyStateCreateInfo> inputAssembly;
     VkPipelineViewportStateCreateInfo viewportState;
     VkPipelineRasterizationStateCreateInfo rasterizer;
     VkPipelineColorBlendAttachmentState colorBlendAttachmentState;

@@ -140,21 +140,38 @@ namespace DeviceDetails
 
         std::ranges::transform(uniqueQueueFamilyIndices, std::back_inserter(queueCreateInfos), createQueueCreateInfo);
 
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.samplerAnisotropy = VK_TRUE;
-        deviceFeatures.multiDrawIndirect = VK_TRUE;
-        // deviceFeatures.sampleRateShading = VK_TRUE;
+        constexpr VkPhysicalDeviceFeatures deviceFeatures = {
+            .multiDrawIndirect = VK_TRUE,
+            .samplerAnisotropy = VK_TRUE };
 
-        VkDeviceCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-        createInfo.pQueueCreateInfos = queueCreateInfos.data();
-        createInfo.pEnabledFeatures = &deviceFeatures;
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(VulkanConfig::requiredDeviceExtensions.size());
-        createInfo.ppEnabledExtensionNames = VulkanConfig::requiredDeviceExtensions.data();
-        // In previous sdk versions it was required to duplicate provided to instance layers but anyways i'm gonna use
-        // ray tracing so screw it
-        createInfo.enabledLayerCount = 0;
+        VkPhysicalDeviceVulkan11Features deviceFeatures11 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+            .storageBuffer16BitAccess = VK_TRUE };
+
+        VkPhysicalDeviceVulkan12Features deviceFeatures12 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+            .pNext = &deviceFeatures11,
+            .storageBuffer8BitAccess = VK_TRUE,
+            .shaderInt8 = VK_TRUE };
+
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+            .pNext = &deviceFeatures12,
+            .taskShader = VK_TRUE,
+            .meshShader = VK_TRUE };
+
+        VkPhysicalDeviceFeatures2 deviceFeatures2 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &meshShaderFeatures,
+            .features = deviceFeatures };
+
+        VkDeviceCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext = &deviceFeatures2,
+            .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+            .pQueueCreateInfos = queueCreateInfos.data(),
+            .enabledExtensionCount = static_cast<uint32_t>(VulkanConfig::requiredDeviceExtensions.size()),
+            .ppEnabledExtensionNames = VulkanConfig::requiredDeviceExtensions.data() };
 
         VkDevice device;
         const VkResult result = vkCreateDevice(physicalDevice, &createInfo, nullptr, &device);

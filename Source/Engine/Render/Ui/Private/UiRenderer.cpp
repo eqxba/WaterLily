@@ -14,8 +14,8 @@
 
 namespace UiRendererDetails
 {
-    static constexpr std::string_view vertexShaderPath = "~/Shaders/ui.vert";
-    static constexpr std::string_view fragmentShaderPath = "~/Shaders/ui.frag";
+    static constexpr std::string_view vertexShaderPath = "~/Shaders/Ui.vert";
+    static constexpr std::string_view fragmentShaderPath = "~/Shaders/Ui.frag";
 
     static std::tuple<Buffer, int, int> LoadFontTexture(const ImGuiIO& io, const VulkanContext& vulkanContext)
     {

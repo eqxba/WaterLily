@@ -6,4 +6,6 @@ namespace RenderOptions
     int renderer = 0;
     // 0 - scene renderer
     // 1 - compute renderer
+
+    RenderPipeline pipeline = RenderPipeline::eMesh;
 }

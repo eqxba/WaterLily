@@ -9,7 +9,7 @@
 
 namespace ComputeRendererDetails
 {
-    static constexpr std::string_view shaderPath = "~/Shaders/gradient.comp";
+    static constexpr std::string_view shaderPath = "~/Shaders/Gradient.comp";
 
     static RenderTarget CreateRenderTarget(const VulkanContext& vulkanContext)
     {

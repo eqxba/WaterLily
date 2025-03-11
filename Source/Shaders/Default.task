@@ -1,0 +1,49 @@
+#version 450
+
+#extension GL_EXT_mesh_shader: require
+#extension GL_GOOGLE_include_directive: require
+
+#include "Common.h"
+#include "Config.h"
+
+layout(local_size_x = TASK_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) readonly uniform Ubo 
+{
+    UniformBufferObject ubo; 
+};
+
+layout(set = 1, binding = 1, std430) readonly buffer Transforms 
+{
+    mat4 transforms[]; 
+};
+
+layout(set = 1, binding = 3, std430) readonly buffer Meshlets 
+{
+    Meshlet meshlets[]; 
+};
+
+layout(set = 1, binding = 4, std430) readonly buffer Primitives 
+{
+    Primitive primitives[]; 
+};
+
+layout(set = 1, binding = 5, std430) readonly buffer Draws 
+{
+    Draw draws[]; 
+};
+
+taskPayloadSharedEXT TaskPayload payload;
+
+// Each task shader thread produces one meshlet
+void main()
+{
+    uint drawId = gl_WorkGroupID.x;
+    Draw draw = draws[drawId];
+
+    // TODO: This is garbage, I need another data structures and different payload
+    payload.meshletIndex = draw.firstMeshletIndex;
+    payload.primitiveIndex = draw.primitiveIndex;
+
+    EmitMeshTasksEXT(draw.meshletCount, 1, 1);    
+}

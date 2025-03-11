@@ -19,6 +19,12 @@ namespace ShaderModuleDetails
             case ShaderType::eCompute:
                 result = VK_SHADER_STAGE_COMPUTE_BIT;
                 break;
+            case ShaderType::eTask:
+                result = VK_SHADER_STAGE_TASK_BIT_EXT;
+                break;
+            case ShaderType::eMesh:
+                result = VK_SHADER_STAGE_MESH_BIT_EXT;
+                break;
         }
 
         return result;

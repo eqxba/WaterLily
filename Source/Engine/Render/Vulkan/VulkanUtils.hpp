@@ -7,7 +7,6 @@
 class VulkanContext;
 class RenderPass;
 class CommandBufferSync;
-class Scene;
 class Buffer;
 class Swapchain;
 class ImageView;
@@ -39,8 +38,6 @@ namespace VulkanUtils
     VkFramebuffer CreateFrameBuffer(const RenderPass& renderPass, VkExtent2D extent,
         const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext);
     void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext);
-
-    std::tuple<Buffer, uint32_t> CreateIndirectBuffer(const Scene& scene, const VulkanContext& vulkanContext);
 
     VkViewport GetViewport(float width, float height);
     VkRect2D GetScissor(VkExtent2D extent);

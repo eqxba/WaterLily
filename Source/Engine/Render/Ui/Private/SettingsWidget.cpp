@@ -37,6 +37,12 @@ void SettingsWidget::Build()
     if (ImGui::CollapsingHeader("Render options", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Combo("Renderer", &RenderOptions::renderer, "Scene\0Compute\0\0");
+
+        if (RenderOptions::renderer == 0)
+        {
+            // TODO: There's a better way to do this 100%
+            ImGui::Combo("Pipeline", reinterpret_cast<int*>(&RenderOptions::pipeline), "Mesh\0Vertex\0\0");
+        }
     }
     
     if (ImGui::CollapsingHeader("Misc."))

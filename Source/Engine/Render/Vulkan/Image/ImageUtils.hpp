@@ -1,6 +1,8 @@
 #pragma once
 
+DISABLE_WARNINGS_BEGIN
 #include <glm/glm.hpp>
+DISABLE_WARNINGS_END
 
 #include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/ImageView.hpp"

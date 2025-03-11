@@ -25,5 +25,5 @@ namespace FileSystem
 
 namespace FileFilters
 {
-    constexpr FileSystem::FileFilter gltf = {"GLTF scenes (*.gltf)", "*.gltf"};
+    constexpr FileSystem::FileFilter gltf = { "GLTF scenes (*.gltf, *.glb)", "*.gltf, *.glb" };
 }

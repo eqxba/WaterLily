@@ -26,16 +26,6 @@ public:
     Scene(Scene&&) = delete;
     Scene& operator=(Scene&&) = delete;    
 
-    const SceneNode& GetRoot() const
-    {
-        return *root;
-    }
-
-    const std::vector<SceneNode*>& GetNodes() const
-    {
-        return nodes;
-    }
-
     const Buffer& GetVertexBuffer() const
     {
         return vertexBuffer;
@@ -46,9 +36,9 @@ public:
         return indexBuffer;
     }
 
-    const Buffer& GetTransformsBuffer() const
+    const Buffer& GetIndirectBuffer() const
     {
-        return transformsBuffer;
+        return indirectBuffer;
     }
 
     const std::vector<VkDescriptorSet>& GetGlobalDescriptors() const
@@ -56,19 +46,14 @@ public:
         return globalDescriptors;
     }
 
-    const std::vector<Vertex>& GetVertices() const
+    uint32_t GetDrawCount() const
     {
-        return vertices;
+        return drawCount;
     }
 
-    const std::vector<uint32_t>& GetIndices() const
+    uint32_t GetIndirectDrawCount() const
     {
-        return indices;
-    }
-
-    const Texture& GetTexture() const
-    {
-        return texture;
+        return indirectDrawCount;
     }
 
     CameraComponent& GetCamera()
@@ -85,21 +70,24 @@ private:
 
     const VulkanContext& vulkanContext;
 
-    std::unique_ptr<SceneNode> root;
-    std::vector<SceneNode*> nodes;
-
     Buffer vertexBuffer;
     Buffer indexBuffer;
-
-    Buffer transformsBuffer;
+    Buffer transformBuffer;
+    Buffer meshletDataBuffer;
+    Buffer meshletBuffer;
+    Buffer primitiveBuffer;
+    Buffer drawBuffer;
+    Buffer indirectBuffer;
 
     Texture texture;
 
     std::vector<VkDescriptorSet> globalDescriptors;
     DescriptorSetLayout globalDescriptorSetLayout;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    uint32_t drawCount = 0;
+    uint32_t indirectDrawCount = 0;
+
+    RawScene rawScene;
 
     CameraComponent camera = {};
     

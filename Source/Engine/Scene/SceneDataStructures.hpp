@@ -1,72 +1,50 @@
 #pragma once
 
+#include "Shaders/Common.h"
 #include "Utils/Constants.hpp"
 
 #include <volk.h>
-
-DISABLE_WARNINGS_BEGIN
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-DISABLE_WARNINGS_END
-
-struct Vertex
-{
-    static std::vector<VkVertexInputBindingDescription> GetBindings();
-    static std::vector<VkVertexInputAttributeDescription> GetAttributes();
-
-    bool operator==(const Vertex& other) const;
-
-    glm::vec3 pos = Vector3::zero;
-    glm::vec3 normal = Vector3::zero;
-    glm::vec2 uv = Vector2::zero;
-    glm::vec3 color = Vector3::zero;
-    glm::vec4 tangent = Vector4::zero;
-};
-
-struct Primitive
-{
-    uint32_t firstIndex = 0;
-    uint32_t indexCount = 0;
-    uint32_t nodeId = 0; // Id of the parent node in the scene nodes array
-};
-
-struct Mesh
-{
-    std::vector<Primitive> primitives;
-};
-
-struct SceneNode
-{
-    SceneNode* parent = nullptr;
-    std::vector<std::unique_ptr<SceneNode>> children;
-
-    Mesh mesh;
-    glm::mat4 transform = Matrix4::identity;
-
-    bool visible = true;
-    std::string name;
-};
 
 struct PushConstants
 {
     uint32_t tbd;
 };
 
-namespace std
+struct Primitive
 {
-    template<>
-    struct hash<Vertex>
-    {
-        size_t operator()(Vertex const& vertex) const
-        {
-            size_t seed = 0; // Golden Ratio Hashing (Fibonacci Hashing)
-            seed ^= std::hash<glm::vec3>()(vertex.pos) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= std::hash<glm::vec3>()(vertex.normal) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= std::hash<glm::vec2>()(vertex.uv) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= std::hash<glm::vec3>()(vertex.color) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= std::hash<glm::vec4>()(vertex.tangent) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
-}
+    uint32_t firstIndex = 0;
+    uint32_t indexCount = 0;
+    uint32_t vertexOffset = 0;
+
+    uint32_t firstMeshletIndex = 0;
+    uint32_t meshletCount = 0;
+
+    uint32_t materialIndex = 0; // TODO: Implement real materials
+};
+
+// TODO: Another scene elements structs - I don't like these ones
+struct Mesh
+{
+    uint32_t firstPrimitiveIndex = 0;
+    uint32_t primitiveCount = 0;
+
+    uint32_t transformIndex = 0;
+};
+
+struct RawScene
+{
+    std::vector<gpu::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<glm::mat4> transforms;
+
+    std::vector<uint32_t> meshletData;
+    std::vector<gpu::Meshlet> meshlets;
+
+    std::vector<Primitive> primitives;
+    std::vector<Mesh> meshes;
+
+    std::vector<gpu::Primitive> gpuPrimitives;
+    std::vector<gpu::Draw> draws;
+
+    std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+};

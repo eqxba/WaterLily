@@ -7,10 +7,6 @@
 #include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
 #include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
 
-DISABLE_WARNINGS_BEGIN
-#include <tiny_gltf.h>
-DISABLE_WARNINGS_END
-
 namespace SceneDetails
 {
     static constexpr std::string_view imagePath = "~/Assets/texture.png";
@@ -20,21 +16,22 @@ DescriptorSetLayout Scene::GetGlobalDescriptorSetLayout(const VulkanContext& vul
 {
     // TODO: Parse from SPIR-V reflection
     return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
-        .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-        .AddBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .AddBinding(2, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_EXT) 
+        .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT)
+        .AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_EXT)
+        .AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT)
+        .AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT) // + fragment shader for materials
+        .AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT)
+        .AddBinding(6, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .AddBinding(7, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .Build();
 }
 
 Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
-    , root{ std::make_unique<SceneNode>() }
     , path{ std::move(aPath) }
 {
     InitFromGltfScene();
-    InitBuffers();
-    InitTexture();
-    InitGlobalDescriptors();
 }
 
 Scene::~Scene()
@@ -48,19 +45,18 @@ void Scene::InitFromGltfScene()
 {
     using namespace SceneHelpers;
 
-    std::unique_ptr<tinygltf::Model> gltfModel = LoadGltfScene(path);
-
+    if (std::optional<RawScene> loadResult = LoadGltfScene(path); loadResult)
     {
-        ScopeTimer timer("Convert gltf scene");
+        rawScene = std::move(loadResult.value());
 
-        for (size_t i = 0; i < gltfModel->scenes[0].nodes.size(); i++)
-        {
-            root->children.emplace_back(LoadGltfHierarchy(gltfModel->nodes[i], *gltfModel, indices, vertices));
-        }
+        InitBuffers();
+        InitTexture();
+        InitGlobalDescriptors();
 
-        nodes = GetFlattenNodes(*root);
+        drawCount = static_cast<uint32_t>(rawScene.draws.size());
+        indirectDrawCount = static_cast<uint32_t>(rawScene.indirectCommands.size());
 
-        AssignNodeIdsToPrimitives(nodes);
+        rawScene.~RawScene();
     }
 }
 
@@ -68,16 +64,16 @@ void Scene::InitBuffers()
 {
     using namespace BufferUtils;
 
-    const std::span verticesSpan(std::as_const(vertices));
+    const std::span verticesSpan(std::as_const(rawScene.vertices));
 
     BufferDescription vertexBufferDescription{
         .size = verticesSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
     vertexBuffer = Buffer(std::move(vertexBufferDescription), true, verticesSpan, vulkanContext);
 
-    const std::span indicesSpan(std::as_const(indices));
+    const std::span indicesSpan(std::as_const(rawScene.indices));
 
     BufferDescription indexBufferDescription{
         .size = indicesSpan.size_bytes(),
@@ -86,31 +82,85 @@ void Scene::InitBuffers()
 
     indexBuffer = Buffer(std::move(indexBufferDescription), true, indicesSpan, vulkanContext);
 
-    const std::vector<glm::mat4> transforms = SceneHelpers::GetBakedTransforms(*root);
-    const std::span transformsSpan(std::as_const(transforms));
+    const std::span transformsSpan(std::as_const(rawScene.transforms));
 
     BufferDescription transformsBufferDescription{
         .size = transformsSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-    transformsBuffer = Buffer(std::move(transformsBufferDescription), true, transformsSpan, vulkanContext);
+    transformBuffer = Buffer(std::move(transformsBufferDescription), true, transformsSpan, vulkanContext);
+
+    const std::span meshletDataSpan(std::as_const(rawScene.meshletData));
+
+    BufferDescription meshletDataBufferDescription{
+        .size = meshletDataSpan.size_bytes(),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    meshletDataBuffer = Buffer(std::move(meshletDataBufferDescription), true, meshletDataSpan, vulkanContext);
+
+    const std::span meshletsSpan(std::as_const(rawScene.meshlets));
+
+    BufferDescription meshletBufferDescription{
+        .size = meshletsSpan.size_bytes(),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    meshletBuffer = Buffer(std::move(meshletBufferDescription), true, meshletsSpan, vulkanContext);
+
+    const std::span primitiveSpan(std::as_const(rawScene.gpuPrimitives));
+
+    BufferDescription primitiveBufferDescription{
+        .size = primitiveSpan.size_bytes(),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    primitiveBuffer = Buffer(std::move(primitiveBufferDescription), true, primitiveSpan, vulkanContext);
+
+    const std::span drawsSpan(std::as_const(rawScene.draws));
+
+    BufferDescription drawsBufferDescription{
+        .size = drawsSpan.size_bytes(),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    drawBuffer = Buffer(std::move(drawsBufferDescription), true, drawsSpan, vulkanContext);
+
+    std::span indirectCommandsSpan(std::as_const(rawScene.indirectCommands));
+
+    BufferDescription indirectBufferDescription = {
+        .size = indirectCommandsSpan.size_bytes(),
+        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+    indirectBuffer = Buffer(std::move(indirectBufferDescription), true, indirectCommandsSpan, vulkanContext);
 
     vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
         CopyBufferToBuffer(commandBuffer, vertexBuffer.GetStagingBuffer(), vertexBuffer);
         CopyBufferToBuffer(commandBuffer, indexBuffer.GetStagingBuffer(), indexBuffer);
-        CopyBufferToBuffer(commandBuffer, transformsBuffer.GetStagingBuffer(), transformsBuffer);
+        CopyBufferToBuffer(commandBuffer, transformBuffer.GetStagingBuffer(), transformBuffer);
+        CopyBufferToBuffer(commandBuffer, meshletDataBuffer.GetStagingBuffer(), meshletDataBuffer);
+        CopyBufferToBuffer(commandBuffer, meshletBuffer.GetStagingBuffer(), meshletBuffer);
+        CopyBufferToBuffer(commandBuffer, primitiveBuffer.GetStagingBuffer(), primitiveBuffer);
+        CopyBufferToBuffer(commandBuffer, drawBuffer.GetStagingBuffer(), drawBuffer);
+        CopyBufferToBuffer(commandBuffer, indirectBuffer.GetStagingBuffer(), indirectBuffer);
 
         SynchronizationUtils::SetMemoryBarrier(commandBuffer, {
             .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
             .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-            .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_SHADER_READ_BIT });
+            .dstStage = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT });
     });
 
     vertexBuffer.DestroyStagingBuffer();
     indexBuffer.DestroyStagingBuffer();
-    transformsBuffer.DestroyStagingBuffer();
+    transformBuffer.DestroyStagingBuffer();
+    meshletDataBuffer.DestroyStagingBuffer();
+    meshletBuffer.DestroyStagingBuffer();
+    primitiveBuffer.DestroyStagingBuffer();
+    drawBuffer.DestroyStagingBuffer();
+    indirectBuffer.DestroyStagingBuffer();
 }
 
 void Scene::InitTexture()
@@ -162,9 +212,14 @@ void Scene::InitGlobalDescriptors()
     globalDescriptorSetLayout = GetGlobalDescriptorSetLayout(vulkanContext);
 
     const auto [descriptor, layout] = vulkanContext.GetDescriptorSetsManager().GetDescriptorSetBuilder(globalDescriptorSetLayout)
-        .Bind(0, transformsBuffer)
-        .Bind(1, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-        .Bind(2, texture.sampler)
+        .Bind(0, vertexBuffer)
+        .Bind(1, transformBuffer)
+        .Bind(2, meshletDataBuffer)
+        .Bind(3, meshletBuffer)
+        .Bind(4, primitiveBuffer)
+        .Bind(5, drawBuffer)
+        .Bind(6, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        .Bind(7, texture.sampler)
         .Build();
 
     globalDescriptors.push_back(descriptor);

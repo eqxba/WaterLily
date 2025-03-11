@@ -1,12 +1,9 @@
 #pragma once
 
-#include "macros.hpp"
 #include "Utils/Constants.hpp"
 
 DISABLE_WARNINGS_BEGIN
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
 DISABLE_WARNINGS_END
 
 class CameraComponent

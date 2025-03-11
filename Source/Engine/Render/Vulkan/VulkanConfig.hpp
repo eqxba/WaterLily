@@ -15,6 +15,7 @@ namespace VulkanConfig
     const std::vector<const char*> requiredDeviceExtensions =
     {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_MESH_SHADER_EXTENSION_NAME,
 #ifdef PLATFORM_MAC
         "VK_KHR_portability_subset"
 #endif

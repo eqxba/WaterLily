@@ -17,6 +17,8 @@ namespace ShaderCompilerDetails
         { ShaderType::eVertex, EShLangVertex },
         { ShaderType::eFragment, EShLangFragment },
         { ShaderType::eCompute, EShLangCompute },
+        { ShaderType::eTask, EShLangTask },
+        { ShaderType::eMesh, EShLangMesh },
     };
 }
 

@@ -4,6 +4,7 @@
 
 #include "Shaders/Common.h"
 #include "Engine/Render/Renderer.hpp"
+#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
@@ -22,6 +23,7 @@ namespace ES
     struct TryReloadShaders;
     struct SceneOpened;
     struct SceneClosed;
+    struct KeyInput;
 }
 
 class SceneRenderer : public Renderer
@@ -41,7 +43,8 @@ public:
     void Render(const Frame& frame) override;
 
 private:
-    void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
+    void CreateMeshPipeline(std::vector<ShaderModule>&& shaderModules);
+    void CreateVertexPipeline(std::vector<ShaderModule>&& shaderModules);
 
     void CreateRenderTargetsAndFramebuffers();
     void DestroyRenderTargetsAndFramebuffers();
@@ -51,21 +54,20 @@ private:
     void OnTryReloadShaders(const ES::TryReloadShaders& event);
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose(const ES::SceneClosed& event);
+    void OnKeyInput(const ES::KeyInput& event);
 
     const VulkanContext* vulkanContext = nullptr;
 
     EventSystem* eventSystem = nullptr;
 
     RenderPass renderPass;
-    Pipeline graphicsPipeline;
+    Pipeline meshPipeline;
+    Pipeline vertexPipeline;
 
     RenderTarget colorTarget;
     RenderTarget depthTarget;
 
     std::vector<VkFramebuffer> framebuffers;
-
-    Buffer indirectBuffer;
-    uint32_t indirectDrawCount = 0;
 
     std::vector<Buffer> uniformBuffers;
 
@@ -75,4 +77,6 @@ private:
     gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
 
     Scene* scene = nullptr;
+
+    RenderPipeline cachedPipeline;
 };

@@ -1,0 +1,129 @@
+#version 450
+
+#extension GL_EXT_mesh_shader: require
+#extension GL_GOOGLE_include_directive: require
+
+#include "Math.h"
+#include "Common.h"
+#include "Config.h"
+
+layout(local_size_x = MESH_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) readonly uniform Ubo 
+{
+    UniformBufferObject ubo; 
+};
+
+layout(set = 1, binding = 0, std430) readonly buffer Vertices 
+{
+    Vertex vertices[]; 
+};
+
+layout(set = 1, binding = 1, std430) readonly buffer Transforms 
+{
+    mat4 transforms[]; 
+};
+
+layout(set = 1, binding = 2, std430) readonly buffer MeshletData8 
+{
+    uint8_t meshletData8[];
+};
+
+layout(set = 1, binding = 2, std430) readonly buffer MeshletData16 
+{
+    uint16_t meshletData16[];
+};
+
+layout(set = 1, binding = 2, std430) readonly buffer MeshletData32
+{
+    uint meshletData32[];
+};
+
+layout(set = 1, binding = 3, std430) readonly buffer Meshlets 
+{
+    Meshlet meshlets[]; 
+};
+
+layout(set = 1, binding = 4, std430) readonly buffer Primitives 
+{
+    Primitive primitives[]; 
+};
+
+layout(triangles, max_vertices = MAX_MESHLET_VERTICES, max_primitives = MAX_MESHLET_TRIANGLES) out;
+
+layout(location = 0) out vec3 outNormal[];
+layout(location = 1) out vec4 outTangent[];
+layout(location = 2) out vec2 outUv[];
+layout(location = 3) out vec4 outColor[];
+
+taskPayloadSharedEXT TaskPayload payload;
+
+// Each mesh shader workgroup processes 1 meshlet in parallel
+void main()
+{
+    uint threadIndex = gl_LocalInvocationIndex;
+    uint meshletIndex = payload.meshletIndex + gl_WorkGroupID.x;
+
+    uint dataOffset = meshlets[meshletIndex].dataOffset;
+    uint baseVertexIndex = meshlets[meshletIndex].baseVertexIndex;
+    bool bShortVertexOffsets = uint(meshlets[meshletIndex].bShortVertexOffsets) == 1;
+    uint vertexCount = uint(meshlets[meshletIndex].vertexCount);
+    uint triangleCount = uint(meshlets[meshletIndex].triangleCount);
+
+    SetMeshOutputsEXT(vertexCount, triangleCount);
+
+    uint meshletHash = hash(meshletIndex);
+    vec3 hashColor = vec3(float(meshletHash & 255), float((meshletHash >> 8) & 255), float((meshletHash >> 16) & 255)) / 255.0;
+
+    for (uint i = threadIndex; i < vertexCount;)
+    {
+        uint vertexOffset = bShortVertexOffsets 
+            ? uint(meshletData16[dataOffset * 2 + i]) 
+            : meshletData32[dataOffset + i];
+
+        uint vertexIndex = baseVertexIndex + vertexOffset;
+
+        vec3 position = vertices[vertexIndex].posAndU.xyz;
+        vec3 normal = vertices[vertexIndex].normalAndV.xyz;
+        vec4 tangent = vertices[vertexIndex].tangent;
+        vec2 uv = vec2(vertices[vertexIndex].posAndU.w, vertices[vertexIndex].normalAndV.w);
+        //vec4 color = vertices[vertexIndex].color;   
+        vec4 color = vec4(hashColor, 1.0);
+
+        // TODO: Optimize vertex inputs and decompose transform
+        mat4 mvp = ubo.projection * ubo.view * transforms[primitives[payload.primitiveIndex].transformIndex];
+
+        vec4 clip = mvp * vec4(position, 1.0);
+
+        gl_MeshVerticesEXT[i].gl_Position = clip;
+        outNormal[i] = normal;
+        outTangent[i] = tangent;
+        outUv[i] = uv;
+        outColor[i] = color;
+
+        #if MAX_MESHLET_VERTICES <= MESH_WG_SIZE
+            break;
+        #else
+            i += MESH_WG_SIZE;
+        #endif
+    }
+
+    uint indexOffset = dataOffset + (bShortVertexOffsets ? (vertexCount + 1) / 2 : vertexCount);
+
+    for (uint i = threadIndex; i < triangleCount;)
+    {
+        uint offset = indexOffset * 4 + i * 3;
+
+        uint a = uint(meshletData8[offset]);
+        uint b = uint(meshletData8[offset + 1]);
+        uint c = uint(meshletData8[offset + 2]);
+
+        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(a, b, c);
+
+        #if MAX_MESHLET_TRIANGLES <= MESH_WG_SIZE
+            break;
+        #else
+            i += MESH_WG_SIZE;
+        #endif
+    }
+}

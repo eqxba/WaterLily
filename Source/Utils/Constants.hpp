@@ -1,6 +1,8 @@
 #pragma once
 
+DISABLE_WARNINGS_BEGIN
 #include <glm/glm.hpp>
+DISABLE_WARNINGS_END
 
 namespace Vector2
 {

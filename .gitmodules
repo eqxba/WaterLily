@@ -25,3 +25,12 @@
 [submodule "External/glslang"]
 	path = External/glslang
 	url = https://github.com/KhronosGroup/glslang.git
+[submodule "External/meshoptimizer"]
+	path = External/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git
+[submodule "External/stb"]
+	path = External/stb
+	url = https://github.com/nothings/stb.git
+[submodule "External/cgltf"]
+	path = External/cgltf
+	url = https://github.com/jkuhlmann/cgltf.git

@@ -1,6 +1,5 @@
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 
-#include "Engine/Scene/Scene.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
@@ -149,56 +148,6 @@ void VulkanUtils::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, 
     });
 
     framebuffers.clear();
-}
-
-std::tuple<Buffer, uint32_t> VulkanUtils::CreateIndirectBuffer(const Scene& scene, const VulkanContext& vulkanContext)
-{
-    using namespace BufferUtils;
-
-    std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
-
-    const auto createDrawCommand = [&](const Primitive& primitive) {
-        VkDrawIndexedIndirectCommand indirectCommand{};
-        indirectCommand.instanceCount = 1;
-        indirectCommand.firstIndex = primitive.firstIndex;
-        indirectCommand.indexCount = primitive.indexCount;
-        indirectCommand.firstInstance = primitive.nodeId; // Using this to access transforms SSBO in shaders
-
-        return indirectCommand;
-    };
-
-    std::ranges::for_each(scene.GetNodes(), [&](const SceneNode* node) {
-
-        if (!node->visible)
-        {
-            return;
-        }
-
-        std::ranges::transform(node->mesh.primitives, std::back_inserter(indirectCommands), createDrawCommand);
-    });
-
-    std::span indirectCommandsSpan(std::as_const(indirectCommands));
-
-    BufferDescription indirectBufferDescription = {
-        .size = indirectCommandsSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    auto indirectBuffer = Buffer(indirectBufferDescription, true, indirectCommandsSpan, vulkanContext);
-
-    vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
-        CopyBufferToBuffer(commandBuffer, indirectBuffer.GetStagingBuffer(), indirectBuffer);
-
-        SynchronizationUtils::SetMemoryBarrier(commandBuffer, {
-            .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-            .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT });
-    });
-
-    indirectBuffer.DestroyStagingBuffer();
-
-    return { std::move(indirectBuffer), static_cast<uint32_t>(indirectCommands.size()) };
 }
 
 VkViewport VulkanUtils::GetViewport(const float width, const float height)

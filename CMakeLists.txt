@@ -30,6 +30,9 @@ add_subdirectory(External/glslang)
 # imgui
 set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/External/imgui")
 
+# meshoptimizer
+add_subdirectory(External/meshoptimizer)
+
 file(GLOB IMGUI_HEADERS LIST_DIRECTORIES false
     "${IMGUI_DIR}/misc/cpp/*.h"
     "${IMGUI_DIR}/examples/*glfw*.h"
@@ -53,9 +56,9 @@ target_include_directories(${TARGET_NAME} PRIVATE
     External/VulkanMemoryAllocator/include
     External/glm/
     External/volk/
-    External/tinygltf
-    External/tinyobjloader
-    External/portable-file-dialogs
+    External/stb/
+    External/portable-file-dialogs/
+    External/cgltf/
     Source/
 )
 
@@ -64,6 +67,7 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE glfw
     PRIVATE glslang
     PRIVATE glslang-default-resource-limits
+    PRIVATE meshoptimizer
 )
 
 target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)

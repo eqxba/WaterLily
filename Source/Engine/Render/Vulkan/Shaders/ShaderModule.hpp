@@ -9,6 +9,8 @@ enum class ShaderType
     eVertex,
     eFragment,
     eCompute,
+    eTask,
+    eMesh,
 };
 
 class ShaderModule
