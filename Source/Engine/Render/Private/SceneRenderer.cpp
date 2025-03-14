@@ -313,7 +313,7 @@ void SceneRenderer::DestroyRenderTargetsAndFramebuffers()
     depthTarget.~RenderTarget();
 }
 
-void SceneRenderer::SetGraphicsPipeline(GraphicsPipelineType aGraphicsPipelineType)
+void SceneRenderer::SetGraphicsPipeline(const GraphicsPipelineType aGraphicsPipelineType)
 {
     graphicsPipelineType = aGraphicsPipelineType;
     graphicsPipeline = graphicsPipelineType == GraphicsPipelineType::eMesh ? &meshPipeline : &vertexPipeline;

@@ -12,6 +12,11 @@ void RenderOptions::Initialize(const VulkanContext& vulkanContext, EventSystem& 
     RenderOptionsDetails::renderOptions = std::make_unique<RenderOptions>(vulkanContext, eventSystem);
 }
 
+void RenderOptions::Deinitialize()
+{
+    RenderOptionsDetails::renderOptions.reset();
+}
+
 RenderOptions& RenderOptions::Get()
 {
     Assert(RenderOptionsDetails::renderOptions);

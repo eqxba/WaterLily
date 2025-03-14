@@ -32,6 +32,8 @@ class RenderOptions
 {
 public:
     static void Initialize(const VulkanContext& vulkanContext, EventSystem& eventSystem);
+    static void Deinitialize();
+    
     static RenderOptions& Get();
     
     RenderOptions(const VulkanContext& vulkanContext, EventSystem& eventSystem);

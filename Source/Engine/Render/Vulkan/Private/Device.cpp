@@ -135,6 +135,8 @@ namespace DeviceDetails
     static VkDevice CreateLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice,
         const DeviceProperties& properties)
     {
+        using namespace VulkanConfig;
+
         QueueFamilyIndices indices = GetQueueFamilyIndices(vulkanContext, physicalDevice);
 
         float queuePriority = 1.0f;
@@ -187,13 +189,20 @@ namespace DeviceDetails
             .pNext = &deviceFeatures12,
             .features = deviceFeatures };
 
+        std::vector enabledExtensions(requiredDeviceExtensions.begin(), requiredDeviceExtensions.end());
+
+        if (properties.meshShadersSupported)
+        {
+            enabledExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+        }
+
         VkDeviceCreateInfo createInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &deviceFeatures2,
             .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
             .pQueueCreateInfos = queueCreateInfos.data(),
-            .enabledExtensionCount = static_cast<uint32_t>(VulkanConfig::requiredDeviceExtensions.size()),
-            .ppEnabledExtensionNames = VulkanConfig::requiredDeviceExtensions.data() };
+            .enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size()),
+            .ppEnabledExtensionNames = enabledExtensions.data() };
 
         VkDevice device;
         const VkResult result = vkCreateDevice(physicalDevice, &createInfo, nullptr, &device);

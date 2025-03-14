@@ -54,5 +54,5 @@ private:
     uint32_t currentFrame = 0;
     
     RendererType rendererType;
-    Renderer* renderer;
+    Renderer* renderer = nullptr;
 };

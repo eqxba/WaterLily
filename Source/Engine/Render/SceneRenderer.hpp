@@ -81,5 +81,5 @@ private:
     Scene* scene = nullptr;
     
     GraphicsPipelineType graphicsPipelineType;
-    Pipeline* graphicsPipeline;
+    Pipeline* graphicsPipeline = nullptr;
 };

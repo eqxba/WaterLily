@@ -48,6 +48,8 @@ VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
 VulkanContext::~VulkanContext()
 {
     eventSystem.UnsubscribeAll(this);
+
+    RenderOptions::Deinitialize();
 }
 
 void VulkanContext::OnResize(const ES::WindowResized& event)
