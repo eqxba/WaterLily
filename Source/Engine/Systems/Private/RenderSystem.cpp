@@ -1,7 +1,6 @@
 #include "Engine/Systems/RenderSystem.hpp"
 
 #include "Engine/EventSystem.hpp"
-#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/SceneRenderer.hpp"
 #include "Engine/Render/Ui/UiRenderer.hpp"
 #include "Engine/Render/ComputeRenderer.hpp"
@@ -34,23 +33,23 @@ namespace RenderSystemDetails
 }
 
 RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
-    : vulkanContext{ aVulkanContext }
+    : vulkanContext{ &aVulkanContext }
+    , renderOptions{ &RenderOptions::Get() }
     , eventSystem{ aEventSystem }
-    , sceneRenderer{ std::make_unique<SceneRenderer>(eventSystem, vulkanContext) }
-    , computeRenderer{ std::make_unique<ComputeRenderer>(eventSystem, vulkanContext) }
-    , uiRenderer{ std::make_unique<UiRenderer>(window, eventSystem, vulkanContext) }
+    , sceneRenderer{ std::make_unique<SceneRenderer>(eventSystem, aVulkanContext) }
+    , computeRenderer{ std::make_unique<ComputeRenderer>(eventSystem, aVulkanContext) }
+    , uiRenderer{ std::make_unique<UiRenderer>(window, eventSystem, aVulkanContext) }
 {
     using namespace RenderSystemDetails;
     
     const auto createFrame = [&](const uint32_t index) {
-        return Frame(index, 0, CreateCommandBuffer(vulkanContext), CreateFrameSync(vulkanContext));
+        return Frame(index, 0, CreateCommandBuffer(*vulkanContext), CreateFrameSync(*vulkanContext));
     };
     
     const auto frameIndices = std::views::iota(static_cast<uint32_t>(0), VulkanConfig::maxFramesInFlight);
     std::ranges::transform(frameIndices, std::back_inserter(frames), createFrame);
     
-    cachedRenderer = RenderOptions::renderer;
-    renderer = cachedRenderer == 0 ? sceneRenderer.get() : computeRenderer.get();
+    SetRenderer(renderOptions->GetRendererType());
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
@@ -59,17 +58,16 @@ RenderSystem::~RenderSystem()
 {
     eventSystem.UnsubscribeAll(this);
 
-    vulkanContext.GetDevice().WaitIdle();
+    vulkanContext->GetDevice().WaitIdle();
     
-    vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
+    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
 }
 
 void RenderSystem::Process(const float deltaSeconds)
 {
-    if (cachedRenderer != RenderOptions::renderer)
+    if (rendererType != renderOptions->GetRendererType())
     {
-        cachedRenderer = RenderOptions::renderer;
-        renderer = cachedRenderer == 0 ? sceneRenderer.get() : computeRenderer.get();
+        SetRenderer(renderOptions->GetRendererType());
     }
     
     renderer->Process(deltaSeconds);
@@ -84,7 +82,7 @@ void RenderSystem::Render()
 
     const auto& [waitSemaphores, waitStages, signalSemaphores, fence] = frame.sync.AsTuple();
 
-    const Device& device = vulkanContext.GetDevice();
+    const Device& device = vulkanContext->GetDevice();
 
     // Wait for frame to finish execution and signal fence
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
@@ -111,7 +109,7 @@ void RenderSystem::Render()
 uint32_t RenderSystem::AcquireNextSwapchainImage(const VkSemaphore signalSemaphore) const
 {
     uint32_t imageIndex;
-    const VkResult acquireResult = vkAcquireNextImageKHR(vulkanContext.GetDevice(), vulkanContext.GetSwapchain(),
+    const VkResult acquireResult = vkAcquireNextImageKHR(vulkanContext->GetDevice(), vulkanContext->GetSwapchain(),
         std::numeric_limits<uint64_t>::max(), signalSemaphore, VK_NULL_HANDLE, &imageIndex);
     Assert(acquireResult == VK_SUCCESS || acquireResult == VK_SUBOPTIMAL_KHR);
 
@@ -120,7 +118,7 @@ uint32_t RenderSystem::AcquireNextSwapchainImage(const VkSemaphore signalSemapho
 
 void RenderSystem::Present(const std::vector<VkSemaphore>& waitSemaphores, const uint32_t imageIndex) const
 {
-    VkSwapchainKHR swapchains[] = { vulkanContext.GetSwapchain() };
+    VkSwapchainKHR swapchains[] = { vulkanContext->GetSwapchain() };
     
     VkPresentInfoKHR presentInfo = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     presentInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
@@ -130,8 +128,14 @@ void RenderSystem::Present(const std::vector<VkSemaphore>& waitSemaphores, const
     presentInfo.pImageIndices = &imageIndex;
     presentInfo.pResults = nullptr;
 
-    const VkResult presentResult = vkQueuePresentKHR(vulkanContext.GetDevice().GetQueues().present, &presentInfo);
+    const VkResult presentResult = vkQueuePresentKHR(vulkanContext->GetDevice().GetQueues().present, &presentInfo);
     Assert(presentResult == VK_SUCCESS);
+}
+
+void RenderSystem::SetRenderer(RendererType aRendererType)
+{
+    rendererType = aRendererType;
+    renderer = rendererType == RendererType::eScene ? sceneRenderer.get() : computeRenderer.get();
 }
 
 void RenderSystem::OnKeyInput(const ES::KeyInput& event)

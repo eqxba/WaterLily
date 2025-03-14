@@ -64,7 +64,7 @@ public:
 private:
     void InitFromGltfScene();
 
-    void InitBuffers();
+    void InitBuffers(const RawScene& rawScene);
     void InitTexture();
     void InitGlobalDescriptors();
 
@@ -86,8 +86,6 @@ private:
 
     uint32_t drawCount = 0;
     uint32_t indirectDrawCount = 0;
-
-    RawScene rawScene;
 
     CameraComponent camera = {};
     

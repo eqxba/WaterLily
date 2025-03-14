@@ -47,20 +47,18 @@ void Scene::InitFromGltfScene()
 
     if (std::optional<RawScene> loadResult = LoadGltfScene(path); loadResult)
     {
-        rawScene = std::move(loadResult.value());
+        RawScene rawScene = std::move(loadResult.value());
 
-        InitBuffers();
+        InitBuffers(rawScene);
         InitTexture();
         InitGlobalDescriptors();
 
         drawCount = static_cast<uint32_t>(rawScene.draws.size());
         indirectDrawCount = static_cast<uint32_t>(rawScene.indirectCommands.size());
-
-        rawScene.~RawScene();
     }
 }
 
-void Scene::InitBuffers()
+void Scene::InitBuffers(const RawScene& rawScene)
 {
     using namespace BufferUtils;
 
@@ -136,7 +134,21 @@ void Scene::InitBuffers()
 
     indirectBuffer = Buffer(std::move(indirectBufferDescription), true, indirectCommandsSpan, vulkanContext);
 
-    vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
+    PipelineBarrier barrier = {
+        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT };
+    
+    const Device& device = vulkanContext.GetDevice();
+    
+    if (device.GetProperties().meshShadersSupported)
+    {
+        barrier.dstStage |= VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT;
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+    }
+    
+    device.ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
         CopyBufferToBuffer(commandBuffer, vertexBuffer.GetStagingBuffer(), vertexBuffer);
         CopyBufferToBuffer(commandBuffer, indexBuffer.GetStagingBuffer(), indexBuffer);
         CopyBufferToBuffer(commandBuffer, transformBuffer.GetStagingBuffer(), transformBuffer);
@@ -145,12 +157,8 @@ void Scene::InitBuffers()
         CopyBufferToBuffer(commandBuffer, primitiveBuffer.GetStagingBuffer(), primitiveBuffer);
         CopyBufferToBuffer(commandBuffer, drawBuffer.GetStagingBuffer(), drawBuffer);
         CopyBufferToBuffer(commandBuffer, indirectBuffer.GetStagingBuffer(), indirectBuffer);
-
-        SynchronizationUtils::SetMemoryBarrier(commandBuffer, {
-            .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT });
+        
+        SynchronizationUtils::SetMemoryBarrier(commandBuffer, barrier);
     });
 
     vertexBuffer.DestroyStagingBuffer();
@@ -189,7 +197,7 @@ void Scene::InitTexture()
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, };
 
     SamplerDescription samplerDescription = {
-        .maxAnisotropy = vulkanContext.GetDevice().GetPhysicalDeviceProperties().limits.maxSamplerAnisotropy,
+        .maxAnisotropy = vulkanContext.GetDevice().GetProperties().physicalProperties.limits.maxSamplerAnisotropy,
         .maxLod = static_cast<float>(mipLevelsCount), };
     
     texture = Texture(std::move(textureDescription), std::move(samplerDescription), vulkanContext);

@@ -20,6 +20,13 @@ struct Queues
     QueueFamilyIndices familyIndices;
 };
 
+struct DeviceProperties
+{
+    VkPhysicalDeviceProperties physicalProperties;
+    VkSampleCountFlagBits maxSampleCount = VK_SAMPLE_COUNT_1_BIT;
+    bool meshShadersSupported = false;
+};
+
 class Device
 {
 public:
@@ -36,17 +43,15 @@ public:
 
     VkCommandPool GetCommandPool(CommandBufferType type) const;
     void ExecuteOneTimeCommandBuffer(const DeviceCommands& commands) const;
-
-    VkSampleCountFlagBits GetMaxSampleCount() const;
     
     VkPhysicalDevice GetPhysicalDevice() const
     {
         return physicalDevice;
     }
 
-    const VkPhysicalDeviceProperties& GetPhysicalDeviceProperties() const
+    const DeviceProperties& GetProperties() const
     {
-        return physicalDeviceProperties;
+        return properties;
     }
 
     const Queues& GetQueues() const
@@ -60,12 +65,14 @@ public:
     }
 
 private:
+    void InitProperties();
+    
     const VulkanContext& vulkanContext;
 
     VkDevice device;
     VkPhysicalDevice physicalDevice;
 
-    VkPhysicalDeviceProperties physicalDeviceProperties;
+    DeviceProperties properties;
 
     Queues queues;
 

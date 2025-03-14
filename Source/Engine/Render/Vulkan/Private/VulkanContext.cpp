@@ -2,6 +2,7 @@
 
 #include "Engine/Window.hpp"
 #include "Engine/EventSystem.hpp"
+#include "Engine/Render/RenderOptions.hpp"
 
 #define VOLK_IMPLEMENTATION
 #include <volk.h>
@@ -36,6 +37,8 @@ VulkanContext::VulkanContext(const Window& window, EventSystem& aEventSystem)
     memoryManager = std::make_unique<MemoryManager>(*this);
     shaderManager = std::make_unique<ShaderManager>(*this);
     descriptorSetsManager = std::make_unique<DescriptorSetManager>(*this);
+    
+    RenderOptions::Initialize(*this, eventSystem);
 
     eventSystem.Subscribe<ES::WindowResized>(this, &VulkanContext::OnResize);
     eventSystem.Subscribe<ES::BeforeWindowRecreated>(this, &VulkanContext::OnBeforeWindowRecreated);

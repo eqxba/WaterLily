@@ -22,7 +22,7 @@ void StatsWidget::Build()
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | 
         ImGuiWindowFlags_NoBackground);
 
-    const VkPhysicalDeviceProperties& deviceProperties = vulkanContext->GetDevice().GetPhysicalDeviceProperties();
+    const VkPhysicalDeviceProperties& deviceProperties = vulkanContext->GetDevice().GetProperties().physicalProperties;
 
     ImGui::TextUnformatted(deviceProperties.deviceName);
     

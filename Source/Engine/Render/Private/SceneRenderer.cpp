@@ -15,12 +15,11 @@ namespace SceneRendererDetails
     static constexpr std::string_view meshShaderPath = "~/Shaders/Default.mesh";
     static constexpr std::string_view fragmentShaderPath = "~/Shaders/Default.frag";
 
-    static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager, const RenderPipeline pipeline)
+    static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager, const GraphicsPipelineType type)
     {
         std::vector<ShaderModule> shaderModules;
-        shaderModules.reserve(pipeline == RenderPipeline::eMesh ? 3 : 2);
 
-        if (pipeline == RenderPipeline::eMesh)
+        if (type == GraphicsPipelineType::eMesh)
         {
             shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(taskShaderPath), ShaderType::eTask));
             shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(meshShaderPath), ShaderType::eMesh));
@@ -84,7 +83,7 @@ namespace SceneRendererDetails
 
         return RenderPassBuilder(vulkanContext)
             .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
-            .SetMultisampling(vulkanContext.GetDevice().GetMaxSampleCount())
+            .SetMultisampling(vulkanContext.GetDevice().GetProperties().maxSampleCount)
             .AddColorAndResolveAttachments(colorAttachmentDescription, resolveAttachmentDescription)
             .AddDepthStencilAttachment(depthStencilAttachmentDescription)
             .SetPreviousBarriers(std::move(previousBarriers))
@@ -121,8 +120,9 @@ namespace SceneRendererDetails
 
 SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
+    , renderOptions{ &RenderOptions::Get() }
     , eventSystem{ &aEventSystem }
-    , cachedPipeline{ RenderOptions::pipeline }
+    , graphicsPipelineType{ renderOptions->GetGraphicsPipelineType() }
 {
     using namespace SceneRendererDetails;
 
@@ -140,7 +140,6 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     eventSystem->Subscribe<ES::TryReloadShaders>(this, &SceneRenderer::OnTryReloadShaders);
     eventSystem->Subscribe<ES::SceneOpened>(this, &SceneRenderer::OnSceneOpen);
     eventSystem->Subscribe<ES::SceneClosed>(this, &SceneRenderer::OnSceneClose);
-    eventSystem->Subscribe<ES::KeyInput>(this, &SceneRenderer::OnKeyInput);
 }
 
 SceneRenderer::~SceneRenderer()
@@ -163,9 +162,9 @@ void SceneRenderer::Process(const float deltaSeconds)
     ubo.projection = camera.GetProjectionMatrix();
     ubo.viewPos = camera.GetPosition();
 
-    if (cachedPipeline != RenderOptions::pipeline)
+    if (graphicsPipelineType != renderOptions->GetGraphicsPipelineType())
     {
-        cachedPipeline = RenderOptions::pipeline;
+        SetGraphicsPipeline(renderOptions->GetGraphicsPipelineType());
     }
 }
 
@@ -179,8 +178,6 @@ void SceneRenderer::Render(const Frame& frame)
     }
 
     uniformBuffers[frame.index].Fill(std::as_bytes(std::span(&ubo, 1)));
-
-    const Pipeline& pipeline = cachedPipeline == RenderPipeline::eMesh ? meshPipeline : vertexPipeline;
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -199,7 +196,7 @@ void SceneRenderer::Render(const Frame& frame)
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline);
 
     const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
     VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
@@ -208,7 +205,7 @@ void SceneRenderer::Render(const Frame& frame)
     const VkRect2D scissor = GetScissor(extent);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    if (cachedPipeline == RenderPipeline::eVertex)
+    if (graphicsPipelineType == GraphicsPipelineType::eVertex)
     {
         VkBuffer vertexBuffers[] = { scene->GetVertexBuffer() };
         VkDeviceSize offsets[] = { 0 };
@@ -220,10 +217,10 @@ void SceneRenderer::Render(const Frame& frame)
     std::vector<VkDescriptorSet> descriptors = { uniformDescriptors[frame.index] };
     std::ranges::copy(scene->GetGlobalDescriptors(), std::back_inserter(descriptors));
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.GetLayout(),
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
-    if (cachedPipeline == RenderPipeline::eMesh)
+    if (graphicsPipelineType == GraphicsPipelineType::eMesh)
     {
         vkCmdDrawMeshTasksEXT(commandBuffer, scene->GetDrawCount(), 1, 1);
     }
@@ -245,7 +242,7 @@ void SceneRenderer::CreateMeshPipeline(std::vector<ShaderModule>&& shaderModules
         .SetDescriptorSetLayouts(std::move(layouts))
         .SetShaderModules(std::move(shaderModules))
         .SetPolygonMode(PolygonMode::eFill)
-        .SetMultisampling(vulkanContext->GetDevice().GetMaxSampleCount())
+        .SetMultisampling(vulkanContext->GetDevice().GetProperties().maxSampleCount)
         .SetDepthState(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
         .SetRenderPass(renderPass)
         .Build();
@@ -263,7 +260,7 @@ void SceneRenderer::CreateVertexPipeline(std::vector<ShaderModule>&& shaderModul
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eBack, false)
-        .SetMultisampling(vulkanContext->GetDevice().GetMaxSampleCount())
+        .SetMultisampling(vulkanContext->GetDevice().GetProperties().maxSampleCount)
         .SetDepthState(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
         .SetRenderPass(renderPass)
         .Build();
@@ -278,7 +275,7 @@ void SceneRenderer::CreateRenderTargetsAndFramebuffers()
     ImageDescription colorTargetDescription = {
         .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
         .mipLevelsCount = 1,
-        .samples = vulkanContext->GetDevice().GetMaxSampleCount(),
+        .samples = vulkanContext->GetDevice().GetProperties().maxSampleCount,
         .format = swapchain.GetSurfaceFormat().format,
         .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
@@ -286,7 +283,7 @@ void SceneRenderer::CreateRenderTargetsAndFramebuffers()
     ImageDescription depthTargetDescription = {
         .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
         .mipLevelsCount = 1,
-        .samples = vulkanContext->GetDevice().GetMaxSampleCount(),
+        .samples = vulkanContext->GetDevice().GetProperties().maxSampleCount,
         .format = VulkanConfig::depthImageFormat,
         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
@@ -316,6 +313,12 @@ void SceneRenderer::DestroyRenderTargetsAndFramebuffers()
     depthTarget.~RenderTarget();
 }
 
+void SceneRenderer::SetGraphicsPipeline(GraphicsPipelineType aGraphicsPipelineType)
+{
+    graphicsPipelineType = aGraphicsPipelineType;
+    graphicsPipeline = graphicsPipelineType == GraphicsPipelineType::eMesh ? &meshPipeline : &vertexPipeline;
+}
+
 void SceneRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
 {
     DestroyRenderTargetsAndFramebuffers();
@@ -331,14 +334,17 @@ void SceneRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
     using namespace SceneRendererDetails;
 
     const ShaderManager& shaderManager = vulkanContext->GetShaderManager();
-
-    if (std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, RenderPipeline::eMesh);
-        std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
+    
+    if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
-        CreateMeshPipeline(std::move(shaderModules));
+        if (std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, GraphicsPipelineType::eMesh);
+            std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
+        {
+            CreateMeshPipeline(std::move(shaderModules));
+        }
     }
 
-    if (std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, RenderPipeline::eVertex);
+    if (std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, GraphicsPipelineType::eVertex);
         std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
     {
         CreateVertexPipeline(std::move(shaderModules));
@@ -353,43 +359,38 @@ void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
     scene = &event.scene;
 
     const ShaderManager& shaderManager = vulkanContext->GetShaderManager();
-
-    if (!meshPipeline.IsValid())
+    
+    if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
-        std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, RenderPipeline::eMesh);
-
-        const bool allValid = std::ranges::all_of(shaderModules, &ShaderModule::IsValid);
-        Assert(allValid);
-
-        CreateMeshPipeline(std::move(shaderModules));
+        if (!meshPipeline.IsValid())
+        {
+            std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, GraphicsPipelineType::eMesh);
+            
+            const bool allValid = std::ranges::all_of(shaderModules, &ShaderModule::IsValid);
+            Assert(allValid);
+            
+            CreateMeshPipeline(std::move(shaderModules));
+        }
     }
 
     if (!vertexPipeline.IsValid())
     {
-        std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, RenderPipeline::eVertex);
+        std::vector<ShaderModule> shaderModules = GetShaderModules(shaderManager, GraphicsPipelineType::eVertex);
 
         const bool allValid = std::ranges::all_of(shaderModules, &ShaderModule::IsValid);
         Assert(allValid);
 
         CreateVertexPipeline(std::move(shaderModules));
     }
+    
+    // !!!!
+    if (!graphicsPipeline)
+    {
+        SetGraphicsPipeline(graphicsPipelineType);
+    }
 }
 
 void SceneRenderer::OnSceneClose(const ES::SceneClosed& event)
 {
     scene = nullptr;
-}
-
-// TODO: That's not the proper place
-void SceneRenderer::OnKeyInput(const ES::KeyInput& event)
-{
-    if (event.key == Key::eF1 && event.action == KeyAction::ePress)
-    {
-        RenderOptions::pipeline = RenderPipeline::eMesh;
-    }
-
-    if (event.key == Key::eF2 && event.action == KeyAction::ePress)
-    {
-        RenderOptions::pipeline = RenderPipeline::eVertex;
-    }
 }

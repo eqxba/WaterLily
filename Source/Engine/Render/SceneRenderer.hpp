@@ -23,7 +23,6 @@ namespace ES
     struct TryReloadShaders;
     struct SceneOpened;
     struct SceneClosed;
-    struct KeyInput;
 }
 
 class SceneRenderer : public Renderer
@@ -48,19 +47,22 @@ private:
 
     void CreateRenderTargetsAndFramebuffers();
     void DestroyRenderTargetsAndFramebuffers();
+    
+    void SetGraphicsPipeline(GraphicsPipelineType graphicsPipelineType);
 
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
     void OnTryReloadShaders(const ES::TryReloadShaders& event);
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose(const ES::SceneClosed& event);
-    void OnKeyInput(const ES::KeyInput& event);
 
     const VulkanContext* vulkanContext = nullptr;
+    RenderOptions* renderOptions = nullptr;
 
     EventSystem* eventSystem = nullptr;
 
     RenderPass renderPass;
+    
     Pipeline meshPipeline;
     Pipeline vertexPipeline;
 
@@ -77,6 +79,7 @@ private:
     gpu::UniformBufferObject ubo = { .view = glm::mat4(), .projection = glm::mat4() };
 
     Scene* scene = nullptr;
-
-    RenderPipeline cachedPipeline;
+    
+    GraphicsPipelineType graphicsPipelineType;
+    Pipeline* graphicsPipeline;
 };

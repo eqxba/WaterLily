@@ -3,9 +3,9 @@
 #extension GL_EXT_mesh_shader: require
 #extension GL_GOOGLE_include_directive: require
 
-#include "Math.h"
 #include "Common.h"
 #include "Config.h"
+#include "Math.glsl"
 
 layout(local_size_x = MESH_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
 

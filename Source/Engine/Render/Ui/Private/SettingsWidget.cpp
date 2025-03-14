@@ -1,6 +1,6 @@
 #include "Engine/Render/Ui/SettingsWidget.hpp"
 
-#include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Ui/UiStrings.hpp"
 #include "Engine/Render/Ui/UiConstants.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
@@ -11,11 +11,52 @@ namespace SettingsWidgetDetails
     constexpr float widgetWidth = 350.0f;
 
     static bool showDemoWindow = false;
+
+    template <typename T>
+    void Combo(const char* label, const std::span<const T> options, std::function<T()> get, std::function<void(T)> set)
+    {
+        using namespace UiStrings;
+        
+        if (options.size() == 1)
+        {
+            return;
+        }
+        
+        const T currentValue = get();
+        
+        if (ImGui::BeginCombo(label, ToString(currentValue).data()))
+        {
+            for (const T option : options)
+            {
+                const bool isSelected = option == currentValue;
+
+                if (ImGui::Selectable(ToString(option).data(), isSelected))
+                {
+                    set(option);
+                }
+
+                if (isSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
 }
 
 SettingsWidget::SettingsWidget(const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
-{}
+    , renderOptions{ &RenderOptions::Get() }
+{
+    const auto isGraphicsPipelineTypeSupported = [&](const GraphicsPipelineType type) {
+        return renderOptions->IsGraphicsPipelineTypeSupported(type);
+    };
+    
+    std::ranges::copy_if(OptionValues::graphicsPipelineTypes, std::back_inserter(supportedGraphicsPipelineTypes),
+        isGraphicsPipelineTypeSupported);
+}
 
 void SettingsWidget::Process(float deltaSeconds)
 {}
@@ -31,17 +72,20 @@ void SettingsWidget::Build()
     ImGui::SetNextWindowPos(position, ImGuiCond_None, ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSizeConstraints(ImVec2(widgetWidth, 0), ImVec2(widgetWidth, maxHeight));
     
-    ImGui::Begin("Settings", nullptr, 
+    ImGui::Begin("Settings", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
     
     if (ImGui::CollapsingHeader("Render options", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Combo("Renderer", &RenderOptions::renderer, "Scene\0Compute\0\0");
-
-        if (RenderOptions::renderer == 0)
+        Combo<RendererType>("Renderer", OptionValues::rendererTypes,
+            [&]() { return renderOptions->GetRendererType(); },
+            [&](auto type) { renderOptions->SetRendererType(type); });
+    
+        if (renderOptions->GetRendererType() == RendererType::eScene)
         {
-            // TODO: There's a better way to do this 100%
-            ImGui::Combo("Pipeline", reinterpret_cast<int*>(&RenderOptions::pipeline), "Mesh\0Vertex\0\0");
+            Combo<GraphicsPipelineType>("Pipeline", supportedGraphicsPipelineTypes,
+                [&]() { return renderOptions->GetGraphicsPipelineType(); },
+                [&](auto type) { renderOptions->SetGraphicsPipelineType(type); });
         }
     }
     

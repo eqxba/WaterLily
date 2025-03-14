@@ -3,8 +3,9 @@
 #include <volk.h>
 
 #include "Engine/Systems/System.hpp"
-#include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/Frame.hpp"
+#include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Vulkan/RenderPass.hpp"
 
 namespace ES
 {
@@ -35,10 +36,13 @@ public:
 private:
     uint32_t AcquireNextSwapchainImage(VkSemaphore signalSemaphore) const;
     void Present(const std::vector<VkSemaphore>& waitSemaphores, uint32_t imageIndex) const;
+    
+    void SetRenderer(RendererType rendererType);
 
     void OnKeyInput(const ES::KeyInput& event);
 
-    const VulkanContext& vulkanContext;
+    const VulkanContext* vulkanContext = nullptr;
+    RenderOptions* renderOptions = nullptr;
 
     EventSystem& eventSystem;
 
@@ -46,9 +50,9 @@ private:
     std::unique_ptr<Renderer> computeRenderer;
     std::unique_ptr<Renderer> uiRenderer;
     
-    int cachedRenderer;
-    Renderer* renderer = nullptr;
-    
     std::vector<Frame> frames;
     uint32_t currentFrame = 0;
+    
+    RendererType rendererType;
+    Renderer* renderer;
 };

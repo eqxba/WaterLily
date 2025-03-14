@@ -4,26 +4,40 @@
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 
 namespace DeviceDetails
-{    
-    static bool ExtensionsSupported(VkPhysicalDevice device, const std::vector<const char*>& extensions)
+{
+    static bool ExtensionSupported(const std::vector<VkExtensionProperties>& availableExtensionsProperties,
+        const char* extension, bool logError = false)
+    {
+        const bool isSupported = std::ranges::any_of(availableExtensionsProperties, [=](const auto& properties) {
+            return std::strcmp(extension, properties.extensionName) == 0;
+        });
+        
+        if (!isSupported && logError)
+        {
+            LogE << "Extension not supported: " << extension << '\n';
+        }
+        
+        return isSupported;
+    }
+
+    static std::vector<VkExtensionProperties> GetExtensionsProperties(VkPhysicalDevice device)
     {
         uint32_t extensionCount;
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
         std::vector<VkExtensionProperties> availableExtensionsProperties(extensionCount);
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensionsProperties.data());
+        
+        return availableExtensionsProperties;
+    }
+    
+    static bool ExtensionsSupported(VkPhysicalDevice device, const std::span<const char* const> extensions,
+        bool logError = true)
+    {
+        std::vector<VkExtensionProperties> availableExtensionsProperties = GetExtensionsProperties(device);
 
         const auto isSupported = [&](const char* extension) {
-            const bool isSupported = std::ranges::any_of(availableExtensionsProperties, [=](const auto& properties) {
-                return std::strcmp(extension, properties.extensionName) == 0;
-            });
-
-            if (!isSupported)
-            {
-                LogE << "Extension not supported: " << extension << '\n';
-            }
-
-            return isSupported;
+            return ExtensionSupported(availableExtensionsProperties, extension, logError);
         };
 
         return std::ranges::all_of(extensions, isSupported);    
@@ -32,11 +46,11 @@ namespace DeviceDetails
     // TODO: Handle compute queue separatelly
     static std::optional<uint32_t> FindGraphicsAndComputetQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies)
     {
-        const auto isGraphicsFamily = [](const VkQueueFamilyProperties& properties) {
+        const auto isGraphicsAndComputeFamily = [](const VkQueueFamilyProperties& properties) {
             return properties.queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT);
         };
 
-        const auto it = std::ranges::find_if(queueFamilies, isGraphicsFamily);
+        const auto it = std::ranges::find_if(queueFamilies, isGraphicsAndComputeFamily);
 
         return it == queueFamilies.end() ? std::nullopt
             : std::optional(static_cast<uint32_t>(std::distance(queueFamilies.begin(), it)));
@@ -91,7 +105,7 @@ namespace DeviceDetails
     
     static bool IsPhysicalDeviceSuitable(VkPhysicalDevice device)
     {
-        return ExtensionsSupported(device, VulkanConfig::requiredDeviceExtensions);
+        return ExtensionsSupported(device, std::span(VulkanConfig::requiredDeviceExtensions));
     }
 
     // TODO: (low priority) device selection based on some kind of score (do i really need this?)
@@ -118,7 +132,8 @@ namespace DeviceDetails
         return { *it, deviceProperties };
     }
 
-    static VkDevice CreateLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice)
+    static VkDevice CreateLogicalDevice(const VulkanContext& vulkanContext, VkPhysicalDevice physicalDevice,
+        const DeviceProperties& properties)
     {
         QueueFamilyIndices indices = GetQueueFamilyIndices(vulkanContext, physicalDevice);
 
@@ -139,13 +154,26 @@ namespace DeviceDetails
         }; 
 
         std::ranges::transform(uniqueQueueFamilyIndices, std::back_inserter(queueCreateInfos), createQueueCreateInfo);
+        
+        // Optional features:
+        
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+            .taskShader = VK_TRUE,
+            .meshShader = VK_TRUE };
+        
+        void* optionalFeaturesChain = properties.meshShadersSupported
+            ? reinterpret_cast<void*>(&meshShaderFeatures) : nullptr;
+        
+        // Required features:
 
-        constexpr VkPhysicalDeviceFeatures deviceFeatures = {
+        VkPhysicalDeviceFeatures deviceFeatures = {
             .multiDrawIndirect = VK_TRUE,
             .samplerAnisotropy = VK_TRUE };
 
         VkPhysicalDeviceVulkan11Features deviceFeatures11 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+            .pNext = optionalFeaturesChain,
             .storageBuffer16BitAccess = VK_TRUE };
 
         VkPhysicalDeviceVulkan12Features deviceFeatures12 = {
@@ -154,15 +182,9 @@ namespace DeviceDetails
             .storageBuffer8BitAccess = VK_TRUE,
             .shaderInt8 = VK_TRUE };
 
-        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
-            .pNext = &deviceFeatures12,
-            .taskShader = VK_TRUE,
-            .meshShader = VK_TRUE };
-
         VkPhysicalDeviceFeatures2 deviceFeatures2 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-            .pNext = &meshShaderFeatures,
+            .pNext = &deviceFeatures12,
             .features = deviceFeatures };
 
         VkDeviceCreateInfo createInfo = {
@@ -193,6 +215,21 @@ namespace DeviceDetails
 
         return commandPool;
     }
+
+    static VkSampleCountFlagBits GetMaxSampleCount(const VkPhysicalDeviceProperties& physicalDeviceProperties)
+    {
+        VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+            physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+        std::array countsToConsider = { VK_SAMPLE_COUNT_64_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_16_BIT,
+            VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_2_BIT };
+
+        auto result = std::ranges::find_if(countsToConsider, [=](VkSampleCountFlagBits count) {
+            return counts & count;
+        });
+
+        return result != countsToConsider.end() ? *result : VK_SAMPLE_COUNT_1_BIT;
+    }
 }
 
 Device::Device(const VulkanContext& aVulkanContext)
@@ -200,8 +237,11 @@ Device::Device(const VulkanContext& aVulkanContext)
 {
     using namespace DeviceDetails;
 
-    std::tie(physicalDevice, physicalDeviceProperties) = SelectPhysicalDevice(vulkanContext);
-    device = CreateLogicalDevice(vulkanContext, physicalDevice);
+    std::tie(physicalDevice, properties.physicalProperties) = SelectPhysicalDevice(vulkanContext);
+    
+    InitProperties();
+    
+    device = CreateLogicalDevice(vulkanContext, physicalDevice, properties);
 
     volkLoadDevice(device);
 
@@ -250,17 +290,12 @@ void Device::ExecuteOneTimeCommandBuffer(const DeviceCommands& commands) const
     Assert(result == VK_SUCCESS);
 }
 
-VkSampleCountFlagBits Device::GetMaxSampleCount() const
+void Device::InitProperties()
 {
-    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
-        physicalDeviceProperties.limits.framebufferDepthSampleCounts;
-
-    std::array countsToConsider = { VK_SAMPLE_COUNT_64_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_16_BIT,
-        VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_2_BIT };
-
-    auto result = std::ranges::find_if(countsToConsider, [=](VkSampleCountFlagBits count) {
-        return counts & count;
-    });
-
-    return result != countsToConsider.end() ? *result : VK_SAMPLE_COUNT_1_BIT;
+    using namespace DeviceDetails;
+    
+    std::vector<VkExtensionProperties> availableExtensionsProperties = GetExtensionsProperties(physicalDevice);
+    
+    properties.maxSampleCount = GetMaxSampleCount(properties.physicalProperties);
+    properties.meshShadersSupported = ExtensionSupported(availableExtensionsProperties, VK_EXT_MESH_SHADER_EXTENSION_NAME);
 }
