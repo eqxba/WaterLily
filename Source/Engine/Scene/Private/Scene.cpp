@@ -12,21 +12,6 @@ namespace SceneDetails
     static constexpr std::string_view imagePath = "~/Assets/texture.png";
 }
 
-DescriptorSetLayout Scene::GetGlobalDescriptorSetLayout(const VulkanContext& vulkanContext)
-{
-    // TODO: Parse from SPIR-V reflection
-    return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
-        .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_EXT) 
-        .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT)
-        .AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_EXT)
-        .AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT)
-        .AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT) // + fragment shader for materials
-        .AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT)
-        .AddBinding(6, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .AddBinding(7, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .Build();
-}
-
 Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
     , path{ std::move(aPath) }
@@ -35,11 +20,7 @@ Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
 }
 
 Scene::~Scene()
-{
-    vulkanContext.GetDevice().WaitIdle();
-
-    vulkanContext.GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
-}
+{}
 
 void Scene::InitFromGltfScene()
 {
@@ -51,7 +32,6 @@ void Scene::InitFromGltfScene()
 
         InitBuffers(rawScene);
         InitTexture();
-        InitGlobalDescriptors();
 
         drawCount = static_cast<uint32_t>(rawScene.draws.size());
         indirectDrawCount = static_cast<uint32_t>(rawScene.indirectCommands.size());
@@ -213,22 +193,4 @@ void Scene::InitTexture()
             .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
             .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
     });
-}
-
-void Scene::InitGlobalDescriptors()
-{
-    globalDescriptorSetLayout = GetGlobalDescriptorSetLayout(vulkanContext);
-
-    const auto [descriptor, layout] = vulkanContext.GetDescriptorSetsManager().GetDescriptorSetBuilder(globalDescriptorSetLayout)
-        .Bind(0, vertexBuffer)
-        .Bind(1, transformBuffer)
-        .Bind(2, meshletDataBuffer)
-        .Bind(3, meshletBuffer)
-        .Bind(4, primitiveBuffer)
-        .Bind(5, drawBuffer)
-        .Bind(6, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-        .Bind(7, texture.sampler)
-        .Build();
-
-    globalDescriptors.push_back(descriptor);
 }
