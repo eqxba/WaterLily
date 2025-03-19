@@ -1,10 +1,9 @@
 #pragma once
 
+#include "Engine/Scene/Scene.hpp"
 #include "Engine/Render/Vulkan/Frame.hpp"
-
-class VulkanContext;
-struct RenderContext;
-class Scene;
+#include "Engine/Render/RenderContext.hpp"
+#include "Engine/Render/Vulkan/VulkanContext.hpp"
 
 class RenderStage
 {

@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #extension GL_GOOGLE_include_directive : require
 
@@ -14,9 +14,9 @@ layout(push_constant) uniform Globals
     PushConstants globals;
 };
 
-layout(set = 0, binding = 0, std430) readonly buffer Transforms 
+layout(set = 0, binding = 0) readonly buffer Draws 
 {
-    mat4 transforms[]; 
+    Draw draws[]; 
 };
 
 layout(location = 0) out vec3 outNormal;
@@ -32,7 +32,7 @@ void main()
     vec2 uv = vec2(inPosAndU.w, inNormalAndV.w);
     vec4 color = inColor;
 
-    mat4 transform = transforms[gl_InstanceIndex];
+    mat4 transform = draws[gl_DrawID].transform;
     
     vec4 pos = globals.projection * globals.view * transform * vec4(position, 1.0);
 

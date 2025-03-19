@@ -101,7 +101,7 @@ namespace SceneHelpersDetails
         cgltf_accessor_unpack_indices(primitive.indices, indices.data(), sizeof(uint32_t), indices.size());
     }
 
-    static size_t OptimizePrimitive(std::span<gpu::Vertex>& vertices, std::span<uint32_t> indices)
+    static uint32_t OptimizePrimitive(std::span<gpu::Vertex>& vertices, std::span<uint32_t> indices)
     {
         using namespace SceneHelpersDetails;
 
@@ -112,7 +112,7 @@ namespace SceneHelpersDetails
         meshopt_remapVertexBuffer(vertices.data(), vertices.data(), vertices.size(), vertexSize, remap.data());
         meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap.data());
 
-        const size_t removedVertices = vertices.size() - uniqueVertices;
+        const auto removedVertices = static_cast<uint32_t>(vertices.size() - uniqueVertices);
         vertices = vertices.first(uniqueVertices);
 
         meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
@@ -122,9 +122,49 @@ namespace SceneHelpersDetails
         return removedVertices;
     }
 
+    static void GeneratePrimitive(const cgltf_primitive& cgltfPrimitive, RawScene& rawScene)
+    {
+        const auto firstVertexOffset = static_cast<uint32_t>(rawScene.vertices.size());
+        const auto firstIndexOffset = static_cast<uint32_t>(rawScene.indices.size());
+
+        auto vertexCount = static_cast<uint32_t>(cgltfPrimitive.attributes[0].data->count);
+        const auto indexCount = static_cast<uint32_t>(cgltfPrimitive.indices->count);
+
+        rawScene.vertices.resize(rawScene.vertices.size() + vertexCount);
+        rawScene.indices.resize(rawScene.indices.size() + indexCount);
+
+        auto vertices = std::span(rawScene.vertices).last(vertexCount);
+        const auto indices = std::span(rawScene.indices).last(indexCount);
+
+        LoadVertices(cgltfPrimitive, vertices);
+        LoadIndices(cgltfPrimitive, indices);
+
+        const uint32_t removedVertices = OptimizePrimitive(vertices, indices);
+
+        rawScene.vertices.resize(rawScene.vertices.size() - removedVertices);
+        vertexCount -= removedVertices;
+
+        gpu::Primitive& primitive = rawScene.primitives.emplace_back();
+
+        // TODO: Calculate culling data and generate lods
+        primitive.center = Vector3::zero;
+        primitive.radius = 0.0f;
+        primitive.vertexOffset = firstVertexOffset;
+        primitive.vertexCount = vertexCount;
+        primitive.lodCount = 1;
+
+        gpu::Lod& lod0 = primitive.lods[0];
+
+        lod0.indexOffset = firstIndexOffset;
+        lod0.indexCount = indexCount;
+        lod0.meshletOffset = 0;
+        lod0.meshletCount = 0;
+        lod0.error = 0.0f;
+    }
+
     static gpu::Meshlet GenerateMeshlet(const meshopt_Meshlet& meshlet, const std::vector<unsigned int>& vertices,
         const std::vector<unsigned char>& triangles, std::vector<uint32_t>& meshletData,
-        const uint32_t baseVertexIndex = 0)
+        const uint32_t firstVertexOffset = 0)
     {
         const auto dataOffset = static_cast<uint32_t>(meshletData.size());
 
@@ -160,7 +200,7 @@ namespace SceneHelpersDetails
 
         return {
             .dataOffset = dataOffset,
-            .baseVertexIndex = baseVertexIndex + minVertex,
+            .firstVertexOffset = firstVertexOffset + minVertex,
             .vertexCount = static_cast<uint8_t>(meshlet.vertex_count),
             .triangleCount = static_cast<uint8_t>(meshlet.triangle_count),
             .bShortVertexOffsets = bShortVertexOffsets, };
@@ -168,7 +208,7 @@ namespace SceneHelpersDetails
 
     static size_t GenerateMeshlets(const std::span<const gpu::Vertex> vertices, const std::span<const uint32_t> indices, 
         std::vector<gpu::Meshlet>& meshlets, std::vector<uint32_t>& meshletData,
-        const uint32_t baseVertexIndex = 0 /* index of the 1st meshlet vertex in global vertex buffer */)
+        const uint32_t firstVertexOffset = 0 /* 1st meshlet vertex in global vertex buffer */)
     {
         using namespace SceneHelpersDetails;
 
@@ -200,7 +240,7 @@ namespace SceneHelpersDetails
                 meshlet.triangle_count, meshlet.vertex_count);
 
             meshlets.push_back(GenerateMeshlet(meshlet, meshletVertices, meshletTriangles, meshletData, 
-                baseVertexIndex));
+                firstVertexOffset));
         }
 
         return meshoptMeshlets.size();
@@ -211,7 +251,8 @@ namespace SceneHelpersDetails
     {
         std::unordered_map<size_t, size_t> gltfMeshToMesh;
 
-        for (size_t i = 0; i < gltfData.meshes_count; ++i)
+        // TODO: EXT_mesh_gpu_instancing
+        for (size_t i = 0; i < gltfData.meshes_count; ++i) // TODO: counted view?
         {
             const cgltf_mesh& mesh = gltfData.meshes[i];
 
@@ -226,31 +267,7 @@ namespace SceneHelpersDetails
                     continue;
                 }
 
-                const auto baseVertexIndex = static_cast<uint32_t>(rawScene.vertices.size());
-
-                const size_t vertexCount = primitive.attributes[0].data->count;
-                const size_t indexCount = primitive.indices->count;
-
-                rawScene.vertices.resize(rawScene.vertices.size() + vertexCount);
-                rawScene.indices.resize(rawScene.indices.size() + indexCount);
-
-                auto vertices = std::span(rawScene.vertices).last(vertexCount);
-                auto indices = std::span(rawScene.indices).last(indexCount);
-
-                LoadVertices(primitive, vertices);
-                LoadIndices(primitive, indices);
-
-                const size_t removedVertices = OptimizePrimitive(vertices, indices);
-
-                rawScene.vertices.resize(rawScene.vertices.size() - removedVertices);
-
-                const auto meshletCount = GenerateMeshlets(vertices, indices, rawScene.meshlets, rawScene.meshletData,
-                    baseVertexIndex);
-
-                rawScene.primitives.emplace_back(static_cast<uint32_t>(rawScene.indices.size() - indexCount), 
-                    static_cast<uint32_t>(indexCount), static_cast<uint32_t>(baseVertexIndex),
-                    static_cast<uint32_t>(rawScene.meshlets.size() - meshletCount), 
-                    static_cast<uint32_t>(meshletCount));
+                GeneratePrimitive(primitive, rawScene);
 
                 ++primitiveCount;
             }
@@ -258,8 +275,8 @@ namespace SceneHelpersDetails
             if (primitiveCount != 0)
             {
                 gltfMeshToMesh.emplace(i, rawScene.meshes.size());
-                rawScene.meshes.emplace_back(static_cast<uint32_t>(rawScene.primitives.size() - primitiveCount), 
-                    primitiveCount);
+                rawScene.meshes.emplace_back(static_cast<uint32_t>(rawScene.primitives.size() - primitiveCount),
+                    primitiveCount, Matrix4::identity);
             }
         }
 
@@ -277,45 +294,7 @@ namespace SceneHelpersDetails
             {
                 Mesh& mesh = rawScene.meshes[gltfMeshToMesh.at(cgltf_mesh_index(&gltfData, node.mesh))];
 
-                float matrix[16];
-
-                cgltf_node_transform_world(&node, matrix);
-
-                rawScene.transforms.push_back(glm::make_mat4x4(matrix));
-
-                mesh.transformIndex = static_cast<uint32_t>(rawScene.transforms.size() - 1);
-            }
-        }
-    }
-
-    static void GenerateGpuPrimitivesAndDraws(RawScene& rawScene)
-    {
-        for (const Mesh& mesh : rawScene.meshes)
-        {
-            for (const uint32_t primitiveIndex : std::ranges::views::iota(mesh.firstPrimitiveIndex,
-                mesh.firstPrimitiveIndex + mesh.primitiveCount))
-            {
-                const Primitive& primitive = rawScene.primitives[primitiveIndex];
-
-                // Mesh pipeline draw data
-                rawScene.gpuPrimitives.emplace_back(mesh.transformIndex, primitive.materialIndex);
-
-                uint32_t remainingMeshlets = primitive.meshletCount;
-                uint32_t firstMeshletIndex = primitive.firstMeshletIndex;
-
-                while (remainingMeshlets > 0)
-                {
-                    const uint32_t meshletCount = std::min(remainingMeshlets, gpu::meshWgSize);
-
-                    rawScene.draws.emplace_back(firstMeshletIndex, meshletCount, primitiveIndex, 0);
-
-                    firstMeshletIndex += meshletCount;
-                    remainingMeshlets -= meshletCount;
-                }
-
-                // Vertex pipeline draw data
-                rawScene.indirectCommands.emplace_back(primitive.indexCount, 1, primitive.firstIndex, 
-                    primitive.vertexOffset, mesh.transformIndex);
+                cgltf_node_transform_world(&node, glm::value_ptr(mesh.transform));
             }
         }
     }
@@ -363,13 +342,28 @@ std::optional<RawScene> SceneHelpers::LoadGltfScene(const FilePath& path)
         std::unordered_map<size_t, size_t> gltfMeshToMesh = ProcessGeometry(*gltfData, rawScene);
 
         LoadTransforms(*gltfData, rawScene, gltfMeshToMesh);
-
-        GenerateGpuPrimitivesAndDraws(rawScene);
     }
 
     return rawScene;
 }
 
+std::vector<gpu::Draw> SceneHelpers::GenerateDraws(const RawScene& rawScene)
+{
+    std::vector<gpu::Draw> draws;
+
+    for (const Mesh& mesh : rawScene.meshes)
+    {
+        for (const uint32_t primitiveIndex : std::ranges::views::iota(mesh.firstPrimitiveIndex,
+            mesh.firstPrimitiveIndex + mesh.primitiveCount))
+        {
+            draws.emplace_back(mesh.transform, primitiveIndex);
+        }
+    }
+
+    return draws;
+}
+
+// TODO: Use vertex id in glsl instead!
 std::vector<VkVertexInputBindingDescription> SceneHelpers::GetVertexBindings()
 {
     VkVertexInputBindingDescription binding{};

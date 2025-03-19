@@ -12,5 +12,6 @@ struct PipelineBarrier
 
 namespace SynchronizationUtils
 {
+    // TODO: Buffer barriers instead
     void SetMemoryBarrier(VkCommandBuffer commandBuffer, PipelineBarrier barrier);
 }

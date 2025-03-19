@@ -48,7 +48,8 @@ private:
     EventSystem* eventSystem = nullptr;
     
     RenderContext renderContext;
-    
+
+    std::unique_ptr<RenderStage> primitiveCullStage;
     std::unique_ptr<RenderStage> forwardStage;
 
     Scene* scene = nullptr;

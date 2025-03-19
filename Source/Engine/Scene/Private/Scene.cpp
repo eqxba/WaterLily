@@ -1,11 +1,9 @@
 #include "Engine/Scene/Scene.hpp"
 
-#include "Utils/Helpers.hpp"
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/Resources/StbImage.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
-#include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
 
 namespace SceneDetails
 {
@@ -16,140 +14,16 @@ Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)
     : vulkanContext{ aVulkanContext }
     , path{ std::move(aPath) }
 {
-    InitFromGltfScene();
+    if (std::optional<RawScene> loadResult = SceneHelpers::LoadGltfScene(path))
+    {
+        rawScene = std::move(loadResult.value());
+
+        InitTexture();
+    }
 }
 
 Scene::~Scene()
 {}
-
-void Scene::InitFromGltfScene()
-{
-    using namespace SceneHelpers;
-
-    if (std::optional<RawScene> loadResult = LoadGltfScene(path); loadResult)
-    {
-        RawScene rawScene = std::move(loadResult.value());
-
-        InitBuffers(rawScene);
-        InitTexture();
-
-        drawCount = static_cast<uint32_t>(rawScene.draws.size());
-        indirectDrawCount = static_cast<uint32_t>(rawScene.indirectCommands.size());
-    }
-}
-
-void Scene::InitBuffers(const RawScene& rawScene)
-{
-    using namespace BufferUtils;
-
-    const std::span verticesSpan(std::as_const(rawScene.vertices));
-
-    BufferDescription vertexBufferDescription{
-        .size = verticesSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    vertexBuffer = Buffer(std::move(vertexBufferDescription), true, verticesSpan, vulkanContext);
-
-    const std::span indicesSpan(std::as_const(rawScene.indices));
-
-    BufferDescription indexBufferDescription{
-        .size = indicesSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    indexBuffer = Buffer(std::move(indexBufferDescription), true, indicesSpan, vulkanContext);
-
-    const std::span transformsSpan(std::as_const(rawScene.transforms));
-
-    BufferDescription transformsBufferDescription{
-        .size = transformsSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    transformBuffer = Buffer(std::move(transformsBufferDescription), true, transformsSpan, vulkanContext);
-
-    const std::span meshletDataSpan(std::as_const(rawScene.meshletData));
-
-    BufferDescription meshletDataBufferDescription{
-        .size = meshletDataSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    meshletDataBuffer = Buffer(std::move(meshletDataBufferDescription), true, meshletDataSpan, vulkanContext);
-
-    const std::span meshletsSpan(std::as_const(rawScene.meshlets));
-
-    BufferDescription meshletBufferDescription{
-        .size = meshletsSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    meshletBuffer = Buffer(std::move(meshletBufferDescription), true, meshletsSpan, vulkanContext);
-
-    const std::span primitiveSpan(std::as_const(rawScene.gpuPrimitives));
-
-    BufferDescription primitiveBufferDescription{
-        .size = primitiveSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    primitiveBuffer = Buffer(std::move(primitiveBufferDescription), true, primitiveSpan, vulkanContext);
-
-    const std::span drawsSpan(std::as_const(rawScene.draws));
-
-    BufferDescription drawsBufferDescription{
-        .size = drawsSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    drawBuffer = Buffer(std::move(drawsBufferDescription), true, drawsSpan, vulkanContext);
-
-    std::span indirectCommandsSpan(std::as_const(rawScene.indirectCommands));
-
-    BufferDescription indirectBufferDescription = {
-        .size = indirectCommandsSpan.size_bytes(),
-        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-    indirectBuffer = Buffer(std::move(indirectBufferDescription), true, indirectCommandsSpan, vulkanContext);
-
-    PipelineBarrier barrier = {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT };
-    
-    const Device& device = vulkanContext.GetDevice();
-    
-    if (device.GetProperties().meshShadersSupported)
-    {
-        barrier.dstStage |= VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT;
-        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-    }
-    
-    device.ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer commandBuffer) {
-        CopyBufferToBuffer(commandBuffer, vertexBuffer.GetStagingBuffer(), vertexBuffer);
-        CopyBufferToBuffer(commandBuffer, indexBuffer.GetStagingBuffer(), indexBuffer);
-        CopyBufferToBuffer(commandBuffer, transformBuffer.GetStagingBuffer(), transformBuffer);
-        CopyBufferToBuffer(commandBuffer, meshletDataBuffer.GetStagingBuffer(), meshletDataBuffer);
-        CopyBufferToBuffer(commandBuffer, meshletBuffer.GetStagingBuffer(), meshletBuffer);
-        CopyBufferToBuffer(commandBuffer, primitiveBuffer.GetStagingBuffer(), primitiveBuffer);
-        CopyBufferToBuffer(commandBuffer, drawBuffer.GetStagingBuffer(), drawBuffer);
-        CopyBufferToBuffer(commandBuffer, indirectBuffer.GetStagingBuffer(), indirectBuffer);
-        
-        SynchronizationUtils::SetMemoryBarrier(commandBuffer, barrier);
-    });
-
-    vertexBuffer.DestroyStagingBuffer();
-    indexBuffer.DestroyStagingBuffer();
-    transformBuffer.DestroyStagingBuffer();
-    meshletDataBuffer.DestroyStagingBuffer();
-    meshletBuffer.DestroyStagingBuffer();
-    primitiveBuffer.DestroyStagingBuffer();
-    drawBuffer.DestroyStagingBuffer();
-    indirectBuffer.DestroyStagingBuffer();
-}
 
 void Scene::InitTexture()
 {

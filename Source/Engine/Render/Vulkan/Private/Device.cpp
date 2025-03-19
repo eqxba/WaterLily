@@ -176,11 +176,13 @@ namespace DeviceDetails
         VkPhysicalDeviceVulkan11Features deviceFeatures11 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
             .pNext = optionalFeaturesChain,
-            .storageBuffer16BitAccess = VK_TRUE };
+            .storageBuffer16BitAccess = VK_TRUE,
+            .shaderDrawParameters = VK_TRUE };
 
         VkPhysicalDeviceVulkan12Features deviceFeatures12 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
             .pNext = &deviceFeatures11,
+            .drawIndirectCount = VK_TRUE,
             .storageBuffer8BitAccess = VK_TRUE,
             .shaderInt8 = VK_TRUE };
 
@@ -306,5 +308,7 @@ void Device::InitProperties()
     std::vector<VkExtensionProperties> availableExtensionsProperties = GetExtensionsProperties(physicalDevice);
     
     properties.maxSampleCount = GetMaxSampleCount(properties.physicalProperties);
-    properties.meshShadersSupported = ExtensionSupported(availableExtensionsProperties, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+
+    // TODO: Temp, enable back when we change mesh pipeline shader structure
+    properties.meshShadersSupported = false;//ExtensionSupported(availableExtensionsProperties, VK_EXT_MESH_SHADER_EXTENSION_NAME);
 }

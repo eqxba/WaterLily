@@ -27,23 +27,13 @@ public:
     {
         return camera;
     }
-    
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
-    Buffer transformBuffer;
-    Buffer meshletDataBuffer;
-    Buffer meshletBuffer;
-    Buffer primitiveBuffer;
-    Buffer drawBuffer;
-    Buffer indirectBuffer;
-    
-    uint32_t drawCount = 0;
-    uint32_t indirectDrawCount = 0;
+
+    const RawScene& GetRaw()
+    {
+        return rawScene;
+    }
 
 private:
-    void InitFromGltfScene();
-
-    void InitBuffers(const RawScene& rawScene);
     void InitTexture();
 
     const VulkanContext& vulkanContext;
@@ -53,4 +43,6 @@ private:
     CameraComponent camera = {};
     
     FilePath path;
+
+    RawScene rawScene;
 };

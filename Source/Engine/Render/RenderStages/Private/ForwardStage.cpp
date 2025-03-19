@@ -1,7 +1,6 @@
 #include "Engine/Render/RenderStages/ForwardStage.hpp"
 
 #include "Engine/Scene/SceneHelpers.hpp"
-#include "Engine/Render/RenderContext.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
@@ -50,7 +49,12 @@ namespace ForwardStageDetails
             .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT }, {
+            // Wait for primitive culling
+            .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT } };
         
         std::vector<PipelineBarrier> followingBarriers = { {
             // Make UI renderer wait for our color output
@@ -105,7 +109,7 @@ namespace ForwardStageDetails
     static DescriptorSetLayout GetVertexDescriptorSetLayout(const VulkanContext& vulkanContext)
     {
         return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // transforms
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // Draws
             //.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT) // + fragment shader for materials
             .Build();
     }
@@ -165,7 +169,7 @@ void ForwardStage::Prepare(const Scene& scene)
     
     if (descriptors.contains(GraphicsPipelineType::eMesh))
     {
-        auto& pair = descriptors[GraphicsPipelineType::eMesh];
+        /*auto& pair = descriptors[GraphicsPipelineType::eMesh];
         
         pair = descriptorSetManager.GetDescriptorSetBuilder(pair.second, DescriptorScope::eSceneRenderer)
             .Bind(0, renderContext->vertexBuffer)
@@ -174,13 +178,13 @@ void ForwardStage::Prepare(const Scene& scene)
             .Bind(3, renderContext->meshletBuffer)
             .Bind(4, renderContext->primitiveBuffer)
             .Bind(5, renderContext->drawBuffer)
-            .Build();
+            .Build();*/
     }
     
     auto& pair = descriptors[GraphicsPipelineType::eVertex];
     
     pair = descriptorSetManager.GetDescriptorSetBuilder(pair.second, DescriptorScope::eSceneRenderer)
-        .Bind(0, renderContext->transformBuffer)
+        .Bind(0, renderContext->drawBuffer)
         .Build();
 }
 
@@ -306,7 +310,7 @@ Pipeline ForwardStage::CreateVertexPipeline()
 
 void ForwardStage::ExecuteMesh(const Frame& frame) const
 {
-    vkCmdDrawMeshTasksEXT(frame.commandBuffer, renderContext->drawCount, 1, 1);
+    //vkCmdDrawMeshTasksEXT(frame.commandBuffer, renderContext->drawCount, 1, 1);
 }
 
 void ForwardStage::ExecuteVertex(const Frame& frame) const
@@ -319,6 +323,6 @@ void ForwardStage::ExecuteVertex(const Frame& frame) const
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, renderContext->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDrawIndexedIndirect(commandBuffer, renderContext->indirectBuffer, 0, renderContext->indirectDrawCount,
-        sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirectCount(commandBuffer, renderContext->indirectBuffer, sizeof(uint32_t), 
+        renderContext->commandCountBuffer, 0, renderContext->globals.drawCount, sizeof(gpu::IndirectCommand));
 }

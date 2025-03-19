@@ -1,9 +1,5 @@
 #include "Engine/Render/RenderStages/RenderStage.hpp"
 
-#include "Engine/Scene/Scene.hpp"
-#include "Engine/Render/RenderContext.hpp"
-#include "Engine/Render/Vulkan/VulkanContext.hpp"
-
 RenderStage::RenderStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : vulkanContext{ &aVulkanContext }
     , renderContext{ &aRenderContext }

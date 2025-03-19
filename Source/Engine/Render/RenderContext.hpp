@@ -13,18 +13,19 @@ struct RenderContext
 
     gpu::PushConstants globals = { .view = Matrix4::identity, .projection = Matrix4::identity, .viewPos = Vector3::zero };
 
-    // TODO: Initialize after scene initialization in the proper stage and do not just take from scene itself
+    // Regular pipeline
     Buffer vertexBuffer;
     Buffer indexBuffer;
-    Buffer transformBuffer;
-    Buffer meshletDataBuffer;
-    Buffer meshletBuffer;
+
     Buffer primitiveBuffer;
+
     Buffer drawBuffer;
+
+    Buffer commandCountBuffer;
     Buffer indirectBuffer;
-    
-    uint32_t drawCount = 0;
-    uint32_t indirectDrawCount = 0;
+
+    // Meshlet pipeline
+    // Buffer meshletIndirectBuffer (?)
     
     std::vector<VkDescriptorSet> globalDescriptors;
     DescriptorSetLayout globalDescriptorSetLayout;

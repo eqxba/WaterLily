@@ -1,0 +1,57 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive: require
+
+#include "Common.h"
+
+layout(local_size_x = PRIMITIVE_CULL_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform Globals
+{
+    PushConstants globals;
+};
+
+layout(set = 0, binding = 0) readonly buffer Primitives 
+{
+    Primitive primitives[]; 
+};
+
+layout(set = 0, binding = 1) readonly buffer Draws 
+{
+    Draw draws[]; 
+};
+
+layout(set = 0, binding = 2) buffer CommandCount
+{
+	uint commandCount;
+};
+
+layout(set = 0, binding = 3) writeonly buffer IndirectCommands
+{
+	IndirectCommand indirectCommands[];
+};
+
+void main()
+{
+    uint drawIndex = gl_GlobalInvocationID.x;
+
+	if (drawIndex >= globals.drawCount)
+	{
+		return;
+	}
+	
+    Draw draw = draws[drawIndex];
+
+    // TODO: Actual lod selection & culling logics
+	Primitive primitive = primitives[draw.primitiveIndex];
+	Lod lod = primitive.lods[0];
+
+	uint commandIndex = atomicAdd(commandCount, 1);
+
+	indirectCommands[commandIndex].drawIndex = drawIndex;
+	indirectCommands[commandIndex].indexCount = lod.indexCount;
+	indirectCommands[commandIndex].instanceCount = 1;
+	indirectCommands[commandIndex].firstIndex = lod.indexOffset;
+	indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
+	indirectCommands[commandIndex].firstInstance = 0;
+}

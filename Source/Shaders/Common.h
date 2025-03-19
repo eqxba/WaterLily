@@ -11,13 +11,16 @@ DISABLE_WARNINGS_END
 #include "Shaders/Config.h"
 
 namespace gpu 
-{ 
+{
     using namespace glm;
     using uint = uint32_t;
 
 #else
 #extension GL_EXT_shader_8bit_storage: require
 #extension GL_EXT_shader_16bit_storage: require
+#extension GL_GOOGLE_include_directive: require
+
+#include "Config.h"
 #endif
 
 struct PushConstants 
@@ -25,6 +28,7 @@ struct PushConstants
     mat4 view;
     mat4 projection;
     vec3 viewPos;
+    uint drawCount;
 };
 
 // TODO: Use positions only for shadows pass: measure impact and try to separate, do the packing, now 64 bytes / vertex
@@ -38,14 +42,14 @@ struct Vertex
 
 // Meshlet data buffer contains 2 important geometry elements for each meshlet stored one after another:
 // 1. uint16_t / uint32_t offsets (check bShortVertexOffsets flag) to meshlet vertices in global vertex buffer.
-// These offsets are calculated relative to meshlet baseVertexIndex, so meshlet vertices can be obtained as
-// vertexBuffer[baseVertexIndex + vertexOffsets[0]]...vertexBuffer[baseVertexIndex + vertexOffsets[vertexCount - 1]]
+// These offsets are calculated relative to meshlet firstVertexOffset, so meshlet vertices can be obtained as
+// vertexBuffer[firstVertexOffset + vertexOffsets[0]]...vertexBuffer[firstVertexOffset + vertexOffsets[vertexCount - 1]]
 // 2. Triangle indices which are used as gl_PrimitiveTriangleIndicesEXT output to produce triangles for meshlets.
 // Triangle indices are stored as uint8_t elements.
 struct Meshlet
 {
     uint dataOffset;
-    uint baseVertexIndex;
+    uint firstVertexOffset;
     uint8_t vertexCount;
     uint8_t triangleCount;
     uint8_t bShortVertexOffsets;
@@ -53,25 +57,67 @@ struct Meshlet
     uint padding2;
 };
 
+struct Lod
+{
+    uint indexOffset;
+    uint indexCount;
+    uint meshletOffset;
+    uint meshletCount;
+    float error;
+};
+
 struct Primitive
 {
-    uint transformIndex;
-    uint materialIndex;
+    // TODO: Calculate for culling
+    vec3 center;
+    float radius;
+
+    uint vertexOffset;
+    uint vertexCount;
+
+    uint lodCount;
+    Lod lods[MAX_LOD_COUNT]; // TODO: Only lod[0] is actually filled rn
+    uint padding;
 };
 
-struct Draw
+struct Draw // Per individual thread in PrimitiveCull workgroup, the "highest level" draw
 {
-    uint firstMeshletIndex;
-    uint meshletCount;
+    // TODO: Decompose
+    mat4 transform;
+
     uint primitiveIndex;
+    // material index, etc.
     uint padding1;
+    uint padding2;
+    uint padding3; // TODO: Fix paddings?
 };
 
-struct TaskPayload
+struct IndirectCommand
 {
-    uint meshletIndex;
-    uint primitiveIndex;
+    uint drawIndex;
+
+    // VkDrawIndexedIndirectCommand
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    uint vertexOffset;
+    uint firstInstance;
 };
+
+//struct MeshletDrawCommand // Mesh pipeline
+//{
+//    uint drawIndex;
+//
+//    uint taskOffset;
+//    uint taskCount;
+//    uint lateDrawVisibility;
+//    uint meshletVisibilityOffset;
+//};
+
+// TODO: Figure out
+// Draws[N] -> LOD selection + PrimitiveCull (frustum + contribution + occlusion) -> NewDraws[M] (for decided LOD)
+//             1. (Vertex) vkCmdDrawIndexedIndirect(NewDraws, M), each NewDraw contains PrimitiveDraw id to access instance data
+//             2. (Mesh) dispatchIndirect(TASK_WGLIMIT
 
 #ifdef __cplusplus
 }

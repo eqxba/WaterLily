@@ -4,7 +4,6 @@
 #extension GL_GOOGLE_include_directive: require
 
 #include "Common.h"
-#include "Config.h"
 #include "Math.glsl"
 
 layout(local_size_x = MESH_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
@@ -14,37 +13,37 @@ layout(push_constant) uniform Globals
     PushConstants globals;
 };
 
-layout(set = 0, binding = 0, std430) readonly buffer Vertices 
+layout(set = 0, binding = 0) readonly buffer Vertices 
 {
     Vertex vertices[]; 
 };
 
-layout(set = 0, binding = 1, std430) readonly buffer Transforms 
+layout(set = 0, binding = 1) readonly buffer Transforms 
 {
     mat4 transforms[]; 
 };
 
-layout(set = 0, binding = 2, std430) readonly buffer MeshletData8 
+layout(set = 0, binding = 2) readonly buffer MeshletData8 
 {
     uint8_t meshletData8[];
 };
 
-layout(set = 0, binding = 2, std430) readonly buffer MeshletData16 
+layout(set = 0, binding = 2) readonly buffer MeshletData16 
 {
     uint16_t meshletData16[];
 };
 
-layout(set = 0, binding = 2, std430) readonly buffer MeshletData32
+layout(set = 0, binding = 2) readonly buffer MeshletData32
 {
     uint meshletData32[];
 };
 
-layout(set = 0, binding = 3, std430) readonly buffer Meshlets 
+layout(set = 0, binding = 3) readonly buffer Meshlets 
 {
     Meshlet meshlets[]; 
 };
 
-layout(set = 0, binding = 4, std430) readonly buffer Primitives 
+layout(set = 0, binding = 4) readonly buffer Primitives 
 {
     Primitive primitives[]; 
 };
@@ -65,7 +64,7 @@ void main()
     uint meshletIndex = payload.meshletIndex + gl_WorkGroupID.x;
 
     uint dataOffset = meshlets[meshletIndex].dataOffset;
-    uint baseVertexIndex = meshlets[meshletIndex].baseVertexIndex;
+    uint firstVertexOffset = meshlets[meshletIndex].firstVertexOffset;
     bool bShortVertexOffsets = uint(meshlets[meshletIndex].bShortVertexOffsets) == 1;
     uint vertexCount = uint(meshlets[meshletIndex].vertexCount);
     uint triangleCount = uint(meshlets[meshletIndex].triangleCount);
@@ -77,17 +76,14 @@ void main()
 
     for (uint i = threadIndex; i < vertexCount;)
     {
-        uint vertexOffset = bShortVertexOffsets 
-            ? uint(meshletData16[dataOffset * 2 + i]) 
-            : meshletData32[dataOffset + i];
+        uint vertexOffset = firstVertexOffset + (bShortVertexOffsets ? uint(meshletData16[dataOffset * 2 + i]) 
+            : meshletData32[dataOffset + i]);
 
-        uint vertexIndex = baseVertexIndex + vertexOffset;
-
-        vec3 position = vertices[vertexIndex].posAndU.xyz;
-        vec3 normal = vertices[vertexIndex].normalAndV.xyz;
-        vec4 tangent = vertices[vertexIndex].tangent;
-        vec2 uv = vec2(vertices[vertexIndex].posAndU.w, vertices[vertexIndex].normalAndV.w);
-        //vec4 color = vertices[vertexIndex].color;   
+        vec3 position = vertices[vertexOffset].posAndU.xyz;
+        vec3 normal = vertices[vertexOffset].normalAndV.xyz;
+        vec4 tangent = vertices[vertexOffset].tangent;
+        vec2 uv = vec2(vertices[vertexOffset].posAndU.w, vertices[vertexOffset].normalAndV.w);
+        //vec4 color = vertices[vertexOffset].color;   
         vec4 color = vec4(hashColor, 1.0);
 
         // TODO: Optimize vertex inputs and decompose transform
@@ -108,17 +104,17 @@ void main()
         #endif
     }
 
-    uint indexOffset = dataOffset + (bShortVertexOffsets ? (vertexCount + 1) / 2 : vertexCount);
+    uint firstIndexOffset = dataOffset + (bShortVertexOffsets ? (vertexCount + 1) / 2 : vertexCount);
 
     for (uint i = threadIndex; i < triangleCount;)
     {
-        uint offset = indexOffset * 4 + i * 3;
+        uint indexOffset = firstIndexOffset * 4 + i * 3;
 
-        uint a = uint(meshletData8[offset]);
-        uint b = uint(meshletData8[offset + 1]);
-        uint c = uint(meshletData8[offset + 2]);
+        uint index1 = uint(meshletData8[indexOffset]);
+        uint index2 = uint(meshletData8[indexOffset + 1]);
+        uint index3 = uint(meshletData8[indexOffset + 2]);
 
-        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(a, b, c);
+        gl_PrimitiveTriangleIndicesEXT[i] = uvec3(index1, index2, index3);
 
         #if MAX_MESHLET_TRIANGLES <= MESH_WG_SIZE
             break;

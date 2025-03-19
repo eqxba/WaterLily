@@ -2,7 +2,6 @@
 
 #include <volk.h>
 
-#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
 
 class VulkanContext;
 class RenderPass;
