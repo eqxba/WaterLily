@@ -7,8 +7,8 @@
 namespace ForwardStageDetails
 {
     static constexpr std::string_view vertexShaderPath = "~/Shaders/Default.vert";
-    static constexpr std::string_view taskShaderPath = "~/Shaders/Default.task";
-    static constexpr std::string_view meshShaderPath = "~/Shaders/Default.mesh";
+    static constexpr std::string_view taskShaderPath = "~/Shaders/Meshlet.task";
+    static constexpr std::string_view meshShaderPath = "~/Shaders/Meshlet.mesh";
     static constexpr std::string_view fragmentShaderPath = "~/Shaders/Default.frag";
 
     static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)

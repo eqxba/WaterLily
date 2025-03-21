@@ -1,5 +1,9 @@
 #version 460
 
+#extension GL_GOOGLE_include_directive: require
+
+#include "Config.h"
+
 layout(location = 0) in vec3 inNormal;
 layout(location = 1) in vec4 inTangent;
 layout(location = 2) in vec2 inUv;
@@ -17,11 +21,13 @@ void main()
 
     float intensity = max(dot(normal, lightDir), 0.0);
 
-    vec4 baseColor = max(vec4(0.5, 0.5, 0.5, 1.0), inColor);
-    //baseColor = mix(texture(sampler2D(texImage, texSampler), inUv), baseColor, 0.6);
-
+    vec4 baseColor = vec4(0.5, 0.5, 0.5, 1.0);
     vec3 diffuse = baseColor.rgb * intensity;
     vec3 ambient = baseColor.rgb * 0.2;
 
-    outColor = vec4(diffuse + ambient, baseColor.a);
+    #if DEBUG_VERTEX_COLOR
+        outColor = inColor;
+    #else
+        outColor = vec4(diffuse + ambient, baseColor.a);
+    #endif
 }

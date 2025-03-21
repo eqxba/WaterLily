@@ -12,6 +12,10 @@
 #define MAX_MESHLET_VERTICES 64
 #define MAX_MESHLET_TRIANGLES 96
 
+#define VISUALIZE_MESHLETS 0
+
+#define DEBUG_VERTEX_COLOR VISUALIZE_MESHLETS
+
 #ifdef __cplusplus
 #pragma once
 

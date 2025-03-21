@@ -64,10 +64,7 @@ void main()
     uint vertexCount = uint(meshlets[meshletIndex].vertexCount);
     uint triangleCount = uint(meshlets[meshletIndex].triangleCount);
 
-    SetMeshOutputsEXT(vertexCount, triangleCount);
-
-    uint meshletHash = hash(meshletIndex);
-    vec3 hashColor = vec3(float(meshletHash & 255), float((meshletHash >> 8) & 255), float((meshletHash >> 16) & 255)) / 255.0;
+    SetMeshOutputsEXT(vertexCount, triangleCount);    
 
     for (uint i = threadIndex; i < vertexCount;)
     {
@@ -78,8 +75,14 @@ void main()
         vec3 normal = vertices[vertexOffset].normalAndV.xyz;
         vec4 tangent = vertices[vertexOffset].tangent;
         vec2 uv = vec2(vertices[vertexOffset].posAndU.w, vertices[vertexOffset].normalAndV.w);
-        //vec4 color = vertices[vertexOffset].color;   
-        vec4 color = vec4(hashColor, 1.0);
+
+        #if VISUALIZE_MESHLETS
+            uint meshletHash = hash(meshletIndex);
+            vec3 hashColor = vec3(float(meshletHash & 255), float((meshletHash >> 8) & 255), float((meshletHash >> 16) & 255)) / 255.0;
+            vec4 color = vec4(hashColor, 1.0);
+        #else
+            vec4 color = vertices[vertexOffset].color;
+        #endif
 
         // TODO: Optimize vertex inputs
         mat4 mvp = globals.projection * globals.view * draws[payload.drawIndex].transform;
