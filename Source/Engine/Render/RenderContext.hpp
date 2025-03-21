@@ -4,7 +4,6 @@
 #include "Utils/Constants.hpp"
 #include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
-#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 struct RenderContext
 {
@@ -13,20 +12,18 @@ struct RenderContext
 
     gpu::PushConstants globals = { .view = Matrix4::identity, .projection = Matrix4::identity, .viewPos = Vector3::zero };
 
-    // Regular pipeline
+    // Vertex pipeline
     Buffer vertexBuffer;
     Buffer indexBuffer;
+
+    // Mesh pipeline
+    Buffer meshletDataBuffer;
+    Buffer meshletBuffer;
 
     Buffer primitiveBuffer;
 
     Buffer drawBuffer;
 
     Buffer commandCountBuffer;
-    Buffer indirectBuffer;
-
-    // Meshlet pipeline
-    // Buffer meshletIndirectBuffer (?)
-    
-    std::vector<VkDescriptorSet> globalDescriptors;
-    DescriptorSetLayout globalDescriptorSetLayout;
+    Buffer commandBuffer; // Either indirect commands or task commands, see PrimitiveCull.comp & PrimitiveCullStage
 };

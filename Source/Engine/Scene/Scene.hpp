@@ -28,7 +28,7 @@ public:
         return camera;
     }
 
-    const RawScene& GetRaw()
+    RawScene& GetRaw()
     {
         return rawScene;
     }

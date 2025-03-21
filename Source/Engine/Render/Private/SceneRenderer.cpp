@@ -2,6 +2,7 @@
 
 #include "Engine/EventSystem.hpp"
 #include "Engine/Scene/SceneHelpers.hpp"
+#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
@@ -10,16 +11,36 @@
 
 namespace SceneRendererDetails
 {
-    static constexpr PipelineBarrier uploadBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT };
+    void CreateIndirectBuffers(RenderContext& renderContext, const VulkanContext& vulkanContext)
+    {
+        const bool meshShadersSupported = vulkanContext.GetDevice().GetProperties().meshShadersSupported;
+
+        const size_t largeEnoughCommandBuffer = gpu::primitiveCullMaxCommands * (meshShadersSupported
+            ? std::max(sizeof(gpu::IndirectCommand), sizeof(gpu::TaskCommand))
+            : sizeof(gpu::IndirectCommand));
+
+        const std::vector<uint32_t> commandCountValues = { 0, 1, 1 };
+        const std::span commandCountSpan(commandCountValues);
+
+        // We use it as buffer for vkCmdDrawMeshTasksIndirectEXT, so let's just always allocate 2 more uint32_t values
+        // and set to them to 1 once on initialization bc we have 1-dimensional dispatch for tasks anyway
+        const BufferDescription commandCountBufferDescription = {
+            .size = commandCountSpan.size_bytes(),
+            .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+        renderContext.commandCountBuffer = Buffer(commandCountBufferDescription, true, commandCountSpan, vulkanContext);
+
+        const BufferDescription commandBufferDescription = {
+            .size = largeEnoughCommandBuffer,
+            .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+        renderContext.commandBuffer = Buffer(commandBufferDescription, false, vulkanContext);
+    }
 
     void CreateSceneBuffers(const RawScene& rawScene, RenderContext& renderContext, const VulkanContext& vulkanContext)
     {
-        using namespace BufferUtils;
-
         const std::span verticesSpan(std::as_const(rawScene.vertices));
 
         const BufferDescription vertexBufferDescription = {
@@ -37,6 +58,27 @@ namespace SceneRendererDetails
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         renderContext.indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, vulkanContext);
+
+        if (!rawScene.meshletData.empty())
+        {
+            const std::span meshletDataSpan(std::as_const(rawScene.meshletData));
+
+            const BufferDescription meshletDataBufferDescription = {
+                .size = meshletDataSpan.size_bytes(),
+                .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+            renderContext.meshletDataBuffer = Buffer(meshletDataBufferDescription, true, meshletDataSpan, vulkanContext);
+
+            const std::span meshletSpan(std::as_const(rawScene.meshlets));
+
+            const BufferDescription meshletBufferDescription = {
+                .size = meshletSpan.size_bytes(),
+                .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+            renderContext.meshletBuffer = Buffer(meshletBufferDescription, true, meshletSpan, vulkanContext);
+        }
 
         const std::span primitiveSpan(std::as_const(rawScene.primitives));
 
@@ -58,20 +100,6 @@ namespace SceneRendererDetails
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         renderContext.drawBuffer = Buffer(drawBufferDescription, true, drawSpan, vulkanContext);
-
-        vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer cmd) {
-            CopyBufferToBuffer(cmd, renderContext.vertexBuffer.GetStagingBuffer(), renderContext.vertexBuffer);
-            CopyBufferToBuffer(cmd, renderContext.indexBuffer.GetStagingBuffer(), renderContext.indexBuffer);
-            CopyBufferToBuffer(cmd, renderContext.primitiveBuffer.GetStagingBuffer(), renderContext.primitiveBuffer);
-            CopyBufferToBuffer(cmd, renderContext.drawBuffer.GetStagingBuffer(), renderContext.drawBuffer);
-
-            SynchronizationUtils::SetMemoryBarrier(cmd, uploadBarrier);
-        });
-
-        renderContext.vertexBuffer.DestroyStagingBuffer();
-        renderContext.indexBuffer.DestroyStagingBuffer();
-        renderContext.primitiveBuffer.DestroyStagingBuffer();
-        renderContext.drawBuffer.DestroyStagingBuffer();
     }
 }
 
@@ -112,6 +140,7 @@ void SceneRenderer::Process(const float deltaSeconds)
     renderContext.globals.view = camera.GetViewMatrix();
     renderContext.globals.projection = camera.GetProjectionMatrix();
     renderContext.globals.viewPos = camera.GetPosition();
+    renderContext.globals.bMeshPipeline = RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
 }
 
 void SceneRenderer::Render(const Frame& frame)
@@ -178,9 +207,47 @@ void SceneRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
 
 void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
 {
+    using namespace BufferUtils;
+
     scene = &event.scene;
 
-    SceneRendererDetails::CreateSceneBuffers(scene->GetRaw(), renderContext, *vulkanContext);   
+    if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
+    {
+        SceneHelpers::GenerateMeshlets(scene->GetRaw());
+    }
+
+    SceneRendererDetails::CreateSceneBuffers(scene->GetRaw(), renderContext, *vulkanContext);
+    SceneRendererDetails::CreateIndirectBuffers(renderContext, *vulkanContext);
+
+    vulkanContext->GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer cmd) {
+        CopyBufferToBuffer(cmd, renderContext.vertexBuffer.GetStagingBuffer(), renderContext.vertexBuffer);
+        CopyBufferToBuffer(cmd, renderContext.indexBuffer.GetStagingBuffer(), renderContext.indexBuffer);
+
+        if (renderContext.meshletDataBuffer.IsValid())
+        {
+            CopyBufferToBuffer(cmd, renderContext.meshletDataBuffer.GetStagingBuffer(), renderContext.meshletDataBuffer);
+            CopyBufferToBuffer(cmd, renderContext.meshletBuffer.GetStagingBuffer(), renderContext.meshletBuffer);
+        }
+
+        CopyBufferToBuffer(cmd, renderContext.primitiveBuffer.GetStagingBuffer(), renderContext.primitiveBuffer);
+        CopyBufferToBuffer(cmd, renderContext.drawBuffer.GetStagingBuffer(), renderContext.drawBuffer);
+        CopyBufferToBuffer(cmd, renderContext.commandCountBuffer.GetStagingBuffer(), renderContext.commandCountBuffer);
+
+        SynchronizationUtils::SetMemoryBarrier(cmd, Barriers::transferWriteToComputeRead);
+    });
+
+    renderContext.vertexBuffer.DestroyStagingBuffer();
+    renderContext.indexBuffer.DestroyStagingBuffer();
+
+    if (renderContext.meshletDataBuffer.IsValid())
+    {
+        renderContext.meshletDataBuffer.DestroyStagingBuffer();
+        renderContext.meshletBuffer.DestroyStagingBuffer();
+    }
+
+    renderContext.primitiveBuffer.DestroyStagingBuffer();
+    renderContext.drawBuffer.DestroyStagingBuffer();
+    renderContext.commandCountBuffer.DestroyStagingBuffer();
     
     primitiveCullStage->Prepare(*scene);
     forwardStage->Prepare(*scene);
@@ -188,8 +255,22 @@ void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
 
 void SceneRenderer::OnSceneClose(const ES::SceneClosed& event)
 {
-    // TODO: Actually we have to reset context here (do we actually have to?)
     vulkanContext->GetDevice().WaitIdle();
+
+    renderContext.vertexBuffer = {};
+    renderContext.indexBuffer = {};
+
+    if (renderContext.meshletDataBuffer.IsValid())
+    {
+        renderContext.meshletDataBuffer = {};
+        renderContext.meshletBuffer = {};
+    }
+
+    renderContext.primitiveBuffer = {};
+    renderContext.drawBuffer = {};
+    renderContext.commandCountBuffer = {};
+    renderContext.commandBuffer = {};
+
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
     
     scene = nullptr;

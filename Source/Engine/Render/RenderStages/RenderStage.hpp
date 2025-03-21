@@ -26,5 +26,5 @@ public:
     
 protected:
     const VulkanContext* vulkanContext = nullptr;
-    RenderContext* renderContext = nullptr;
+    const RenderContext* renderContext = nullptr;
 };

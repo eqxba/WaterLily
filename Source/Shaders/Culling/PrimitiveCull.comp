@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #extension GL_GOOGLE_include_directive: require
 
@@ -23,35 +23,72 @@ layout(set = 0, binding = 1) readonly buffer Draws
 
 layout(set = 0, binding = 2) buffer CommandCount
 {
-	uint commandCount;
+    uint commandCount;
 };
 
 layout(set = 0, binding = 3) writeonly buffer IndirectCommands
 {
-	IndirectCommand indirectCommands[];
+    IndirectCommand indirectCommands[];
 };
 
+layout(set = 0, binding = 3) writeonly buffer TaskCommands
+{
+    TaskCommand taskCommands[];
+};
+
+// Each thread processes 1 primitive: selects LOD, does some culling and possibly emits further work
 void main()
 {
     uint drawIndex = gl_GlobalInvocationID.x;
 
-	if (drawIndex >= globals.drawCount)
-	{
-		return;
-	}
-	
+    if (drawIndex >= globals.drawCount)
+    {
+        return;
+    }
+    
     Draw draw = draws[drawIndex];
 
     // TODO: Actual lod selection & culling logics
-	Primitive primitive = primitives[draw.primitiveIndex];
-	Lod lod = primitive.lods[0];
+    Primitive primitive = primitives[draw.primitiveIndex];
+    Lod lod = primitive.lods[0];
 
-	uint commandIndex = atomicAdd(commandCount, 1);
+    // TODO: Not a push constant - specialization constant is fine here as we use "2 buffers with the same binding hack"
+    if (globals.bMeshPipeline == 1)
+    {
+        // TODO: Does this architecture produce enough work for task shader? (i.e. WGs with small meshlet number)
+        // Try another approach with compacting and measure perf difference - kinda hard actually to implement
+        uint taskCommandCount = (lod.meshletCount + TASK_WG_SIZE - 1) / TASK_WG_SIZE;
+        uint commandIndex = atomicAdd(commandCount, taskCommandCount);
 
-	indirectCommands[commandIndex].drawIndex = drawIndex;
-	indirectCommands[commandIndex].indexCount = lod.indexCount;
-	indirectCommands[commandIndex].instanceCount = 1;
-	indirectCommands[commandIndex].firstIndex = lod.indexOffset;
-	indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
-	indirectCommands[commandIndex].firstInstance = 0;
+        if (commandIndex + taskCommandCount > PRIMITIVE_CULL_MAX_COMMANDS)
+        {
+            return;
+        }
+        
+        for (uint i = 0; i < taskCommandCount; ++i)
+        {
+            uint meshletOffset = lod.meshletOffset + i * TASK_WG_SIZE;
+            uint meshletCount = min(lod.meshletCount - i * TASK_WG_SIZE, TASK_WG_SIZE);
+            
+            taskCommands[commandIndex + i].drawIndex = drawIndex;
+            taskCommands[commandIndex + i].meshletOffset = meshletOffset;
+            taskCommands[commandIndex + i].meshletCount = meshletCount;            
+        }
+    }
+    else
+    {
+        uint commandIndex = atomicAdd(commandCount, 1);
+
+        if (commandIndex >= PRIMITIVE_CULL_MAX_COMMANDS)
+        {
+            return;
+        }
+
+        indirectCommands[commandIndex].drawIndex = drawIndex;
+        indirectCommands[commandIndex].indexCount = lod.indexCount;
+        indirectCommands[commandIndex].instanceCount = 1; // TODO: Real instancing (do i need this?)
+        indirectCommands[commandIndex].firstIndex = lod.indexOffset;
+        indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
+        indirectCommands[commandIndex].firstInstance = 0;
+    }
 }

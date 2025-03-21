@@ -1,35 +1,12 @@
 #include "Engine/Render/RenderStages/PrimitiveCullStage.hpp"
 
 #include "Shaders/Common.h"
-#include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/ComputePipelineBuilder.hpp"
 #include "Engine/Render/Vulkan/Synchronization/SynchronizationUtils.hpp"
 
 namespace PrimitiveCullStageDetails
 {
     static constexpr std::string_view shaderPath = "~/Shaders/Culling/PrimitiveCull.comp";
-
-    void CreateIndirectBuffers(RenderContext& renderContext, const VulkanContext& vulkanContext)
-    {
-        using namespace BufferUtils;
-
-        // TODO: Reason about the size carefully, handle out of bounds in shader
-        constexpr size_t largeEnoughIndirectBuffer = 1'000'000 * sizeof(gpu::IndirectCommand);
-
-        constexpr BufferDescription commandCountBufferDescription = {
-            .size = sizeof(uint32_t),
-            .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-        renderContext.commandCountBuffer = Buffer(commandCountBufferDescription, false, vulkanContext);
-
-        constexpr BufferDescription indirectBufferDescription = {
-            .size = largeEnoughIndirectBuffer,
-            .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
-
-        renderContext.indirectBuffer = Buffer(indirectBufferDescription, false, vulkanContext);
-    }
 
     static std::tuple<VkDescriptorSet, DescriptorSetLayout> CreateDescriptors(const RenderContext& renderContext, 
         const VulkanContext& vulkanContext)
@@ -38,18 +15,14 @@ namespace PrimitiveCullStageDetails
             .Bind(0, renderContext.primitiveBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
             .Bind(1, renderContext.drawBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
             .Bind(2, renderContext.commandCountBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Bind(3, renderContext.indirectBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Bind(3, renderContext.commandBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
             .Build();
     }
 }
 
 PrimitiveCullStage::PrimitiveCullStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : RenderStage{ aVulkanContext, aRenderContext }
-{
-    using namespace PrimitiveCullStageDetails;
-
-    CreateIndirectBuffers(*renderContext, *vulkanContext);
-}
+{}
 
 PrimitiveCullStage::~PrimitiveCullStage() = default;
 
@@ -83,6 +56,7 @@ void PrimitiveCullStage::Execute(const Frame& frame)
     vkCmdFillBuffer(cmd, renderContext->commandCountBuffer, 0, sizeof(uint32_t), 0);
 
     // TODO: I've seen that driver actually doesn't care about buffer barriers but let's have them, it's nicer
+    // TODO: Do you set this as a single barrier or better to have 2 separate ones?
     constexpr PipelineBarrier previousFrameAndClearBarrier = {
         .srcStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
         .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -102,6 +76,15 @@ void PrimitiveCullStage::Execute(const Frame& frame)
         static_cast<float>(gpu::primitiveCullWgSize)));
 
     vkCmdDispatch(cmd, groupCountX, 1, 1);
+
+    // TODO: Same about 2 barriers as above
+    constexpr PipelineBarrier afterCullBarrier = {
+        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT,
+        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT };
+
+    SetMemoryBarrier(cmd, afterCullBarrier);
 }
 
 void PrimitiveCullStage::TryReloadShaders()

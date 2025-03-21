@@ -347,6 +347,24 @@ std::optional<RawScene> SceneHelpers::LoadGltfScene(const FilePath& path)
     return rawScene;
 }
 
+void SceneHelpers::GenerateMeshlets(RawScene& rawScene)
+{
+    ScopeTimer timer("Generate meshlets");
+
+    for (gpu::Primitive& primitive : rawScene.primitives)
+    {
+        // TODO: Implement lods!
+        gpu::Lod& lod = primitive.lods[0];
+
+        const auto vertices = std::span(rawScene.vertices.data() + primitive.vertexOffset, primitive.vertexCount);
+        const auto indices = std::span(rawScene.indices.data() + lod.indexOffset, lod.indexCount);
+
+        lod.meshletOffset = static_cast<uint32_t>(rawScene.meshlets.size());
+        lod.meshletCount = static_cast<uint32_t>(SceneHelpersDetails::GenerateMeshlets(vertices, indices,
+            rawScene.meshlets, rawScene.meshletData, primitive.vertexOffset));
+    }
+}
+
 std::vector<gpu::Draw> SceneHelpers::GenerateDraws(const RawScene& rawScene)
 {
     std::vector<gpu::Draw> draws;
@@ -363,7 +381,6 @@ std::vector<gpu::Draw> SceneHelpers::GenerateDraws(const RawScene& rawScene)
     return draws;
 }
 
-// TODO: Use vertex id in glsl instead!
 std::vector<VkVertexInputBindingDescription> SceneHelpers::GetVertexBindings()
 {
     VkVertexInputBindingDescription binding{};

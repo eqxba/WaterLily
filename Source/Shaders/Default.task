@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #extension GL_EXT_mesh_shader: require
 #extension GL_GOOGLE_include_directive: require
@@ -12,24 +12,19 @@ layout(push_constant) uniform Globals
     PushConstants globals;
 };
 
-layout(set = 0, binding = 1) readonly buffer Transforms 
-{
-    mat4 transforms[]; 
-};
-
-layout(set = 0, binding = 3) readonly buffer Meshlets 
+layout(set = 0, binding = 2) readonly buffer Meshlets 
 {
     Meshlet meshlets[]; 
 };
 
-layout(set = 0, binding = 4) readonly buffer Primitives 
-{
-    Primitive primitives[]; 
-};
-
-layout(set = 0, binding = 5) readonly buffer Draws 
+layout(set = 0, binding = 3) readonly buffer Draws 
 {
     Draw draws[]; 
+};
+
+layout(set = 0, binding = 4) readonly buffer TaskCommands
+{
+    TaskCommand taskCommands[];
 };
 
 taskPayloadSharedEXT TaskPayload payload;
@@ -37,12 +32,12 @@ taskPayloadSharedEXT TaskPayload payload;
 // Each task shader thread produces one meshlet
 void main()
 {
-    uint drawId = gl_WorkGroupID.x;
-    Draw draw = draws[drawId];
+    TaskCommand taskCommand = taskCommands[gl_WorkGroupID.x];
 
-    // TODO: This is garbage, I need another data structures and different payload
-    payload.meshletIndex = draw.firstMeshletIndex;
-    payload.primitiveIndex = draw.primitiveIndex;
+    payload.drawIndex = taskCommand.drawIndex;
+    payload.meshletOffset = taskCommand.meshletOffset;
 
-    EmitMeshTasksEXT(draw.meshletCount, 1, 1);    
+    // TODO: Do some real culling here
+
+    EmitMeshTasksEXT(taskCommand.meshletCount, 1, 1);    
 }

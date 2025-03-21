@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #extension GL_EXT_mesh_shader: require
 #extension GL_GOOGLE_include_directive: require
@@ -15,37 +15,32 @@ layout(push_constant) uniform Globals
 
 layout(set = 0, binding = 0) readonly buffer Vertices 
 {
-    Vertex vertices[]; 
+    Vertex vertices[];
 };
 
-layout(set = 0, binding = 1) readonly buffer Transforms 
-{
-    mat4 transforms[]; 
-};
-
-layout(set = 0, binding = 2) readonly buffer MeshletData8 
+layout(set = 0, binding = 1) readonly buffer MeshletData8 
 {
     uint8_t meshletData8[];
 };
 
-layout(set = 0, binding = 2) readonly buffer MeshletData16 
+layout(set = 0, binding = 1) readonly buffer MeshletData16 
 {
     uint16_t meshletData16[];
 };
 
-layout(set = 0, binding = 2) readonly buffer MeshletData32
+layout(set = 0, binding = 1) readonly buffer MeshletData32
 {
     uint meshletData32[];
 };
 
-layout(set = 0, binding = 3) readonly buffer Meshlets 
+layout(set = 0, binding = 2) readonly buffer Meshlets 
 {
-    Meshlet meshlets[]; 
+    Meshlet meshlets[];
 };
 
-layout(set = 0, binding = 4) readonly buffer Primitives 
+layout(set = 0, binding = 3) readonly buffer Draws 
 {
-    Primitive primitives[]; 
+    Draw draws[];
 };
 
 layout(triangles, max_vertices = MAX_MESHLET_VERTICES, max_primitives = MAX_MESHLET_TRIANGLES) out;
@@ -61,7 +56,7 @@ taskPayloadSharedEXT TaskPayload payload;
 void main()
 {
     uint threadIndex = gl_LocalInvocationIndex;
-    uint meshletIndex = payload.meshletIndex + gl_WorkGroupID.x;
+    uint meshletIndex = payload.meshletOffset + gl_WorkGroupID.x;
 
     uint dataOffset = meshlets[meshletIndex].dataOffset;
     uint firstVertexOffset = meshlets[meshletIndex].firstVertexOffset;
@@ -86,8 +81,8 @@ void main()
         //vec4 color = vertices[vertexOffset].color;   
         vec4 color = vec4(hashColor, 1.0);
 
-        // TODO: Optimize vertex inputs and decompose transform
-        mat4 mvp = globals.projection * globals.view * transforms[primitives[payload.primitiveIndex].transformIndex];
+        // TODO: Optimize vertex inputs
+        mat4 mvp = globals.projection * globals.view * draws[payload.drawIndex].transform;
 
         vec4 clip = mvp * vec4(position, 1.0);
 

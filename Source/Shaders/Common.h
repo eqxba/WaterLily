@@ -29,6 +29,7 @@ struct PushConstants
     mat4 projection;
     vec3 viewPos;
     uint drawCount;
+    uint bMeshPipeline;
 };
 
 // TODO: Use positions only for shadows pass: measure impact and try to separate, do the packing, now 64 bytes / vertex
@@ -89,13 +90,12 @@ struct Draw // Per individual thread in PrimitiveCull workgroup, the "highest le
     // material index, etc.
     uint padding1;
     uint padding2;
-    uint padding3; // TODO: Fix paddings?
+    uint padding3; // TODO: Fix paddings
 };
 
 struct IndirectCommand
 {
     uint drawIndex;
-
     // VkDrawIndexedIndirectCommand
     uint indexCount;
     uint instanceCount;
@@ -104,20 +104,19 @@ struct IndirectCommand
     uint firstInstance;
 };
 
-//struct MeshletDrawCommand // Mesh pipeline
-//{
-//    uint drawIndex;
-//
-//    uint taskOffset;
-//    uint taskCount;
-//    uint lateDrawVisibility;
-//    uint meshletVisibilityOffset;
-//};
+struct TaskCommand
+{
+    uint drawIndex;
+    uint meshletOffset;
+    uint meshletCount;
+    uint padding;
+};
 
-// TODO: Figure out
-// Draws[N] -> LOD selection + PrimitiveCull (frustum + contribution + occlusion) -> NewDraws[M] (for decided LOD)
-//             1. (Vertex) vkCmdDrawIndexedIndirect(NewDraws, M), each NewDraw contains PrimitiveDraw id to access instance data
-//             2. (Mesh) dispatchIndirect(TASK_WGLIMIT
+struct TaskPayload
+{
+    uint drawIndex;
+    uint meshletOffset;
+};
 
 #ifdef __cplusplus
 }

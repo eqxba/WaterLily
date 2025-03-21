@@ -7,6 +7,8 @@ namespace SceneHelpers
 {
     std::optional<RawScene> LoadGltfScene(const FilePath& path);
 
+    void GenerateMeshlets(RawScene& rawScene);
+
     // TODO: Actually get this from scene traversal
     std::vector<gpu::Draw> GenerateDraws(const RawScene& rawScene);
 

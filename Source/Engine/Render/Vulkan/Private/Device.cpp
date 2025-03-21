@@ -308,7 +308,5 @@ void Device::InitProperties()
     std::vector<VkExtensionProperties> availableExtensionsProperties = GetExtensionsProperties(physicalDevice);
     
     properties.maxSampleCount = GetMaxSampleCount(properties.physicalProperties);
-
-    // TODO: Temp, enable back when we change mesh pipeline shader structure
-    properties.meshShadersSupported = false;//ExtensionSupported(availableExtensionsProperties, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+    properties.meshShadersSupported = ExtensionSupported(availableExtensionsProperties, VK_EXT_MESH_SHADER_EXTENSION_NAME);
 }
