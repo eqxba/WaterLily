@@ -198,7 +198,7 @@ void ForwardStage::Execute(const Frame& frame)
 
     std::array<VkClearValue, 3> clearValues{};
     clearValues[0].color = { { 0.73f, 0.95f, 1.0f, 1.0f } };
-    clearValues[2].depthStencil = { 1.0f, 0 };
+    clearValues[2].depthStencil = { 0.0f, 0 };
 
     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
     renderPassInfo.pClearValues = clearValues.data();
@@ -272,7 +272,7 @@ Pipeline ForwardStage::CreateMeshPipeline()
         .SetShaderModules(std::move(shaderModules))
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(vulkanContext->GetDevice().GetProperties().maxSampleCount)
-        .SetDepthState(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
         .SetRenderPass(renderPass)
         .Build();
 }
@@ -297,7 +297,7 @@ Pipeline ForwardStage::CreateVertexPipeline()
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eBack, false)
         .SetMultisampling(vulkanContext->GetDevice().GetProperties().maxSampleCount)
-        .SetDepthState(true, true, VK_COMPARE_OP_LESS_OR_EQUAL)
+        .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
         .SetRenderPass(renderPass)
         .Build();
 }

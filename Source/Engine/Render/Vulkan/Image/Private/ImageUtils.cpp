@@ -140,7 +140,7 @@ void ImageUtils::GenerateMipMaps(const VkCommandBuffer commandBuffer, const Imag
 
 void ImageUtils::FillImage(const VkCommandBuffer commandBuffer, const Image& image, const glm::vec4& color)
 {
-    const VkClearColorValue clearValue = { .float32 = { color.r, color.g, color.b, color.a } };
+    const VkClearColorValue clearValue = { .float32 = { color.x, color.y, color.z, color.w } };
     
     const VkImageSubresourceRange clearRange = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,

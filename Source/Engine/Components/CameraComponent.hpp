@@ -74,8 +74,8 @@ public:
 
     glm::mat4 GetProjectionMatrix() const
     {
-        glm::mat4 projection = glm::perspective(verticalFov, aspectRatio, 0.01f, 100'000'000.0f);
-        projection[1][1] *= -1;
+        glm::mat4 projection = glm::perspective(verticalFov, aspectRatio, 100'000'000.0f, 0.01f);
+        projection[1][1] *= -1; // Vulkan Y down
         return projection;
     }
 

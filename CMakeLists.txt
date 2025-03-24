@@ -72,6 +72,8 @@ target_link_libraries(${TARGET_NAME}
 
 target_precompile_headers(${TARGET_NAME} PUBLIC Source/pch.hpp)
 
+target_compile_definitions(${TARGET_NAME} PRIVATE GLM_FORCE_XYZW_ONLY GLM_FORCE_DEPTH_ZERO_TO_ONE)
+
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 set_property(TARGET ${TARGET_NAME} PROPERTY CMAKE_CXX_STANDARD_REQUIRED True)
 
