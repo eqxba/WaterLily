@@ -1,4 +1,4 @@
-#version 460
+#version 450
 
 #extension GL_GOOGLE_include_directive: require
 
@@ -21,7 +21,7 @@ void main()
 
     float intensity = max(dot(normal, lightDir), 0.0);
 
-    vec4 baseColor = vec4(0.5, 0.5, 0.5, 1.0);
+    vec4 baseColor = vec4(normal, 1.0);
     vec3 diffuse = baseColor.rgb * intensity;
     vec3 ambient = baseColor.rgb * 0.2;
 

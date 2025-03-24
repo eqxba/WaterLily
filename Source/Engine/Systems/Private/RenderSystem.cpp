@@ -30,6 +30,31 @@ namespace RenderSystemDetails
         
         return VulkanUtils::CreateCommandBuffers(device, 1, longLivedPool)[0];
     }
+
+    static VkQueryPool CreateQueryPool(const VulkanContext& vulkanContext)
+    {
+        VkQueryPoolCreateInfo queryPoolInfo = { .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+        queryPoolInfo.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+        queryPoolInfo.pipelineStatistics = VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT;
+        queryPoolInfo.queryCount = VulkanConfig::maxFramesInFlight;
+
+        VkQueryPool queryPool;
+        const VkResult result = vkCreateQueryPool(vulkanContext.GetDevice(), &queryPoolInfo, nullptr, &queryPool);
+        Assert(result == VK_SUCCESS);
+
+        vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer cmd) {
+            vkCmdResetQueryPool(cmd, queryPool, 0, VulkanConfig::maxFramesInFlight);
+
+            for (uint32_t i = 0; i < VulkanConfig::maxFramesInFlight; ++i)
+            {
+                // Initialize to have zero values for the first maxFramesInFlight frames
+                vkCmdBeginQuery(cmd, queryPool, i, 0);
+                vkCmdEndQuery(cmd, queryPool, i);
+            }
+        });
+
+        return queryPool;
+    }
 }
 
 RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
@@ -46,10 +71,12 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
         return Frame(index, 0, CreateCommandBuffer(*vulkanContext), CreateFrameSync(*vulkanContext));
     };
     
-    const auto frameIndices = std::views::iota(static_cast<uint32_t>(0), VulkanConfig::maxFramesInFlight);
+    constexpr auto frameIndices = std::views::iota(static_cast<uint32_t>(0), VulkanConfig::maxFramesInFlight);
     std::ranges::transform(frameIndices, std::back_inserter(frames), createFrame);
     
     SetRenderer(renderOptions->GetRendererType());
+
+    queryPool = CreateQueryPool(*vulkanContext);
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
@@ -61,6 +88,8 @@ RenderSystem::~RenderSystem()
     vulkanContext->GetDevice().WaitIdle();
     
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
+
+    vkDestroyQueryPool(vulkanContext->GetDevice(), queryPool, nullptr);
 }
 
 void RenderSystem::Process(const float deltaSeconds)
@@ -70,8 +99,8 @@ void RenderSystem::Process(const float deltaSeconds)
         SetRenderer(renderOptions->GetRendererType());
     }
     
-    renderer->Process(deltaSeconds);
-    uiRenderer->Process(deltaSeconds);
+    renderer->Process(frames[currentFrame], deltaSeconds);
+    uiRenderer->Process(frames[currentFrame], deltaSeconds);
 }
 
 void RenderSystem::Render()
@@ -88,13 +117,22 @@ void RenderSystem::Render()
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
     vkResetFences(device, 1, &fence);
 
+    // Gather gpu frame data
+    vkGetQueryPoolResults(device, queryPool, currentFrame, 1, sizeof(frame.stats), &frame.stats, sizeof(frame.stats),
+        VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+
     // Acquire next image from the swapchain, frame wait semaphore will be signaled by the presentation engine when it
     // finishes using the image so we can start rendering
     frame.swapchainImageIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
 
     // Submit scene rendering commands
-    const auto renderCommands = [&](VkCommandBuffer buffer) {
+    const auto renderCommands = [&](VkCommandBuffer commandBuffer) {
+        vkCmdResetQueryPool(commandBuffer, queryPool, currentFrame, 1);
+
+        vkCmdBeginQuery(commandBuffer, queryPool, currentFrame, 0);      
         renderer->Render(frame);
+        vkCmdEndQuery(commandBuffer, queryPool, currentFrame);
+        
         uiRenderer->Render(frame);
     };
 

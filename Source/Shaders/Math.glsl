@@ -13,4 +13,15 @@ uint hash(uint seed)
     return seed;
 }
 
+vec4 hashToColor(uint hash)
+{
+    vec3 color = vec3(float(hash & 255), float((hash >> 8) & 255), float((hash >> 16) & 255)) / 255.0;
+    return vec4(color, 1.0);
+}
+
+vec3 rotateQuat(vec3 v, vec4 q)
+{
+	return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
+}
+
 #endif

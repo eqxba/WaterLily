@@ -46,14 +46,17 @@ public:
     RenderOptions& operator=(RenderOptions&&) = delete;
 
     // Support functions
-    bool IsGraphicsPipelineTypeSupported(GraphicsPipelineType graphicsPipelineType);
+    bool IsGraphicsPipelineTypeSupported(GraphicsPipelineType graphicsPipelineType) const;
     
     // Getters and setters
-    RendererType GetRendererType();
+    RendererType GetRendererType() const;
     void SetRendererType(RendererType rendererType);
 
-    GraphicsPipelineType GetGraphicsPipelineType();
+    GraphicsPipelineType GetGraphicsPipelineType() const;
     void SetGraphicsPipelineType(GraphicsPipelineType graphicsPipelineType);
+
+    bool GetUseLod() const;
+    void SetUseLod(bool useLod);
     
 private:
     void OnKeyInput(const ES::KeyInput& event);
@@ -64,4 +67,5 @@ private:
     
     RendererType rendererType = RendererType::eScene;
     GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
+    bool useLod = true;
 };

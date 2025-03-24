@@ -1,8 +1,9 @@
-#version 460
+#version 450
 
 #extension GL_GOOGLE_include_directive: require
 
 #include "Common.h"
+#include "Math.glsl"
 
 layout(local_size_x = PRIMITIVE_CULL_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
 
@@ -36,6 +37,24 @@ layout(set = 0, binding = 3) writeonly buffer TaskCommands
     TaskCommand taskCommands[];
 };
 
+uint calculateLodIndex(Primitive primitive, Draw draw)
+{
+    vec3 center = (globals.view * vec4(rotateQuat(primitive.center, draw.rotation) * draw.scale + draw.position, 1.0)).xyz;
+    float radius = primitive.radius * draw.scale;
+
+    float distanceToSphere = max(length(center) - radius, 0);
+    float threshold = distanceToSphere * globals.lodTarget / draw.scale;
+
+    uint lodIndex = 0;
+
+    while (lodIndex < primitive.lodCount - 1 && primitive.lods[lodIndex + 1].error < threshold)
+    {
+        ++lodIndex;
+    }
+
+    return lodIndex;
+}
+
 // Each thread processes 1 primitive: selects LOD, does some culling and possibly emits further work
 void main()
 {
@@ -46,11 +65,13 @@ void main()
         return;
     }
     
-    Draw draw = draws[drawIndex];
+    Draw draw = draws[drawIndex];    
+    Primitive primitive = primitives[draw.primitiveIndex];    
 
-    // TODO: Actual lod selection & culling logics
-    Primitive primitive = primitives[draw.primitiveIndex];
-    Lod lod = primitive.lods[0];
+    uint lodIndex = globals.bUseLod == 1 ? calculateLodIndex(primitive, draw) : 0;
+    Lod lod = primitive.lods[lodIndex];
+
+    // TODO: Actual culling logics
 
     // TODO: Not a push constant - specialization constant is fine here as we use "2 buffers with the same binding hack"
     if (globals.bMeshPipeline == 1)
@@ -89,6 +110,12 @@ void main()
         indirectCommands[commandIndex].instanceCount = 1; // TODO: Real instancing (do i need this?)
         indirectCommands[commandIndex].firstIndex = lod.indexOffset;
         indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
-        indirectCommands[commandIndex].firstInstance = 0;
-    }
+        
+        // TODO: It's ok only while we don't use instancing
+        #if VISUALIZE_LODS
+            indirectCommands[commandIndex].firstInstance = lodIndex;
+        #else
+            indirectCommands[commandIndex].firstInstance = 0;
+        #endif
+    }    
 }

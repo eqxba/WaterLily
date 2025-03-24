@@ -1,4 +1,4 @@
-#version 460
+#version 450
 
 #extension GL_EXT_mesh_shader: require
 #extension GL_GOOGLE_include_directive: require
@@ -77,17 +77,17 @@ void main()
         vec2 uv = vec2(vertices[vertexOffset].posAndU.w, vertices[vertexOffset].normalAndV.w);
 
         #if VISUALIZE_MESHLETS
-            uint meshletHash = hash(meshletIndex);
-            vec3 hashColor = vec3(float(meshletHash & 255), float((meshletHash >> 8) & 255), float((meshletHash >> 16) & 255)) / 255.0;
-            vec4 color = vec4(hashColor, 1.0);
+            vec4 color = hashToColor(hash(meshletIndex));
         #else
             vec4 color = vertices[vertexOffset].color;
         #endif
 
-        // TODO: Optimize vertex inputs
-        mat4 mvp = globals.projection * globals.view * draws[payload.drawIndex].transform;
+        Draw draw = draws[payload.drawIndex];
 
-        vec4 clip = mvp * vec4(position, 1.0);
+        position = rotateQuat(position, draw.rotation) * draw.scale + draw.position;
+        normal = rotateQuat(normal, draw.rotation);
+
+        vec4 clip = globals.projection * globals.view * vec4(position, 1.0);
 
         gl_MeshVerticesEXT[i].gl_Position = clip;
         outNormal[i] = normal;

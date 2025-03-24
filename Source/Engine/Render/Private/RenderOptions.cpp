@@ -40,7 +40,7 @@ RenderOptions::~RenderOptions()
     eventSystem->UnsubscribeAll(this);
 }
 
-bool RenderOptions::IsGraphicsPipelineTypeSupported(GraphicsPipelineType aGraphicsPipelineType)
+bool RenderOptions::IsGraphicsPipelineTypeSupported(GraphicsPipelineType aGraphicsPipelineType) const
 {
     if (aGraphicsPipelineType == GraphicsPipelineType::eMesh)
     {
@@ -50,7 +50,7 @@ bool RenderOptions::IsGraphicsPipelineTypeSupported(GraphicsPipelineType aGraphi
     return true;
 }
 
-RendererType RenderOptions::GetRendererType()
+RendererType RenderOptions::GetRendererType() const
 {
     return rendererType;
 }
@@ -60,12 +60,12 @@ void RenderOptions::SetRendererType(const RendererType aRendererType)
     rendererType = aRendererType;
 }
 
-GraphicsPipelineType RenderOptions::GetGraphicsPipelineType()
+GraphicsPipelineType RenderOptions::GetGraphicsPipelineType() const
 {
     return graphicsPipelineType;
 }
 
-void RenderOptions::SetGraphicsPipelineType(GraphicsPipelineType aGraphicsPipelineType)
+void RenderOptions::SetGraphicsPipelineType(const GraphicsPipelineType aGraphicsPipelineType)
 {
     if (!IsGraphicsPipelineTypeSupported(aGraphicsPipelineType))
     {
@@ -73,6 +73,16 @@ void RenderOptions::SetGraphicsPipelineType(GraphicsPipelineType aGraphicsPipeli
     }
     
     graphicsPipelineType = aGraphicsPipelineType;
+}
+
+bool RenderOptions::GetUseLod() const
+{
+    return useLod;
+}
+
+void RenderOptions::SetUseLod(const bool aUseLod)
+{
+    useLod = aUseLod;
 }
 
 void RenderOptions::OnKeyInput(const ES::KeyInput& event)
@@ -85,5 +95,10 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
     if (event.key == Key::eF2 && event.action == KeyAction::ePress)
     {
         SetGraphicsPipelineType(GraphicsPipelineType::eVertex);
+    }
+
+    if (event.key == Key::eL && event.action == KeyAction::ePress)
+    {
+        SetUseLod(!useLod);
     }
 }

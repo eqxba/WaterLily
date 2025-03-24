@@ -11,6 +11,18 @@
 
 namespace SceneRendererDetails
 {
+    static void SetSceneStats(const RawScene& rawScene, const std::vector<gpu::Draw>& draws)
+    {
+        uint64_t totalTriangles = 0;
+
+        for (const gpu::Draw& draw : draws)
+        {
+            totalTriangles += rawScene.primitives[draw.primitiveIndex].lods[0].indexCount / 3;
+        }
+
+        Scene::SetTotalTriangles(totalTriangles);
+    }
+
     void CreateIndirectBuffers(RenderContext& renderContext, const VulkanContext& vulkanContext)
     {
         const bool meshShadersSupported = vulkanContext.GetDevice().GetProperties().meshShadersSupported;
@@ -92,6 +104,8 @@ namespace SceneRendererDetails
         const std::vector<gpu::Draw> draws = SceneHelpers::GenerateDraws(rawScene);
         renderContext.globals.drawCount = static_cast<uint32_t>(draws.size());
 
+        SetSceneStats(rawScene, draws);
+
         const std::span drawSpan(std::as_const(draws));
 
         const BufferDescription drawBufferDescription = {
@@ -128,7 +142,7 @@ SceneRenderer::~SceneRenderer()
     DestroyRenderTargets();
 }
 
-void SceneRenderer::Process(const float deltaSeconds)
+void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
 {
     if (!scene) 
     {
@@ -136,11 +150,17 @@ void SceneRenderer::Process(const float deltaSeconds)
     }
 
     const CameraComponent& camera = scene->GetCamera();
+    const glm::mat4 projection = camera.GetProjectionMatrix();
+    const RenderOptions& renderOptions = RenderOptions::Get();
+    const VkExtent2D swapchainExtent = vulkanContext->GetSwapchain().GetExtent();
 
     renderContext.globals.view = camera.GetViewMatrix();
-    renderContext.globals.projection = camera.GetProjectionMatrix();
+    renderContext.globals.projection = projection;
     renderContext.globals.viewPos = camera.GetPosition();
-    renderContext.globals.bMeshPipeline = RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
+    renderContext.globals.bMeshPipeline = renderOptions.GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
+    renderContext.globals.bUseLod = renderOptions.GetUseLod();
+    renderContext.globals.lodTarget = glm::tan(camera.GetVerticalFov() / 2.0f) 
+        * 2.0f / static_cast<float>(swapchainExtent.height); // 1px in primitive space
 }
 
 void SceneRenderer::Render(const Frame& frame)

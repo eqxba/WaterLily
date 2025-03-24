@@ -7,7 +7,7 @@ class Renderer
 public:
     virtual ~Renderer() = default;
 
-    virtual void Process(float deltaSeconds) = 0;
+    virtual void Process(const Frame& frame, float deltaSeconds) = 0;
     
     virtual void Render(const Frame& frame) = 0;
 };

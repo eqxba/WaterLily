@@ -104,6 +104,7 @@ namespace ForwardStageDetails
     {
         return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // Draws
+            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // IndirectCommands
             .Build();
     }
 
@@ -177,6 +178,7 @@ void ForwardStage::Prepare(const Scene& scene)
     
     pair = descriptorSetManager.GetDescriptorSetBuilder(pair.second, DescriptorScope::eSceneRenderer)
         .Bind(0, renderContext->drawBuffer)
+        .Bind(1, renderContext->commandBuffer)
         .Build();
 }
 

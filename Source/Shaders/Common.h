@@ -30,6 +30,9 @@ struct PushConstants
     vec3 viewPos;
     uint drawCount;
     uint bMeshPipeline;
+    uint bUseLod;
+    float lodTarget; // lod target error at z = 1
+    uint padding;
 };
 
 // TODO: Use positions only for shadows pass: measure impact and try to separate, do the packing, now 64 bytes / vertex
@@ -77,14 +80,15 @@ struct Primitive
     uint vertexCount;
 
     uint lodCount;
-    Lod lods[MAX_LOD_COUNT]; // TODO: Only lod[0] is actually filled rn
+    Lod lods[MAX_LOD_COUNT];
     uint padding;
 };
 
 struct Draw // Per individual thread in PrimitiveCull workgroup, the "highest level" draw
 {
-    // TODO: Decompose
-    mat4 transform;
+    vec3 position;
+    float scale;
+    vec4 rotation;
 
     uint primitiveIndex;
     // material index, etc.
@@ -96,6 +100,7 @@ struct Draw // Per individual thread in PrimitiveCull workgroup, the "highest le
 struct IndirectCommand
 {
     uint drawIndex;
+
     // VkDrawIndexedIndirectCommand
     uint indexCount;
     uint instanceCount;

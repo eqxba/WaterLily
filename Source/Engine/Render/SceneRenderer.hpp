@@ -29,7 +29,7 @@ public:
     SceneRenderer(SceneRenderer&&) = delete;
     SceneRenderer& operator=(SceneRenderer&&) = delete;
 
-    void Process(float deltaSeconds) override;
+    void Process(const Frame& frame, float deltaSeconds) override;
 
     void Render(const Frame& frame) override;
 

@@ -217,7 +217,7 @@ UiRenderer::~UiRenderer()
     VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
 }
 
-void UiRenderer::Process(const float deltaSeconds)
+void UiRenderer::Process(const Frame& frame, const float deltaSeconds)
 {
     // Handles i/o and other different window events
     ImGui_ImplGlfw_NewFrame();
@@ -225,7 +225,7 @@ void UiRenderer::Process(const float deltaSeconds)
     
     for (const auto& widget : widgets)
     {
-        widget->Process(deltaSeconds);
+        widget->Process(frame, deltaSeconds);
         
         if (inputMode == InputMode::eUi || widget->IsAlwaysVisible())
         {

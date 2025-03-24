@@ -66,10 +66,8 @@ ComputeRenderer::~ComputeRenderer()
     descriptorSetManager.ResetDescriptors(DescriptorScope::eComputeRenderer);
 }
 
-void ComputeRenderer::Process(const float deltaSeconds)
-{
-    
-}
+void ComputeRenderer::Process(const Frame& frame, const float deltaSeconds)
+{}
 
 void ComputeRenderer::Render(const Frame& frame)
 {

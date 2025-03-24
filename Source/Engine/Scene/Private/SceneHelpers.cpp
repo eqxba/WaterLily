@@ -9,6 +9,7 @@ DISABLE_WARNINGS_BEGIN
 DISABLE_WARNINGS_END
 
 #include <meshoptimizer.h>
+#include <random>
 
 namespace SceneHelpersDetails
 {
@@ -62,7 +63,7 @@ namespace SceneHelpersDetails
 
             for (size_t i = 0; i < vertexCount; ++i)
             {
-                vertices[i].tangent = glm::vec4(rawData[i * 4 + 0], rawData[i * 4 + 1], rawData[i * 4 + 2], 
+                vertices[i].tangent = glm::vec4(rawData[i * 4 + 0], rawData[i * 4 + 1], rawData[i * 4 + 2],
                     rawData[i * 4 + 3]);
             }
         }
@@ -88,7 +89,7 @@ namespace SceneHelpersDetails
 
             for (size_t i = 0; i < vertexCount; ++i)
             {
-                vertices[i].color = glm::vec4(rawData[i * 4 + 0], rawData[i * 4 + 1], rawData[i * 4 + 2], 
+                vertices[i].color = glm::vec4(rawData[i * 4 + 0], rawData[i * 4 + 1], rawData[i * 4 + 2],
                     rawData[i * 4 + 3]);
             }
         }
@@ -122,19 +123,43 @@ namespace SceneHelpersDetails
         return removedVertices;
     }
 
+    static glm::vec3 CalculateCenter(const std::span<const gpu::Vertex> vertices)
+    {
+        glm::vec3 center = Vector3::zero;
+
+        for (const auto& vertex : vertices)
+        {
+            center += glm::vec3(vertex.posAndU.x, vertex.posAndU.y, vertex.posAndU.z);
+        }
+
+        return center / static_cast<float>(vertices.size());
+    }
+
+    static float CalculateRadius(const glm::vec3 center, const std::span<const gpu::Vertex> vertices)
+    {
+        float radius = 0.0f;
+
+        for (const auto& vertex : vertices)
+        {
+            radius = std::max(radius, glm::distance(center,
+                glm::vec3(vertex.posAndU.x, vertex.posAndU.y, vertex.posAndU.z)));
+        }
+
+        return radius;
+    }
+
     static void GeneratePrimitive(const cgltf_primitive& cgltfPrimitive, RawScene& rawScene)
     {
         const auto firstVertexOffset = static_cast<uint32_t>(rawScene.vertices.size());
-        const auto firstIndexOffset = static_cast<uint32_t>(rawScene.indices.size());
 
         auto vertexCount = static_cast<uint32_t>(cgltfPrimitive.attributes[0].data->count);
         const auto indexCount = static_cast<uint32_t>(cgltfPrimitive.indices->count);
 
         rawScene.vertices.resize(rawScene.vertices.size() + vertexCount);
-        rawScene.indices.resize(rawScene.indices.size() + indexCount);
-
         auto vertices = std::span(rawScene.vertices).last(vertexCount);
-        const auto indices = std::span(rawScene.indices).last(indexCount);
+
+        std::vector<uint32_t> indices;
+        indices.resize(indexCount);
 
         LoadVertices(cgltfPrimitive, vertices);
         LoadIndices(cgltfPrimitive, indices);
@@ -146,20 +171,78 @@ namespace SceneHelpersDetails
 
         gpu::Primitive& primitive = rawScene.primitives.emplace_back();
 
-        // TODO: Calculate culling data and generate lods
-        primitive.center = Vector3::zero;
-        primitive.radius = 0.0f;
+        primitive.center = CalculateCenter(vertices);
+        primitive.radius = CalculateRadius(primitive.center, vertices);
         primitive.vertexOffset = firstVertexOffset;
         primitive.vertexCount = vertexCount;
-        primitive.lodCount = 1;
+        primitive.lodCount = 0;
 
-        gpu::Lod& lod0 = primitive.lods[0];
+        // TODO: Load raw attributes to separate arrays and then merge instead of unmerging in cases like this
+        std::vector<glm::vec3> positions;
+        positions.reserve(vertices.size());
 
-        lod0.indexOffset = firstIndexOffset;
-        lod0.indexCount = indexCount;
-        lod0.meshletOffset = 0;
-        lod0.meshletCount = 0;
-        lod0.error = 0.0f;
+        std::ranges::transform(vertices, std::back_inserter(positions), [](const gpu::Vertex& v)
+        {
+            return glm::vec3(v.posAndU.x, v.posAndU.y, v.posAndU.z);
+        });
+
+        // TODO: Same
+        std::vector<glm::vec3> normals;
+        normals.reserve(normals.size());
+
+        std::ranges::transform(vertices, std::back_inserter(normals), [](const gpu::Vertex& v)
+        {
+            return glm::vec3(v.normalAndV.x, v.normalAndV.y, v.normalAndV.z);
+        });
+
+        const float lodScale = meshopt_simplifyScale(&positions[0].x, vertices.size(), sizeof(glm::vec3));
+        float lodError = 0.0f;
+
+        constexpr std::array normalWeights = { 1.0f, 1.0f, 1.0f };
+
+        for (gpu::Lod& lod : primitive.lods)
+        {
+            ++primitive.lodCount;
+
+            lod.indexOffset = static_cast<uint32_t>(rawScene.indices.size());
+            lod.indexCount = static_cast<uint32_t>(indices.size());
+            lod.meshletOffset = 0;
+            lod.meshletCount = 0;
+            lod.error = lodError * lodScale;
+
+            rawScene.indices.insert(rawScene.indices.end(), indices.begin(), indices.end());
+
+            if (primitive.lodCount < gpu::maxLodCount)
+            {
+                constexpr float maxError = 0.1f; // 10% of primitive extents
+                float nextError = 0.0f;
+
+                const auto nextIndicesTarget = (static_cast<size_t>(static_cast<double>(indices.size()) * 0.65f) / 3) * 3;
+
+                const size_t nextIndices = meshopt_simplifyWithAttributes(indices.data(), indices.data(),
+                    indices.size(), &positions[0].x, positions.size(), sizeof(glm::vec3), &normals[0].x,
+                    sizeof(glm::vec3), normalWeights.data(), normalWeights.size(), nullptr, nextIndicesTarget, maxError,
+                    0, &nextError);
+
+                Assert(nextIndices <= indices.size());
+
+                if (nextIndices == indices.size() || nextIndices == 0)
+                {
+                    break;
+                }
+
+                if (nextIndices >= static_cast<size_t>(static_cast<double>(indices.size()) * 0.95f))
+                {
+                    break;
+                }
+
+                indices.resize(nextIndices);
+
+                meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
+
+                lodError = std::max(lodError, nextError);
+            }
+        }
     }
 
     static gpu::Meshlet GenerateMeshlet(const meshopt_Meshlet& meshlet, const std::vector<unsigned int>& vertices,
@@ -353,15 +436,18 @@ void SceneHelpers::GenerateMeshlets(RawScene& rawScene)
 
     for (gpu::Primitive& primitive : rawScene.primitives)
     {
-        // TODO: Implement lods!
-        gpu::Lod& lod = primitive.lods[0];
-
         const auto vertices = std::span(rawScene.vertices.data() + primitive.vertexOffset, primitive.vertexCount);
-        const auto indices = std::span(rawScene.indices.data() + lod.indexOffset, lod.indexCount);
 
-        lod.meshletOffset = static_cast<uint32_t>(rawScene.meshlets.size());
-        lod.meshletCount = static_cast<uint32_t>(SceneHelpersDetails::GenerateMeshlets(vertices, indices,
-            rawScene.meshlets, rawScene.meshletData, primitive.vertexOffset));
+        for (uint32_t i = 0; i < primitive.lodCount; ++i)
+        {
+            gpu::Lod& lod = primitive.lods[i];
+
+            const auto indices = std::span(rawScene.indices.data() + lod.indexOffset, lod.indexCount);
+
+            lod.meshletOffset = static_cast<uint32_t>(rawScene.meshlets.size());
+            lod.meshletCount = static_cast<uint32_t>(SceneHelpersDetails::GenerateMeshlets(vertices, indices,
+                rawScene.meshlets, rawScene.meshletData, primitive.vertexOffset));
+        }
     }
 }
 
@@ -369,17 +455,36 @@ std::vector<gpu::Draw> SceneHelpers::GenerateDraws(const RawScene& rawScene)
 {
     std::vector<gpu::Draw> draws;
 
-    for (const Mesh& mesh : rawScene.meshes)
+    constexpr size_t drawCount = 200'000;
+
+    const float cubeHalfSize = std::cbrt(static_cast<float>(drawCount)) * (rawScene.primitives[0].radius * 2.5f) * 0.5f;
+
+    std::mt19937 rng(52);
+
+    std::uniform_real_distribution positionDist(-cubeHalfSize, cubeHalfSize);
+    std::uniform_real_distribution angleDist(0.0f, glm::two_pi<float>());
+    std::uniform_real_distribution scaleDist(0.2f, 1.0f);
+
+    for (size_t i = 0; i < drawCount; ++i)
     {
-        for (const uint32_t primitiveIndex : std::ranges::views::iota(mesh.firstPrimitiveIndex,
-            mesh.firstPrimitiveIndex + mesh.primitiveCount))
+        const auto rotation = glm::quat(glm::vec3(angleDist(rng), angleDist(rng), angleDist(rng)));
+
+        for (const Mesh& mesh : rawScene.meshes)
         {
-            draws.emplace_back(mesh.transform, primitiveIndex);
+            for (uint32_t index : std::ranges::views::iota(mesh.firstPrimitiveIndex, 
+                mesh.firstPrimitiveIndex + mesh.primitiveCount))
+            {
+                draws.emplace_back(
+                    glm::vec3(positionDist(rng), positionDist(rng), positionDist(rng)), 
+                    scaleDist(rng),
+                    glm::vec4(rotation.x, rotation.y, rotation.z, rotation.w), index);
+            }
         }
     }
 
     return draws;
 }
+
 
 std::vector<VkVertexInputBindingDescription> SceneHelpers::GetVertexBindings()
 {

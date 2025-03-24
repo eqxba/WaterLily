@@ -12,7 +12,13 @@ struct PipelineBarrier
 
 namespace Barriers
 {
-    static constexpr PipelineBarrier transferWriteToComputeRead = {
+    constexpr PipelineBarrier fullBarrier = {
+        .srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+        .dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT };
+
+    constexpr PipelineBarrier transferWriteToComputeRead = {
         .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
         .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,

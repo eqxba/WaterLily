@@ -13,5 +13,5 @@ namespace EngineConfig
         .mode = WindowMode::eWindowed,
         .inputMode = InputMode::eEngine };
 
-    constexpr std::string_view defaultScenePath = "~/Assets/Scenes/Sponza/glTF/Sponza.gltf";
+    constexpr std::string_view defaultScenePath = "~/Assets/Scenes/Duck/Duck.glb";
 }

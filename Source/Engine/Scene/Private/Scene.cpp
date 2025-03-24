@@ -8,6 +8,18 @@
 namespace SceneDetails
 {
     static constexpr std::string_view imagePath = "~/Assets/texture.png";
+
+    static uint64_t totalTriangles = 0;
+}
+
+uint64_t Scene::GetTotalTriangles()
+{
+    return SceneDetails::totalTriangles;
+}
+
+void Scene::SetTotalTriangles(uint64_t triangles)
+{
+    SceneDetails::totalTriangles = triangles;
 }
 
 Scene::Scene(FilePath aPath, const VulkanContext& aVulkanContext)

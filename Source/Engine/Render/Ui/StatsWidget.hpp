@@ -9,7 +9,7 @@ class StatsWidget : public Widget
 public:
     StatsWidget(const VulkanContext& vulkanContext);
     
-    void Process(float deltaSeconds) override;
+    void Process(const Frame& frame, float deltaSeconds) override;
     void Build() override;
     
     bool IsAlwaysVisible() override
@@ -21,4 +21,5 @@ private:
     const VulkanContext* vulkanContext = nullptr;
     
     std::array<float, 50> frameTimes = {};
+    uint64_t triangleCount = 0;
 };

@@ -10,7 +10,7 @@ struct RenderContext
     RenderTarget colorTarget;
     RenderTarget depthTarget;
 
-    gpu::PushConstants globals = { .view = Matrix4::identity, .projection = Matrix4::identity, .viewPos = Vector3::zero };
+    gpu::PushConstants globals = { .view = Matrix4::identity, .projection = Matrix4::identity };
 
     // Vertex pipeline
     Buffer vertexBuffer;

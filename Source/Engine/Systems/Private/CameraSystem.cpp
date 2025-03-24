@@ -154,7 +154,7 @@ void CameraSystem::OnKeyInput(const ES::KeyInput& event)
 
     if (const auto it = std::ranges::find(speedKeys, event.key); it != speedKeys.end())
     {
-        speedMultiplier = static_cast<float>(std::distance(speedKeys.begin(), it) + 1);
+        speedMultiplier = 500.0f * static_cast<float>(std::distance(speedKeys.begin(), it) + 1);
     }
 }
 

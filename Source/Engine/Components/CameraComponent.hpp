@@ -74,7 +74,7 @@ public:
 
     glm::mat4 GetProjectionMatrix() const
     {
-        glm::mat4 projection = glm::perspective(verticalFov, aspectRatio, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(verticalFov, aspectRatio, 0.01f, 100'000'000.0f);
         projection[1][1] *= -1;
         return projection;
     }

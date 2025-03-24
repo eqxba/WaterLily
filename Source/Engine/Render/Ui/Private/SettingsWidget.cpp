@@ -58,7 +58,7 @@ SettingsWidget::SettingsWidget(const VulkanContext& aVulkanContext)
         isGraphicsPipelineTypeSupported);
 }
 
-void SettingsWidget::Process(float deltaSeconds)
+void SettingsWidget::Process(const Frame& frame, float deltaSeconds)
 {}
 
 void SettingsWidget::Build()

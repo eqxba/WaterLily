@@ -45,7 +45,7 @@ public:
     UiRenderer(UiRenderer&&) = delete;
     UiRenderer& operator=(UiRenderer&&) = delete;
 
-    void Process(float deltaSeconds) override;
+    void Process(const Frame& frame, float deltaSeconds) override;
 
     void Render(const Frame& frame) override;
 

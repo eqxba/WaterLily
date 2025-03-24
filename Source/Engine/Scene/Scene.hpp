@@ -14,6 +14,9 @@ class Image;
 class Scene
 {
 public:
+    static uint64_t GetTotalTriangles();
+    static void SetTotalTriangles(uint64_t triangles);
+
     Scene(FilePath path, const VulkanContext& vulkanContext);
     ~Scene();
 

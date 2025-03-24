@@ -10,7 +10,7 @@ class SettingsWidget : public Widget
 public:
     SettingsWidget(const VulkanContext& vulkanContext);
     
-    void Process(float deltaSeconds) override;
+    void Process(const Frame& frame, float deltaSeconds) override;
     void Build() override;
     
 private:
