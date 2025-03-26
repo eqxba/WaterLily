@@ -23,16 +23,25 @@ namespace gpu
 #include "Config.h"
 #endif
 
+struct CullData
+{
+    mat4 view;
+    float frustumLeftX;
+    float frustumLeftZ;
+    float frustumBottomY;
+    float frustumBottomZ;
+    float near;
+};
+
 struct PushConstants 
 {
     mat4 view;
     mat4 projection;
-    vec3 viewPos;
     uint drawCount;
     uint bMeshPipeline;
     uint bUseLod;
     float lodTarget; // lod target error at z = 1
-    uint padding;
+    CullData cullData;
 };
 
 // TODO: Use positions only for shadows pass: measure impact and try to separate, do the packing, now 64 bytes / vertex

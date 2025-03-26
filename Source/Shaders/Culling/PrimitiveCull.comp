@@ -37,11 +37,25 @@ layout(set = 0, binding = 3) writeonly buffer TaskCommands
     TaskCommand taskCommands[];
 };
 
-uint calculateLodIndex(Primitive primitive, Draw draw)
+bool frustumCull(vec3 center, float radius)
 {
-    vec3 center = (globals.view * vec4(rotateQuat(primitive.center, draw.rotation) * draw.scale + draw.position, 1.0)).xyz;
-    float radius = primitive.radius * draw.scale;
+    bool bCulled = false;
 
+    CullData cullData = globals.cullData;
+
+    // Utilize symmetry
+    bCulled = bCulled || -cullData.frustumLeftX * abs(center.x) + cullData.frustumLeftZ * center.z < -radius;
+    bCulled = bCulled || -cullData.frustumBottomY * abs(center.y) + cullData.frustumBottomZ * center.z < -radius;
+
+    // Near is "distance to near from camera"
+    bCulled = bCulled || center.z + cullData.near > radius;
+    // Note: infinite far
+
+    return bCulled;
+}
+
+uint calculateLodIndex(Primitive primitive, Draw draw, vec3 center, float radius)
+{   
     float distanceToSphere = max(length(center) - radius, 0);
     float threshold = distanceToSphere * globals.lodTarget / draw.scale;
 
@@ -68,10 +82,20 @@ void main()
     Draw draw = draws[drawIndex];    
     Primitive primitive = primitives[draw.primitiveIndex];    
 
-    uint lodIndex = globals.bUseLod == 1 ? calculateLodIndex(primitive, draw) : 0;
-    Lod lod = primitive.lods[lodIndex];
+    vec3 center = rotateQuat(primitive.center, draw.rotation) * draw.scale + draw.position;
+    center = (globals.cullData.view * vec4(center, 1.0)).xyz;
 
-    // TODO: Actual culling logics
+    float radius = primitive.radius * draw.scale;
+
+    bool bCulled = frustumCull(center, radius);    
+
+    if (bCulled)
+    {
+        return;
+    }
+
+    uint lodIndex = globals.bUseLod == 1 ? calculateLodIndex(primitive, draw, center, radius) : 0;
+    Lod lod = primitive.lods[lodIndex];
 
     // TODO: Not a push constant - specialization constant is fine here as we use "2 buffers with the same binding hack"
     if (globals.bMeshPipeline == 1)

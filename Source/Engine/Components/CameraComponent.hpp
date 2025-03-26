@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Utils/Math.hpp"
 #include "Utils/Constants.hpp"
 
 DISABLE_WARNINGS_BEGIN
@@ -42,6 +43,16 @@ public:
         aspectRatio = aAspectRatio;
     }
 
+    float GetNear() const
+    {
+        return near;
+    }
+
+    void SetNear(const float aNear)
+    {
+        near = aNear;
+    }
+
     glm::quat GetRotationQuat() const
     {
         return rotationQuat;
@@ -74,9 +85,7 @@ public:
 
     glm::mat4 GetProjectionMatrix() const
     {
-        glm::mat4 projection = glm::perspective(verticalFov, aspectRatio, 100'000'000.0f, 0.01f);
-        projection[1][1] *= -1; // Vulkan Y down
-        return projection;
+        return Math::Perspective(verticalFov, aspectRatio, near, 100'000'000.0f);
     }
 
 private:
@@ -84,6 +93,7 @@ private:
 
     float verticalFov = glm::radians(45.0f);
     float aspectRatio = 1.0f;
+    float near = 0.01f;
 
     glm::quat rotationQuat = {};
 };

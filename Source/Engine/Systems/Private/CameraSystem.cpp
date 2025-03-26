@@ -9,8 +9,8 @@ namespace CameraSystemDetails
 {
     static const std::unordered_set movementKeys = { Key::eW, Key::eA, Key::eS, Key::eD, Key::eQ, Key::eE };
     static constexpr std::array speedKeys = { Key::e1, Key::e2, Key::e3, Key::e4, Key::e5 };
-    static constexpr float cameraSpeed = 2.0f;
-    static constexpr float mouseSensitivity = 0.001f;
+    static constexpr float cameraSpeed = 1000.0f;
+    static constexpr float mouseSensitivity = 0.003f;
     static constexpr float mouseScrollSensitivity = 0.02f;
     static constexpr float minVerticalFov = glm::radians(1.0f);
     static constexpr float maxVerticalFov = glm::radians(45.0f);
@@ -154,7 +154,7 @@ void CameraSystem::OnKeyInput(const ES::KeyInput& event)
 
     if (const auto it = std::ranges::find(speedKeys, event.key); it != speedKeys.end())
     {
-        speedMultiplier = 500.0f * static_cast<float>(std::distance(speedKeys.begin(), it) + 1);
+        speedMultiplier = static_cast<float>(std::distance(speedKeys.begin(), it) + 1);
     }
 }
 

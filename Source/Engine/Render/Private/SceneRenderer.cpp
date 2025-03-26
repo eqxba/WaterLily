@@ -115,6 +115,11 @@ namespace SceneRendererDetails
 
         renderContext.drawBuffer = Buffer(drawBufferDescription, true, drawSpan, vulkanContext);
     }
+
+    static glm::vec4 NormalizePlane(const glm::vec4 plane)
+    {
+        return plane / glm::length(glm::vec3(plane));
+    }
 }
 
 SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
@@ -144,6 +149,8 @@ SceneRenderer::~SceneRenderer()
 
 void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
 {
+    using namespace SceneRendererDetails;
+
     if (!scene) 
     {
         return;
@@ -156,11 +163,29 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
 
     renderContext.globals.view = camera.GetViewMatrix();
     renderContext.globals.projection = projection;
-    renderContext.globals.viewPos = camera.GetPosition();
     renderContext.globals.bMeshPipeline = renderOptions.GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
     renderContext.globals.bUseLod = renderOptions.GetUseLod();
     renderContext.globals.lodTarget = glm::tan(camera.GetVerticalFov() / 2.0f) 
         * 2.0f / static_cast<float>(swapchainExtent.height); // 1px in primitive space
+
+    if (!renderOptions.GetFreezeCamera())
+    {
+        gpu::CullData& cullData = renderContext.globals.cullData;
+
+        cullData.view = renderContext.globals.view;
+
+        glm::mat4 projectionT = transpose(projection);
+        projectionT[1][1] *= -1; // Y is flipped, flip it back
+
+        const glm::vec4 frustumLeft = NormalizePlane(projectionT[3] + projectionT[0]);
+        const glm::vec4 frustumBottom = NormalizePlane(projectionT[3] + projectionT[1]);
+
+        cullData.frustumLeftX = frustumLeft.x;
+        cullData.frustumLeftZ = frustumLeft.z;
+        cullData.frustumBottomY = frustumBottom.y;
+        cullData.frustumBottomZ = frustumBottom.z;
+        cullData.near = camera.GetNear();
+    }
 }
 
 void SceneRenderer::Render(const Frame& frame)

@@ -36,6 +36,7 @@ namespace Vector4
 
 namespace Matrix4
 {
+    constexpr auto zero = glm::mat4();
     constexpr auto identity = glm::mat4(1.0f);
 }
 

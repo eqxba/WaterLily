@@ -85,6 +85,16 @@ void RenderOptions::SetUseLod(const bool aUseLod)
     useLod = aUseLod;
 }
 
+bool RenderOptions::GetFreezeCamera() const
+{
+    return freezeCamera;
+}
+
+void RenderOptions::SetFreezeCamera(const bool aFreezeCamera)
+{
+    freezeCamera = aFreezeCamera;
+}
+
 void RenderOptions::OnKeyInput(const ES::KeyInput& event)
 {
     if (event.key == Key::eF1 && event.action == KeyAction::ePress)
@@ -100,5 +110,10 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
     if (event.key == Key::eL && event.action == KeyAction::ePress)
     {
         SetUseLod(!useLod);
+    }
+
+    if (event.key == Key::eF && event.action == KeyAction::ePress)
+    {
+        SetFreezeCamera(!freezeCamera);
     }
 }

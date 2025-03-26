@@ -57,6 +57,9 @@ public:
 
     bool GetUseLod() const;
     void SetUseLod(bool useLod);
+
+    bool GetFreezeCamera() const;
+    void SetFreezeCamera(bool freezeCamera);
     
 private:
     void OnKeyInput(const ES::KeyInput& event);
@@ -68,4 +71,5 @@ private:
     RendererType rendererType = RendererType::eScene;
     GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
     bool useLod = true;
+    bool freezeCamera = false;
 };
