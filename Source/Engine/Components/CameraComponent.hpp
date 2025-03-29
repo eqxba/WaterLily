@@ -85,7 +85,7 @@ public:
 
     glm::mat4 GetProjectionMatrix() const
     {
-        return Math::Perspective(verticalFov, aspectRatio, near, 100'000'000.0f);
+        return Math::PerspectiveInfinite(verticalFov, aspectRatio, near);
     }
 
 private:

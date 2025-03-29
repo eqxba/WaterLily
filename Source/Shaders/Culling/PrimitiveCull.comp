@@ -43,12 +43,11 @@ bool frustumCull(vec3 center, float radius)
 
     CullData cullData = globals.cullData;
 
-    // Utilize symmetry
-    bCulled = bCulled || -cullData.frustumLeftX * abs(center.x) + cullData.frustumLeftZ * center.z < -radius;
-    bCulled = bCulled || -cullData.frustumBottomY * abs(center.y) + cullData.frustumBottomZ * center.z < -radius;
+    // Utilize symmetry: left + right, bottom + top
+    bCulled = bCulled || cullData.frustumRightX * abs(center.x) + cullData.frustumRightZ * center.z < -radius;
+    bCulled = bCulled || cullData.frustumTopY * abs(center.y) + cullData.frustumTopZ * center.z < -radius;
 
-    // Near is "distance to near from camera"
-    bCulled = bCulled || center.z + cullData.near > radius;
+    bCulled = bCulled || cullData.near - center.z < -radius;
     // Note: infinite far
 
     return bCulled;

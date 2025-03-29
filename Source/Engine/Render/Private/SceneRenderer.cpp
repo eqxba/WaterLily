@@ -174,17 +174,15 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
 
         cullData.view = renderContext.globals.view;
 
-        glm::mat4 projectionT = transpose(projection);
-        projectionT[1][1] *= -1; // Y is flipped, flip it back
+        const glm::mat4 projectionT = transpose(projection);
+        const glm::vec4 frustumRight = NormalizePlane(projectionT[3] - projectionT[0]);
+        const glm::vec4 frustumTop = NormalizePlane(projectionT[3] + projectionT[1]);
 
-        const glm::vec4 frustumLeft = NormalizePlane(projectionT[3] + projectionT[0]);
-        const glm::vec4 frustumBottom = NormalizePlane(projectionT[3] + projectionT[1]);
-
-        cullData.frustumLeftX = frustumLeft.x;
-        cullData.frustumLeftZ = frustumLeft.z;
-        cullData.frustumBottomY = frustumBottom.y;
-        cullData.frustumBottomZ = frustumBottom.z;
-        cullData.near = camera.GetNear();
+        cullData.frustumRightX = frustumRight.x;
+        cullData.frustumRightZ = frustumRight.z;
+        cullData.frustumTopY = frustumTop.y;
+        cullData.frustumTopZ = frustumTop.z;
+        cullData.near = -camera.GetNear();
     }
 }
 

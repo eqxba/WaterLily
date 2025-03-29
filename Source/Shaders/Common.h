@@ -26,10 +26,11 @@ namespace gpu
 struct CullData
 {
     mat4 view;
-    float frustumLeftX;
-    float frustumLeftZ;
-    float frustumBottomY;
-    float frustumBottomZ;
+    // Frustum planes' components in view space
+    float frustumRightX;
+    float frustumRightZ;
+    float frustumTopY;
+    float frustumTopZ;
     float near;
 };
 

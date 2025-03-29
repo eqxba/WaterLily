@@ -6,6 +6,6 @@ DISABLE_WARNINGS_END
 
 namespace Math
 {
-    glm::mat4 Perspective(float verticalFov, float aspectRatio, float near, float far, bool reverseDepth = true, 
-        bool flipY = true);
+    glm::mat4 Perspective(float verticalFov, float aspectRatio, float near, float far, bool reverseDepth = true);
+    glm::mat4 PerspectiveInfinite(float verticalFov, float aspectRatio, float near, bool reverseDepth = true);
 }
