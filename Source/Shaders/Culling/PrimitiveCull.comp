@@ -53,6 +53,16 @@ bool frustumCull(vec3 center, float radius)
     return bCulled;
 }
 
+bool contributionCull(vec3 center, float radius)
+{
+    vec4 lbrt = sphereNdcExtents(center, radius, globals.projection);
+
+    float width = abs(lbrt.z - lbrt.x);
+    float height = abs(lbrt.w - lbrt.y);
+    
+    return max(width, height) < CONTRIBUTION_CULL_THRESHOLD;
+}
+
 uint calculateLodIndex(Primitive primitive, Draw draw, vec3 center, float radius)
 {   
     float distanceToSphere = max(length(center) - radius, 0);
@@ -79,14 +89,14 @@ void main()
     }
     
     Draw draw = draws[drawIndex];    
-    Primitive primitive = primitives[draw.primitiveIndex];    
+    Primitive primitive = primitives[draw.primitiveIndex];
 
     vec3 center = rotateQuat(primitive.center, draw.rotation) * draw.scale + draw.position;
     center = (globals.cullData.view * vec4(center, 1.0)).xyz;
 
     float radius = primitive.radius * draw.scale;
 
-    bool bCulled = frustumCull(center, radius);    
+    bool bCulled = frustumCull(center, radius) || contributionCull(center, radius);    
 
     if (bCulled)
     {

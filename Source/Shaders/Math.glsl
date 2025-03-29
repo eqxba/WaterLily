@@ -24,4 +24,23 @@ vec3 rotateQuat(vec3 v, vec4 q)
 	return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
 }
 
+// Adapted version of https://gist.github.com/JarkkoPFC/1186bc8a861dae3c8339b0cda4e6cdb3
+vec4 sphereNdcExtents(vec3 center, float radius, mat4 projection)
+{
+    vec4 lbrt;
+    float rad2 = radius * radius, d = center.z * radius;
+    
+    float hv = sqrt(center.x * center.x + center.z * center.z - rad2);
+    float ha = center.x * hv, hb = center.x * radius, hc = center.z * hv;
+    lbrt.x = (ha - d) * projection[0][0] / (hc + hb); // left
+    lbrt.z = (ha + d) * projection[0][0] / (hc - hb); // right
+    
+    float vv = sqrt(center.y * center.y + center.z * center.z - rad2);
+    float va = center.y * vv, vb = center.y * radius, vc = center.z * vv;
+    lbrt.y = (va - d) * projection[1][1] / (vc + vb); // bottom
+    lbrt.w = (va + d) * projection[1][1] / (vc - vb); // top
+    
+    return lbrt;
+}
+
 #endif
