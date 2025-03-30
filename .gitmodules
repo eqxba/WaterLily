@@ -28,3 +28,6 @@
 [submodule "External/cgltf"]
 	path = External/cgltf
 	url = https://github.com/jkuhlmann/cgltf.git
+[submodule "External/SPIRV-Reflect"]
+	path = External/SPIRV-Reflect
+	url = https://github.com/KhronosGroup/SPIRV-Reflect.git

@@ -25,13 +25,18 @@ option(ENABLE_SPVREMAPPER "" OFF)
 option(ENABLE_GLSLANG_BINARIES "" OFF)
 option(ENABLE_CTEST "" OFF)
 option(ENABLE_HLSL "" OFF)
+option(ENABLE_OPT "" OFF)
 add_subdirectory(External/glslang)
 
-# imgui
-set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/External/imgui")
+# spirv-reflect
+file(GLOB SPIRV_REFLECT_HEADERS LIST_DIRECTORIES false "${PROJECT_SOURCE_DIR}/External/SPIRV-Reflect/spirv_reflect.h")
+file(GLOB SPIRV_REFLECT_SOURCES LIST_DIRECTORIES false "${PROJECT_SOURCE_DIR}/External/SPIRV-Reflect/spirv_reflect.cpp")
 
 # meshoptimizer
 add_subdirectory(External/meshoptimizer)
+
+# imgui
+set(IMGUI_DIR "${PROJECT_SOURCE_DIR}/External/imgui")
 
 file(GLOB IMGUI_HEADERS LIST_DIRECTORIES false
     "${IMGUI_DIR}/misc/cpp/*.h"
@@ -45,13 +50,15 @@ file(GLOB IMGUI_SOURCES LIST_DIRECTORIES false
     "${IMGUI_DIR}/backends/*vulkan*.cpp"
 )
 
-add_executable(${TARGET_NAME} ${SOURCE_FILES} ${IMGUI_HEADERS} ${IMGUI_SOURCES})
+add_executable(${TARGET_NAME} ${SOURCE_FILES} ${IMGUI_HEADERS} ${IMGUI_SOURCES} ${SPIRV_REFLECT_HEADERS} 
+    ${SPIRV_REFLECT_SOURCES})
 
 target_include_directories(${TARGET_NAME} PRIVATE
     ${Vulkan_INCLUDE_DIRS}
     External/glfw/include/
     External/imgui/
     External/glslang/
+    External/SPIRV-Reflect/
     # This ones are header only :)
     External/VulkanMemoryAllocator/include
     External/glm/
@@ -93,6 +100,8 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
 )
 
 # IDE structuring
+source_group("Source\\External\\SPIRV-Reflect" FILES ${SPIRV_REFLECT_HEADERS})
+source_group("Source\\External\\SPIRV-Reflect\\Private" FILES ${SPIRV_REFLECT_SOURCES})
 source_group("Source\\External\\Imgui" FILES ${IMGUI_HEADERS})
 source_group("Source\\External\\Imgui\\Private" FILES ${IMGUI_SOURCES})
 foreach(SOURCE IN ITEMS ${SOURCE_FILES})
