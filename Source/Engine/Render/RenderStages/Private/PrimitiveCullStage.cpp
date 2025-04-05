@@ -77,21 +77,14 @@ void PrimitiveCullStage::Execute(const Frame& frame)
         static_cast<float>(gpu::primitiveCullWgSize)));
 
     vkCmdDispatch(cmd, groupCountX, 1, 1);
-    
-    constexpr PipelineBarrier meshAfterCullBarrier = {
+
+    constexpr PipelineBarrier afterCullBarrier = {
         .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT };
-    
-    constexpr PipelineBarrier indirectAfterCullBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT };
-    
-    SetMemoryBarrier(cmd, RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh
-        ? meshAfterCullBarrier : indirectAfterCullBarrier);
+        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT,
+        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT };
+
+    SetMemoryBarrier(cmd, afterCullBarrier);
 }
 
 void PrimitiveCullStage::TryReloadShaders()
