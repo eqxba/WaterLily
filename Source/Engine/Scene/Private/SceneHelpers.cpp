@@ -455,7 +455,7 @@ std::vector<gpu::Draw> SceneHelpers::GenerateDraws(const RawScene& rawScene)
 {
     std::vector<gpu::Draw> draws;
 
-    constexpr size_t drawCount = gpu::primitiveCullMaxCommands;
+    constexpr size_t drawCount = platformMac ? 20000 : gpu::primitiveCullMaxCommands;
 
     const float cubeHalfSize = std::cbrt(static_cast<float>(drawCount)) * (rawScene.primitives[0].radius * 2.5f) * 0.5f;
 

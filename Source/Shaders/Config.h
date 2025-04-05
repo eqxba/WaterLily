@@ -15,9 +15,12 @@
 #define CONTRIBUTION_CULL_THRESHOLD 0.003
 
 #define VISUALIZE_MESHLETS 0
-#define VISUALIZE_LODS 0
+#define VISUALIZE_LODS 0 // TODO: It's not working after DRAW_INDIRECT_COUNT fallback implementation
 
 #define DEBUG_VERTEX_COLOR VISUALIZE_MESHLETS || VISUALIZE_LODS
+
+// TODO: Sync with real support
+#define DRAW_INDIRECT_COUNT 0
 
 #ifdef __cplusplus
 #pragma once

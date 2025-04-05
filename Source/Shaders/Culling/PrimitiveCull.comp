@@ -98,10 +98,13 @@ void main()
 
     bool bCulled = frustumCull(center, radius) || contributionCull(center, radius);    
 
-    if (bCulled)
-    {
-        return;
-    }
+    // TODO: if (bMeshPipeline || DRAW_INDIRECT_COUNT)
+    #if DRAW_INDIRECT_COUNT
+        if (bCulled)
+        {
+            return;
+        }
+    #endif
 
     uint lodIndex = globals.bUseLod == 1 ? calculateLodIndex(primitive, draw, center, radius) : 0;
     Lod lod = primitive.lods[lodIndex];
@@ -131,7 +134,11 @@ void main()
     }
     else
     {
-        uint commandIndex = atomicAdd(commandCount, 1);
+        #if DRAW_INDIRECT_COUNT
+            uint commandIndex = atomicAdd(commandCount, 1);
+        #else
+            uint commandIndex = drawIndex;
+        #endif
 
         if (commandIndex >= PRIMITIVE_CULL_MAX_COMMANDS)
         {
@@ -140,15 +147,15 @@ void main()
 
         indirectCommands[commandIndex].drawIndex = drawIndex;
         indirectCommands[commandIndex].indexCount = lod.indexCount;
-        indirectCommands[commandIndex].instanceCount = 1; // TODO: Real instancing (do i need this?)
+
+        #if DRAW_INDIRECT_COUNT
+            indirectCommands[commandIndex].instanceCount = 1;
+        #else
+            indirectCommands[commandIndex].instanceCount = bCulled ? 0 : 1;
+        #endif
+        
         indirectCommands[commandIndex].firstIndex = lod.indexOffset;
         indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
-        
-        // TODO: It's ok only while we don't use instancing
-        #if VISUALIZE_LODS
-            indirectCommands[commandIndex].firstInstance = lodIndex;
-        #else
-            indirectCommands[commandIndex].firstInstance = 0;
-        #endif
+        indirectCommands[commandIndex].firstInstance = drawIndex;
     }    
 }

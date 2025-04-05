@@ -1,7 +1,10 @@
 #version 450
 
 #extension GL_GOOGLE_include_directive : require
-#extension GL_ARB_shader_draw_parameters: require
+
+#if DRAW_INDIRECT_COUNT
+    #extension GL_ARB_shader_draw_parameters: require
+#endif
 
 #include "Common.h"
 #include "Math.glsl"
@@ -37,14 +40,13 @@ void main()
     vec3 normal = inNormalAndV.xyz;
     vec4 tangent = inTangent;
     vec2 uv = vec2(inPosAndU.w, inNormalAndV.w);
+    vec4 color = inColor;
 
-    #if VISUALIZE_LODS
-        vec4 color = hashToColor(hash(gl_InstanceIndex));
+    #if DRAW_INDIRECT_COUNT
+        Draw draw = draws[indirectCommands[gl_DrawIDARB].drawIndex];
     #else
-        vec4 color = inColor;
+        Draw draw = draws[gl_InstanceIndex];
     #endif
-
-    Draw draw = draws[indirectCommands[gl_DrawIDARB].drawIndex];
 
     position = rotateQuat(position, draw.rotation) * draw.scale + draw.position;
     normal = rotateQuat(normal, draw.rotation);    

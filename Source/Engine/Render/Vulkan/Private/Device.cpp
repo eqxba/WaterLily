@@ -5,6 +5,17 @@
 
 namespace DeviceDetails
 {
+    static std::vector<VkExtensionProperties> GetExtensionsProperties(VkPhysicalDevice device)
+    {
+        uint32_t extensionCount;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+        std::vector<VkExtensionProperties> availableExtensionsProperties(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensionsProperties.data());
+        
+        return availableExtensionsProperties;
+    }
+
     static bool ExtensionSupported(const std::vector<VkExtensionProperties>& availableExtensionsProperties,
         const char* extension, bool logError = false)
     {
@@ -19,17 +30,6 @@ namespace DeviceDetails
         
         return isSupported;
     }
-
-    static std::vector<VkExtensionProperties> GetExtensionsProperties(VkPhysicalDevice device)
-    {
-        uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-        std::vector<VkExtensionProperties> availableExtensionsProperties(extensionCount);
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensionsProperties.data());
-        
-        return availableExtensionsProperties;
-    }
     
     static bool ExtensionsSupported(VkPhysicalDevice device, const std::span<const char* const> extensions,
         bool logError = true)
@@ -41,6 +41,29 @@ namespace DeviceDetails
         };
 
         return std::ranges::all_of(extensions, isSupported);    
+    }
+
+    // TODO: Not the best way, do all requests and put in a struct
+    static VkPhysicalDeviceFeatures2 GetSupportedFeatures(const VkPhysicalDevice device)
+    {
+        VkPhysicalDeviceFeatures2 deviceFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+
+        vkGetPhysicalDeviceFeatures2(device, &deviceFeatures);
+        
+        return deviceFeatures;
+    }
+
+    static VkPhysicalDeviceVulkan12Features GetSupported12Features(const VkPhysicalDevice device)
+    {
+        VkPhysicalDeviceVulkan12Features supported12Features = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+        
+        VkPhysicalDeviceFeatures2 deviceFeatures = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &supported12Features };
+
+        vkGetPhysicalDeviceFeatures2(device, &deviceFeatures);
+        
+        return supported12Features;
     }
 
     // TODO: Handle compute queue separatelly
@@ -157,33 +180,28 @@ namespace DeviceDetails
 
         std::ranges::transform(uniqueQueueFamilyIndices, std::back_inserter(queueCreateInfos), createQueueCreateInfo);
         
-        // Optional features:
-        
         VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
             .taskShader = VK_TRUE,
             .meshShader = VK_TRUE };
         
-        void* optionalFeaturesChain = properties.meshShadersSupported
-            ? reinterpret_cast<void*>(&meshShaderFeatures) : nullptr;
-        
-        // Required features:
+        void* meshShaderFeaturesChain = properties.meshShadersSupported ? reinterpret_cast<void*>(&meshShaderFeatures) : nullptr;
 
         VkPhysicalDeviceFeatures deviceFeatures = {
             .multiDrawIndirect = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
-            .pipelineStatisticsQuery = VK_TRUE };
+            .pipelineStatisticsQuery = properties.pipelineStatisticsQuerySupported };
 
         VkPhysicalDeviceVulkan11Features deviceFeatures11 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-            .pNext = optionalFeaturesChain,
+            .pNext = meshShaderFeaturesChain,
             .storageBuffer16BitAccess = VK_TRUE,
             .shaderDrawParameters = VK_TRUE };
 
         VkPhysicalDeviceVulkan12Features deviceFeatures12 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
             .pNext = &deviceFeatures11,
-            .drawIndirectCount = VK_TRUE,
+            .drawIndirectCount = properties.drawIndirectCountSupported,
             .storageBuffer8BitAccess = VK_TRUE,
             .shaderInt8 = VK_TRUE };
 
@@ -310,4 +328,12 @@ void Device::InitProperties()
     
     properties.maxSampleCount = GetMaxSampleCount(properties.physicalProperties);
     properties.meshShadersSupported = ExtensionSupported(availableExtensionsProperties, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+    
+    const VkPhysicalDeviceFeatures2 supportedFeatures = GetSupportedFeatures(physicalDevice);
+    
+    properties.pipelineStatisticsQuerySupported = supportedFeatures.features.pipelineStatisticsQuery;
+    
+    const VkPhysicalDeviceVulkan12Features supported12Features = GetSupported12Features(physicalDevice);
+    
+    properties.drawIndirectCountSupported = supported12Features.drawIndirectCount;
 }

@@ -76,7 +76,10 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     
     SetRenderer(renderOptions->GetRendererType());
 
-    queryPool = CreateQueryPool(*vulkanContext);
+    if (vulkanContext->GetDevice().GetProperties().pipelineStatisticsQuerySupported)
+    {
+        queryPool = CreateQueryPool(*vulkanContext);
+    }
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
 }
@@ -89,7 +92,10 @@ RenderSystem::~RenderSystem()
     
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
 
-    vkDestroyQueryPool(vulkanContext->GetDevice(), queryPool, nullptr);
+    if (vulkanContext->GetDevice().GetProperties().pipelineStatisticsQuerySupported)
+    {
+        vkDestroyQueryPool(vulkanContext->GetDevice(), queryPool, nullptr);
+    }
 }
 
 void RenderSystem::Process(const float deltaSeconds)
@@ -116,10 +122,15 @@ void RenderSystem::Render()
     // Wait for frame to finish execution and signal fence
     vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
     vkResetFences(device, 1, &fence);
+    
+    const bool useQuery = vulkanContext->GetDevice().GetProperties().pipelineStatisticsQuerySupported;
 
-    // Gather gpu frame data
-    vkGetQueryPoolResults(device, queryPool, currentFrame, 1, sizeof(frame.stats), &frame.stats, sizeof(frame.stats),
-        VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    if (useQuery)
+    {
+        // Gather gpu frame data
+        vkGetQueryPoolResults(device, queryPool, currentFrame, 1, sizeof(frame.stats), &frame.stats,
+            sizeof(frame.stats), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    }
 
     // Acquire next image from the swapchain, frame wait semaphore will be signaled by the presentation engine when it
     // finishes using the image so we can start rendering
@@ -127,11 +138,19 @@ void RenderSystem::Render()
 
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer commandBuffer) {
-        vkCmdResetQueryPool(commandBuffer, queryPool, currentFrame, 1);
-
-        vkCmdBeginQuery(commandBuffer, queryPool, currentFrame, 0);      
+        
+        if (useQuery)
+        {
+            vkCmdResetQueryPool(commandBuffer, queryPool, currentFrame, 1);
+            vkCmdBeginQuery(commandBuffer, queryPool, currentFrame, 0);
+        }
+        
         renderer->Render(frame);
-        vkCmdEndQuery(commandBuffer, queryPool, currentFrame);
+        
+        if (useQuery)
+        {
+            vkCmdEndQuery(commandBuffer, queryPool, currentFrame);
+        }
         
         uiRenderer->Render(frame);
     };

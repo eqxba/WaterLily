@@ -25,6 +25,8 @@ struct DeviceProperties
     VkPhysicalDeviceProperties physicalProperties;
     VkSampleCountFlagBits maxSampleCount = VK_SAMPLE_COUNT_1_BIT;
     bool meshShadersSupported = false;
+    bool pipelineStatisticsQuerySupported = false;
+    bool drawIndirectCountSupported = false;
 };
 
 class Device

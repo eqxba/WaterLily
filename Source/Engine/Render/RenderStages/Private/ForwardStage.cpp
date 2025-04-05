@@ -316,7 +316,15 @@ void ForwardStage::ExecuteVertex(const Frame& frame) const
     
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, renderContext->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-    vkCmdDrawIndexedIndirectCount(commandBuffer, renderContext->commandBuffer, sizeof(uint32_t), 
-        renderContext->commandCountBuffer, 0, renderContext->globals.drawCount, sizeof(gpu::IndirectCommand));
+    
+    if (vulkanContext->GetDevice().GetProperties().drawIndirectCountSupported)
+    {
+        vkCmdDrawIndexedIndirectCount(commandBuffer, renderContext->commandBuffer, sizeof(uint32_t),
+            renderContext->commandCountBuffer, 0, renderContext->globals.drawCount, sizeof(gpu::IndirectCommand));
+    }
+    else
+    {
+        vkCmdDrawIndexedIndirect(commandBuffer, renderContext->commandBuffer, sizeof(uint32_t),
+            renderContext->globals.drawCount, sizeof(gpu::IndirectCommand));
+    }
 }
