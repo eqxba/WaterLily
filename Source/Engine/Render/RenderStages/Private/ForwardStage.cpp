@@ -104,7 +104,6 @@ namespace ForwardStageDetails
     {
         return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // Draws
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // IndirectCommands
             .Build();
     }
 
@@ -178,7 +177,6 @@ void ForwardStage::Prepare(const Scene& scene)
     
     pair = descriptorSetManager.GetDescriptorSetBuilder(pair.second, DescriptorScope::eSceneRenderer)
         .Bind(0, renderContext->drawBuffer)
-        .Bind(1, renderContext->commandBuffer)
         .Build();
 }
 
@@ -319,12 +317,12 @@ void ForwardStage::ExecuteVertex(const Frame& frame) const
     
     if (vulkanContext->GetDevice().GetProperties().drawIndirectCountSupported)
     {
-        vkCmdDrawIndexedIndirectCount(commandBuffer, renderContext->commandBuffer, sizeof(uint32_t),
-            renderContext->commandCountBuffer, 0, renderContext->globals.drawCount, sizeof(gpu::IndirectCommand));
+        vkCmdDrawIndexedIndirectCount(commandBuffer, renderContext->commandBuffer, 0, renderContext->commandCountBuffer, 
+            0, renderContext->globals.drawCount, sizeof(gpu::VkDrawIndexedIndirectCommand));
     }
     else
     {
-        vkCmdDrawIndexedIndirect(commandBuffer, renderContext->commandBuffer, sizeof(uint32_t),
-            renderContext->globals.drawCount, sizeof(gpu::IndirectCommand));
+        vkCmdDrawIndexedIndirect(commandBuffer, renderContext->commandBuffer, 0, renderContext->globals.drawCount, 
+            sizeof(gpu::VkDrawIndexedIndirectCommand));
     }
 }

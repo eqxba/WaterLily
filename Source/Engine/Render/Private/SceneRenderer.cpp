@@ -28,8 +28,8 @@ namespace SceneRendererDetails
         const bool meshShadersSupported = vulkanContext.GetDevice().GetProperties().meshShadersSupported;
 
         const size_t largeEnoughCommandBuffer = gpu::primitiveCullMaxCommands * (meshShadersSupported
-            ? std::max(sizeof(gpu::IndirectCommand), sizeof(gpu::TaskCommand))
-            : sizeof(gpu::IndirectCommand));
+            ? std::max(sizeof(gpu::VkDrawIndexedIndirectCommand), sizeof(gpu::TaskCommand))
+            : sizeof(gpu::VkDrawIndexedIndirectCommand));
 
         const std::vector<uint32_t> commandCountValues = { 0, 1, 1 };
         const std::span commandCountSpan(commandCountValues);

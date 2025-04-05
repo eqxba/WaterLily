@@ -29,7 +29,7 @@ layout(set = 0, binding = 2) buffer CommandCount
 
 layout(set = 0, binding = 3) writeonly buffer IndirectCommands
 {
-    IndirectCommand indirectCommands[];
+    VkDrawIndexedIndirectCommand indirectCommands[];
 };
 
 layout(set = 0, binding = 3) writeonly buffer TaskCommands
@@ -145,7 +145,6 @@ void main()
             return;
         }
 
-        indirectCommands[commandIndex].drawIndex = drawIndex;
         indirectCommands[commandIndex].indexCount = lod.indexCount;
 
         #if DRAW_INDIRECT_COUNT

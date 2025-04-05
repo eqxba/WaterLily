@@ -195,8 +195,7 @@ namespace DeviceDetails
         VkPhysicalDeviceVulkan11Features deviceFeatures11 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
             .pNext = meshShaderFeaturesChain,
-            .storageBuffer16BitAccess = VK_TRUE,
-            .shaderDrawParameters = VK_TRUE };
+            .storageBuffer16BitAccess = VK_TRUE };
 
         VkPhysicalDeviceVulkan12Features deviceFeatures12 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,

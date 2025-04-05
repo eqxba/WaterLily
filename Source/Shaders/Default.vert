@@ -2,10 +2,6 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#if DRAW_INDIRECT_COUNT
-    #extension GL_ARB_shader_draw_parameters: require
-#endif
-
 #include "Common.h"
 #include "Math.glsl"
 
@@ -24,11 +20,6 @@ layout(set = 0, binding = 0) readonly buffer Draws
     Draw draws[]; 
 };
 
-layout(set = 0, binding = 1) readonly buffer IndirectCommands
-{
-    IndirectCommand indirectCommands[];
-};
-
 layout(location = 0) out vec3 outNormal;
 layout(location = 1) out vec4 outTangent;
 layout(location = 2) out vec2 outUv;
@@ -42,11 +33,7 @@ void main()
     vec2 uv = vec2(inPosAndU.w, inNormalAndV.w);
     vec4 color = inColor;
 
-    #if DRAW_INDIRECT_COUNT
-        Draw draw = draws[indirectCommands[gl_DrawIDARB].drawIndex];
-    #else
-        Draw draw = draws[gl_InstanceIndex];
-    #endif
+    Draw draw = draws[gl_InstanceIndex];
 
     position = rotateQuat(position, draw.rotation) * draw.scale + draw.position;
     normal = rotateQuat(normal, draw.rotation);    

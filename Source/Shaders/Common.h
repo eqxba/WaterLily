@@ -107,11 +107,8 @@ struct Draw // Per individual thread in PrimitiveCull workgroup, the "highest le
     uint padding3; // TODO: Fix paddings
 };
 
-struct IndirectCommand
+struct VkDrawIndexedIndirectCommand
 {
-    uint drawIndex;
-
-    // VkDrawIndexedIndirectCommand
     uint indexCount;
     uint instanceCount;
     uint firstIndex;
