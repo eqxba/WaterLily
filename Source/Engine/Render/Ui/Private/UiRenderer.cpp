@@ -106,8 +106,8 @@ namespace UiRendererDetails
         std::vector<ShaderModule> shaderModules;
         shaderModules.reserve(2);
 
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), ShaderType::eVertex));
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), ShaderType::eFragment));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), ShaderType::eVertex, {}));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), ShaderType::eFragment, {}));
 
         return shaderModules;
     }

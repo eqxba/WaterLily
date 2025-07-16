@@ -55,8 +55,11 @@ public:
     GraphicsPipelineType GetGraphicsPipelineType() const;
     void SetGraphicsPipelineType(GraphicsPipelineType graphicsPipelineType);
 
-    bool GetUseLod() const;
-    void SetUseLod(bool useLod);
+    bool GetUseLods() const;
+    void SetUseLods(bool useLods);
+    
+    bool GetVisualizeLods() const;
+    void SetVisualizeLods(bool visualizeLods);
 
     bool GetFreezeCamera() const;
     void SetFreezeCamera(bool freezeCamera);
@@ -70,6 +73,7 @@ private:
     
     RendererType rendererType = RendererType::eScene;
     GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
-    bool useLod = true;
+    bool useLods = true;
+    bool visualizeLods = false;
     bool freezeCamera = false;
 };

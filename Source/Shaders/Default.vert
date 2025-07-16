@@ -20,12 +20,19 @@ layout(set = 0, binding = 0) readonly buffer Draws
     Draw draws[]; 
 };
 
+#if VISUALIZE_LODS
+layout(set = 0, binding = 1) readonly buffer DrawsDebugData
+{
+    uint drawsDebugData[];
+};
+#endif
+
 layout(location = 0) out vec3 outNormal;
 layout(location = 1) out vec4 outTangent;
 layout(location = 2) out vec2 outUv;
 layout(location = 3) out vec4 outColor;
 
-void main() 
+void main()
 {
     vec3 position = inPosAndU.xyz;
     vec3 normal = inNormalAndV.xyz;
@@ -44,5 +51,10 @@ void main()
     outNormal = normal;
     outTangent = tangent;
     outUv = uv;
-    outColor = color;
+
+    #if VISUALIZE_LODS
+        outColor = hashToColor(hash(drawsDebugData[gl_InstanceIndex]));
+    #else
+        outColor = color;
+    #endif
 }

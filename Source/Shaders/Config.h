@@ -14,8 +14,13 @@
 
 #define CONTRIBUTION_CULL_THRESHOLD 0.003
 
-#define VISUALIZE_MESHLETS 0
-#define VISUALIZE_LODS 0 // TODO: It's not working after DRAW_INDIRECT_COUNT fallback implementation
+#define VISUALIZE_MESHLETS 0 // TODO: Toggle from render options as well
+
+#ifndef VISUALIZE_LODS
+    #define VISUALIZE_LODS 0 // TODO: It's not working after DRAW_INDIRECT_COUNT fallback implementation
+    // not working only for meshlet pipeline, regular is fixed already, but I can't test it as I've sold my PC and will
+    // get the new one only in like 5 months :(
+#endif
 
 #define DEBUG_VERTEX_COLOR VISUALIZE_MESHLETS || VISUALIZE_LODS
 
@@ -38,6 +43,12 @@ namespace gpu
     constexpr uint32_t maxMeshletVertices = MAX_MESHLET_VERTICES;
     constexpr uint32_t maxMeshletTriangles = MAX_MESHLET_TRIANGLES;
 }
+
+namespace gpu::defines
+{
+    constexpr std::string_view visualizeLods = "VISUALIZE_LODS";
+}
+
 #endif
 
 #endif

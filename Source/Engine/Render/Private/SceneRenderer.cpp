@@ -114,6 +114,14 @@ namespace SceneRendererDetails
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         renderContext.drawBuffer = Buffer(drawBufferDescription, true, drawSpan, vulkanContext);
+        
+        // TODO: We always create this one, but can skip if we implement compile time switch for debug features
+        const BufferDescription drawDebugDataBufferDescription = {
+            .size = draws.size() * sizeof(uint32_t),
+            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+        renderContext.drawDebugDataBuffer = Buffer(drawDebugDataBufferDescription, false, vulkanContext);
     }
 
     static glm::vec4 NormalizePlane(const glm::vec4 plane)
@@ -129,6 +137,8 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     using namespace SceneRendererDetails;
 
     CreateRenderTargets();
+    
+    PrepareGlobalDefines();
 
     primitiveCullStage = std::make_unique<PrimitiveCullStage>(*vulkanContext, renderContext);
     forwardStage = std::make_unique<ForwardStage>(*vulkanContext, renderContext);
@@ -155,16 +165,23 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
     {
         return;
     }
-
+    
+    const RenderOptions& renderOptions = RenderOptions::Get();
+    
+    if (renderContext.visualizeLods != renderOptions.GetVisualizeLods())
+    {
+        PrepareGlobalDefines();
+        eventSystem->Fire<ES::TryReloadShaders>();
+    }
+    
     const CameraComponent& camera = scene->GetCamera();
     const glm::mat4 projection = camera.GetProjectionMatrix();
-    const RenderOptions& renderOptions = RenderOptions::Get();
     const VkExtent2D swapchainExtent = vulkanContext->GetSwapchain().GetExtent();
 
     renderContext.globals.view = camera.GetViewMatrix();
     renderContext.globals.projection = projection;
     renderContext.globals.bMeshPipeline = renderOptions.GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
-    renderContext.globals.bUseLod = renderOptions.GetUseLod();
+    renderContext.globals.bUseLods = renderOptions.GetUseLods();
     renderContext.globals.lodTarget = glm::tan(camera.GetVerticalFov() / 2.0f) 
         * 2.0f / static_cast<float>(swapchainExtent.height); // 1px in primitive space
 
@@ -227,6 +244,16 @@ void SceneRenderer::DestroyRenderTargets()
 {
     renderContext.colorTarget = {};
     renderContext.depthTarget = {};
+}
+
+void SceneRenderer::PrepareGlobalDefines()
+{
+    // TODO: Defines initialization and storage structures
+    renderContext.visualizeLods = RenderOptions::Get().GetVisualizeLods();
+    
+    renderContext.globalDefines.clear();
+    
+    renderContext.globalDefines.emplace_back(gpu::defines::visualizeLods, renderContext.visualizeLods ? "1" : "0");
 }
 
 void SceneRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)

@@ -37,6 +37,13 @@ layout(set = 0, binding = 3) writeonly buffer TaskCommands
     TaskCommand taskCommands[];
 };
 
+#if VISUALIZE_LODS
+layout(set = 0, binding = 4) writeonly buffer DrawsDebugData
+{
+    uint drawsDebugData[];
+};
+#endif
+
 bool frustumCull(vec3 center, float radius)
 {
     bool bCulled = false;
@@ -106,8 +113,12 @@ void main()
         }
     #endif
 
-    uint lodIndex = globals.bUseLod == 1 ? calculateLodIndex(primitive, draw, center, radius) : 0;
+    uint lodIndex = globals.bUseLods == 1 ? calculateLodIndex(primitive, draw, center, radius) : 0;
     Lod lod = primitive.lods[lodIndex];
+
+    #if VISUALIZE_LODS
+        drawsDebugData[drawIndex] = lodIndex;
+    #endif
 
     // TODO: Not a push constant - specialization constant is fine here as we use "2 buffers with the same binding hack"
     if (globals.bMeshPipeline == 1)
@@ -156,5 +167,5 @@ void main()
         indirectCommands[commandIndex].firstIndex = lod.indexOffset;
         indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
         indirectCommands[commandIndex].firstInstance = drawIndex;
-    }    
+    }
 }

@@ -17,6 +17,7 @@ namespace PrimitiveCullStageDetails
             .Bind(1, renderContext.drawBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
             .Bind(2, renderContext.commandCountBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
             .Bind(3, renderContext.commandBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .Bind(4, renderContext.drawDebugDataBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // TODO: Optional?
             .Build();
     }
 }
@@ -99,8 +100,8 @@ Pipeline PrimitiveCullStage::CreatePipeline() const
 {
     using namespace PrimitiveCullStageDetails;
 
-    ShaderModule shaderModule = vulkanContext->GetShaderManager().CreateShaderModule(FilePath(shaderPath), 
-        ShaderType::eCompute);
+    ShaderModule shaderModule = vulkanContext->GetShaderManager().CreateShaderModule(FilePath(shaderPath),
+        ShaderType::eCompute, renderContext->globalDefines);
 
     if (!shaderModule.IsValid())
     {

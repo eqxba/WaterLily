@@ -36,6 +36,8 @@ public:
 private:
     void CreateRenderTargets();
     void DestroyRenderTargets();
+    
+    void PrepareGlobalDefines();
 
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);

@@ -48,7 +48,7 @@ ComputeRenderer::ComputeRenderer(EventSystem& aEventSystem, const VulkanContext&
     
     const ShaderManager& shaderManager = vulkanContext->GetShaderManager();
     
-    ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), ShaderType::eCompute);
+    ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), ShaderType::eCompute, {});
     Assert(shaderModule.IsValid());
 
     CreatePipeline(std::move(shaderModule));
@@ -139,7 +139,7 @@ void ComputeRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
     
     const ShaderManager& shaderManager = vulkanContext->GetShaderManager();
 
-    if (ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), ShaderType::eCompute);
+    if (ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), ShaderType::eCompute, {});
         shaderModule.IsValid())
     {
         CreatePipeline(std::move(shaderModule));

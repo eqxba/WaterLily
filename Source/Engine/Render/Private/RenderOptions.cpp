@@ -75,14 +75,24 @@ void RenderOptions::SetGraphicsPipelineType(const GraphicsPipelineType aGraphics
     graphicsPipelineType = aGraphicsPipelineType;
 }
 
-bool RenderOptions::GetUseLod() const
+bool RenderOptions::GetUseLods() const
 {
-    return useLod;
+    return useLods;
 }
 
-void RenderOptions::SetUseLod(const bool aUseLod)
+void RenderOptions::SetUseLods(const bool aUseLods)
 {
-    useLod = aUseLod;
+    useLods = aUseLods;
+}
+
+bool RenderOptions::GetVisualizeLods() const
+{
+    return visualizeLods;
+}
+
+void RenderOptions::SetVisualizeLods(const bool aVisualizeLods)
+{
+    visualizeLods = aVisualizeLods;
 }
 
 bool RenderOptions::GetFreezeCamera() const
@@ -109,7 +119,12 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
 
     if (event.key == Key::eL && event.action == KeyAction::ePress)
     {
-        SetUseLod(!useLod);
+        SetUseLods(!useLods);
+    }
+    
+    if (event.key == Key::eSemicolon && event.action == KeyAction::ePress)
+    {
+        SetVisualizeLods(!visualizeLods);
     }
 
     if (event.key == Key::eF && event.action == KeyAction::ePress)
