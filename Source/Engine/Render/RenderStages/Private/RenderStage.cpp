@@ -17,5 +17,13 @@ void RenderStage::Execute(const Frame& frame)
 void RenderStage::RecreateFramebuffers()
 {}
 
-void RenderStage::TryReloadShaders()
+bool RenderStage::TryReloadShaders()
+{
+    return true;
+}
+
+void RenderStage::ApplyReloadedShaders()
+{}
+
+void RenderStage::OnSceneClose()
 {}

@@ -2,6 +2,7 @@
 
 #include "Shaders/Common.h"
 #include "Utils/Constants.hpp"
+#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
 #include "Engine/Render/Vulkan/Managers/ShaderManager.hpp"
@@ -32,4 +33,5 @@ struct RenderContext
     
     // Store this in a better way and use a callback on render option change
     bool visualizeLods = false;
+    GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
 };

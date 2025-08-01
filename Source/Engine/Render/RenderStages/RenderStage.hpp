@@ -22,7 +22,11 @@ public:
     virtual void Execute(const Frame& frame);
     
     virtual void RecreateFramebuffers();
-    virtual void TryReloadShaders();
+    
+    virtual bool TryReloadShaders();
+    virtual void ApplyReloadedShaders();
+    
+    virtual void OnSceneClose();
     
 protected:
     const VulkanContext* vulkanContext = nullptr;

@@ -6,7 +6,7 @@
 class ShaderCompiler
 {
 public:
-    static std::vector<uint32_t> Compile(std::string_view glslCode, ShaderType shaderType, const FilePath& includeDir);
+    static std::vector<uint32_t> Compile(std::string_view glslCode, VkShaderStageFlagBits shaderStage, const FilePath& includeDir);
 
     ShaderCompiler();
     ~ShaderCompiler();

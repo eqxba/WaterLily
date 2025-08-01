@@ -27,15 +27,17 @@ layout(set = 0, binding = 2) buffer CommandCount
     uint commandCount;
 };
 
-layout(set = 0, binding = 3) writeonly buffer IndirectCommands
-{
-    VkDrawIndexedIndirectCommand indirectCommands[];
-};
-
+#if MESH_PIPELINE
 layout(set = 0, binding = 3) writeonly buffer TaskCommands
 {
     TaskCommand taskCommands[];
 };
+#else
+layout(set = 0, binding = 3) writeonly buffer IndirectCommands
+{
+    VkDrawIndexedIndirectCommand indirectCommands[];
+};
+#endif
 
 #if VISUALIZE_LODS
 layout(set = 0, binding = 4) writeonly buffer DrawsDebugData
@@ -105,8 +107,7 @@ void main()
 
     bool bCulled = frustumCull(center, radius) || contributionCull(center, radius);    
 
-    // TODO: if (bMeshPipeline || DRAW_INDIRECT_COUNT)
-    #if DRAW_INDIRECT_COUNT
+    #if MESH_PIPELINE || DRAW_INDIRECT_COUNT
         if (bCulled)
         {
             return;
@@ -120,9 +121,7 @@ void main()
         drawsDebugData[drawIndex] = lodIndex;
     #endif
 
-    // TODO: Not a push constant - specialization constant is fine here as we use "2 buffers with the same binding hack"
-    if (globals.bMeshPipeline == 1)
-    {
+    #if MESH_PIPELINE
         // TODO: Does this architecture produce enough work for task shader? (i.e. WGs with small meshlet number)
         // Try another approach with compacting and measure perf difference - kinda hard actually to implement
         uint taskCommandCount = (lod.meshletCount + TASK_WG_SIZE - 1) / TASK_WG_SIZE;
@@ -142,9 +141,7 @@ void main()
             taskCommands[commandIndex + i].meshletOffset = meshletOffset;
             taskCommands[commandIndex + i].meshletCount = meshletCount;            
         }
-    }
-    else
-    {
+    #else
         #if DRAW_INDIRECT_COUNT
             uint commandIndex = atomicAdd(commandCount, 1);
         #else
@@ -167,5 +164,5 @@ void main()
         indirectCommands[commandIndex].firstIndex = lod.indexOffset;
         indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
         indirectCommands[commandIndex].firstInstance = drawIndex;
-    }
+    #endif
 }

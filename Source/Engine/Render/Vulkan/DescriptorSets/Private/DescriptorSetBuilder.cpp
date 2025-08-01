@@ -6,6 +6,35 @@
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
 #include "Engine/Render/Vulkan/Image/Texture.hpp"
 
+namespace DescriptorSetBuilderDetails
+{
+    std::tuple<uint32_t, const BindingReflection*> FindBinding(const std::string_view name,
+        const std::vector<DescriptorSetReflection>& setReflections)
+    {
+        uint32_t setIndex = 0;
+        const BindingReflection* bindingReflection = nullptr;
+        
+        for (uint32_t i = 0; i < setReflections.size(); ++i)
+        {
+            const DescriptorSetReflection& setReflection = setReflections[i];
+            
+            const auto it = std::ranges::find_if(setReflection.bindings, [&](const BindingReflection& bindingReflection){
+                return bindingReflection.name == name; });
+            
+            if (it != setReflection.bindings.end())
+            {
+                setIndex = i;
+                bindingReflection = &(*it);
+                break;
+            }
+        }
+        
+        Assert(bindingReflection != nullptr);
+        
+        return { setIndex, bindingReflection };
+    }
+}
+
 DescriptorSetBuilder::DescriptorSetBuilder(DescriptorSetAllocator& aAllocator, DescriptorSetLayoutBuilder aLayoutBuilder,
     const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
@@ -188,4 +217,94 @@ VkWriteDescriptorSet& DescriptorSetBuilder::CreateWrite(const uint32_t binding)
     descriptorWrites.push_back(descriptorWrite);
 
     return descriptorWrites.back();
+}
+
+ReflectiveDescriptorSetBuilder::ReflectiveDescriptorSetBuilder(DescriptorSetAllocator& aAllocator,
+    const std::vector<DescriptorSetReflection>& aSetReflections, const std::vector<DescriptorSetLayout>& aSetLayouts,
+    const VulkanContext& aVulkanContext)
+    : vulkanContext{ &aVulkanContext }
+    , allocator{ &aAllocator }
+    , setReflections{ &aSetReflections }
+    , setLayouts{ &aSetLayouts }
+{
+    Assert(!setReflections->empty());
+    Assert(setReflections->size() == setLayouts->size());
+}
+
+std::vector<VkDescriptorSet> ReflectiveDescriptorSetBuilder::Build()
+{
+    std::vector<VkDescriptorSet> descriptors;
+    descriptors.reserve(setBuilders.size());
+    
+    for (auto& [setIndex, builder] : setBuilders)
+    {
+        const auto& [descriptor, layout] = builder.Build();
+        descriptors.push_back(descriptor);
+    }
+    
+    return descriptors;
+}
+
+ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name,
+    const RenderTarget& renderTarget, VkImageLayout layout)
+{
+    const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
+    builder->Bind(bindingReflection->index, renderTarget, layout);
+    
+    return *this;
+}
+
+ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name, const Texture& texture)
+{
+    const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
+    builder->Bind(bindingReflection->index, texture);
+    
+    return *this;
+}
+
+ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name, const Buffer& buffer)
+{
+    const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
+    builder->Bind(bindingReflection->index, buffer);
+    
+    return *this;
+}
+
+ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name,
+    const ImageView& imageView, VkImageLayout layout)
+{
+    const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
+    builder->Bind(bindingReflection->index, imageView, layout);
+    
+    return *this;
+}
+
+ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name, const VkSampler sampler)
+{
+    const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
+    builder->Bind(bindingReflection->index, sampler);
+    
+    return *this;
+}
+
+ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name,
+    const ImageView& imageView, const VkImageLayout layout, const VkSampler sampler)
+{
+    const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
+    builder->Bind(bindingReflection->index, imageView, layout, sampler);
+    
+    return *this;
+}
+
+std::tuple<DescriptorSetBuilder*, const BindingReflection*> ReflectiveDescriptorSetBuilder::GetBuilderAndBinding(
+    const std::string_view name)
+{
+    const auto [setIndex, bindingReflection] = DescriptorSetBuilderDetails::FindBinding(name, *setReflections);
+    
+    if (!setBuilders.contains(setIndex))
+    {
+        setBuilders.emplace(setIndex, DescriptorSetBuilder(*allocator, (*setLayouts)[setIndex], *vulkanContext));
+    }
+    
+    return { &setBuilders.at(setIndex), bindingReflection };
 }

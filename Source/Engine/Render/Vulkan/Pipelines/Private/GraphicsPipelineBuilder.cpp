@@ -1,8 +1,9 @@
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
-#include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
+#include "Engine/Render/Vulkan/VulkanUtils.hpp"
+#include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderUtils.hpp"
 
 namespace GraphicsPipelineBuilderDetails
 {
@@ -168,8 +169,11 @@ Pipeline GraphicsPipelineBuilder::Build() const
     Assert(renderPass != nullptr);
     
     const VkDevice device = vulkanContext->GetDevice();
+    
+    std::vector<DescriptorSetReflection> reflections = ShaderUtils::MergeReflections(shaderModules);
+    std::vector<DescriptorSetLayout> setLayouts = CreateDescriptorSetLayouts(reflections, *vulkanContext);
 
-    const VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayouts, pushConstantRanges, device);
+    const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
     const std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
 
@@ -201,15 +205,7 @@ Pipeline GraphicsPipelineBuilder::Build() const
     const VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
     Assert(result == VK_SUCCESS);
 
-    return { pipeline, pipelineLayout, PipelineType::eGraphics, *vulkanContext };
-}
-
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetDescriptorSetLayouts(
-    std::vector<VkDescriptorSetLayout> aDescriptorSetLayouts)
-{
-    descriptorSetLayouts = std::move(aDescriptorSetLayouts);
-
-    return *this;
+    return { pipeline, { pipelineLayout, PipelineType::eGraphics, std::move(reflections), std::move(setLayouts) }, *vulkanContext };
 }
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddPushConstantRange(const VkPushConstantRange pushConstantRange)

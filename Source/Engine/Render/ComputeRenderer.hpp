@@ -36,6 +36,7 @@ public:
 
 private:
     void CreatePipeline(ShaderModule&& shaderModule);
+    void CreateDescriptors();
 
     void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
     void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
@@ -51,6 +52,5 @@ private:
 
     std::vector<VkFramebuffer> framebuffers;
 
-    VkDescriptorSet descriptor;
-    DescriptorSetLayout layout;
+    std::vector<VkDescriptorSet> descriptors;
 };

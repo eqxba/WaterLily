@@ -2,6 +2,9 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetReflection.hpp"
+
 class VulkanContext;
 
 enum class PipelineType
@@ -10,11 +13,19 @@ enum class PipelineType
     eCompute,
 };
 
+struct PipelineData
+{
+    VkPipelineLayout layout;
+    PipelineType type;
+    std::vector<DescriptorSetReflection> setReflections;
+    std::vector<DescriptorSetLayout> setLayouts;
+};
+
 class Pipeline
 {
 public:
     Pipeline() = default;
-    Pipeline(VkPipeline pipeline, VkPipelineLayout layout, PipelineType type, const VulkanContext& vulkanContext);
+    Pipeline(VkPipeline pipeline, PipelineData pipelineData, const VulkanContext& vulkanContext);
     ~Pipeline();
 
     Pipeline(const Pipeline&) = delete;
@@ -31,6 +42,16 @@ public:
     PipelineType GetType() const
     {
         return type;
+    }
+    
+    const std::vector<DescriptorSetReflection>& GetSetReflections() const
+    {
+        return setReflections;
+    }
+    
+    const std::vector<DescriptorSetLayout>& GetSetLayouts() const
+    {
+        return setLayouts;
     }
 
     bool IsValid() const
@@ -49,4 +70,7 @@ private:
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     PipelineType type = PipelineType::eGraphics;
+    
+    std::vector<DescriptorSetReflection> setReflections;
+    std::vector<DescriptorSetLayout> setLayouts;
 };

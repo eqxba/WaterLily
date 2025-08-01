@@ -11,6 +11,7 @@ DescriptorSetManager::DescriptorSetManager(const VulkanContext& aVulkanContext)
 
     allocators[DescriptorScope::eGlobal] = DescriptorSetAllocator(maxSetsInPool, defaultPoolSizeRatios, vulkanContext);
     allocators[DescriptorScope::eSceneRenderer] = DescriptorSetAllocator(maxSetsInPool, defaultPoolSizeRatios, vulkanContext);
+    allocators[DescriptorScope::eUiRenderer] = DescriptorSetAllocator(maxSetsInPool, defaultPoolSizeRatios, vulkanContext);
     allocators[DescriptorScope::eComputeRenderer] = DescriptorSetAllocator(maxSetsInPool, defaultPoolSizeRatios, vulkanContext);
 }
 
@@ -33,6 +34,14 @@ DescriptorSetBuilder DescriptorSetManager::GetDescriptorSetBuilder(const Descrip
 {
     Assert(allocators.contains(scope));
     return { allocators.at(scope), layout, vulkanContext };
+}
+
+ReflectiveDescriptorSetBuilder DescriptorSetManager::GetReflectiveDescriptorSetBuilder(const Pipeline& pipeline,
+    const DescriptorScope scope /* = DescriptorScope::eGlobal */)
+{
+    Assert(pipeline.IsValid());
+    Assert(allocators.contains(scope));
+    return { allocators.at(scope), pipeline.GetSetReflections(), pipeline.GetSetLayouts(), vulkanContext };
 }
 
 void DescriptorSetManager::ResetDescriptors(const DescriptorScope scope)

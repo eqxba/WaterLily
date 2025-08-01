@@ -14,6 +14,13 @@
 
 #define CONTRIBUTION_CULL_THRESHOLD 0.003
 
+#ifndef MESH_PIPELINE
+    #define MESH_PIPELINE 1
+#endif
+
+// TODO: Sync with real support
+#define DRAW_INDIRECT_COUNT 0
+
 #define VISUALIZE_MESHLETS 0 // TODO: Toggle from render options as well
 
 #ifndef VISUALIZE_LODS
@@ -23,9 +30,6 @@
 #endif
 
 #define DEBUG_VERTEX_COLOR VISUALIZE_MESHLETS || VISUALIZE_LODS
-
-// TODO: Sync with real support
-#define DRAW_INDIRECT_COUNT 0
 
 #ifdef __cplusplus
 #pragma once
@@ -47,6 +51,7 @@ namespace gpu
 namespace gpu::defines
 {
     constexpr std::string_view visualizeLods = "VISUALIZE_LODS";
+    constexpr std::string_view meshPipeline = "MESH_PIPELINE";
 }
 
 #endif

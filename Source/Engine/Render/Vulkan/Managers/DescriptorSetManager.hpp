@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayoutBuilder.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetBuilder.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetAllocator.hpp"
@@ -11,6 +12,7 @@ enum class DescriptorScope
 {
     eGlobal,
     eSceneRenderer,
+    eUiRenderer,
     eComputeRenderer,
 };
 
@@ -30,6 +32,7 @@ public:
 
     DescriptorSetBuilder GetDescriptorSetBuilder(DescriptorScope scope = DescriptorScope::eGlobal);
     DescriptorSetBuilder GetDescriptorSetBuilder(DescriptorSetLayout layout, DescriptorScope scope = DescriptorScope::eGlobal);
+    ReflectiveDescriptorSetBuilder GetReflectiveDescriptorSetBuilder(const Pipeline& pipeline, DescriptorScope scope = DescriptorScope::eGlobal);
 
     void ResetDescriptors(DescriptorScope scope);
 

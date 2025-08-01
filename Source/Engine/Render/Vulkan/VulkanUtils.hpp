@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetReflection.hpp"
 
 class VulkanContext;
 class RenderPass;
@@ -43,8 +45,13 @@ namespace VulkanUtils
 
     VkPipelineLayout CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device);
+    VkPipelineLayout CreatePipelineLayout(const std::vector<DescriptorSetLayout>& descriptorSetLayouts,
+        const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device);
 
-    const VkDescriptorSetLayoutBinding& GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, uint32_t index);
+    const VkDescriptorSetLayoutBinding&  GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, uint32_t index);
+
+    std::vector<DescriptorSetLayout> CreateDescriptorSetLayouts(const std::vector<DescriptorSetReflection>& reflections,
+        const VulkanContext& vulkanContext);
 }
 
 template <>

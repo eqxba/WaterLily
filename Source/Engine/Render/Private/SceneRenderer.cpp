@@ -168,7 +168,8 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
     
     const RenderOptions& renderOptions = RenderOptions::Get();
     
-    if (renderContext.visualizeLods != renderOptions.GetVisualizeLods())
+    if (renderContext.visualizeLods != renderOptions.GetVisualizeLods() ||
+        renderContext.graphicsPipelineType != renderOptions.GetGraphicsPipelineType())
     {
         PrepareGlobalDefines();
         eventSystem->Fire<ES::TryReloadShaders>();
@@ -248,12 +249,16 @@ void SceneRenderer::DestroyRenderTargets()
 
 void SceneRenderer::PrepareGlobalDefines()
 {
+    const RenderOptions& renderOptions = RenderOptions::Get();
+    
     // TODO: Defines initialization and storage structures
-    renderContext.visualizeLods = RenderOptions::Get().GetVisualizeLods();
+    renderContext.visualizeLods = renderOptions.GetVisualizeLods();
+    renderContext.graphicsPipelineType = renderOptions.GetGraphicsPipelineType();
     
     renderContext.globalDefines.clear();
     
     renderContext.globalDefines.emplace_back(gpu::defines::visualizeLods, renderContext.visualizeLods ? "1" : "0");
+    renderContext.globalDefines.emplace_back(gpu::defines::meshPipeline, renderContext.graphicsPipelineType == GraphicsPipelineType::eMesh ? "1" : "0");
 }
 
 void SceneRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
@@ -271,8 +276,14 @@ void SceneRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
 
 void SceneRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
 {
-    primitiveCullStage->TryReloadShaders();
-    forwardStage->TryReloadShaders();
+    if (primitiveCullStage->TryReloadShaders() && forwardStage->TryReloadShaders())
+    {
+        vulkanContext->GetDevice().WaitIdle();
+        vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
+        
+        primitiveCullStage->ApplyReloadedShaders();
+        forwardStage->ApplyReloadedShaders();
+    }
 }
 
 void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
@@ -342,6 +353,9 @@ void SceneRenderer::OnSceneClose(const ES::SceneClosed& event)
     renderContext.commandBuffer = {};
 
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
+    
+    primitiveCullStage->OnSceneClose();
+    forwardStage->OnSceneClose();
     
     scene = nullptr;
 }

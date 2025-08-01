@@ -43,7 +43,6 @@ public:
     Pipeline Build() const;
 
     // TODO: Get set layouts and push constants from reflection
-    GraphicsPipelineBuilder& SetDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> descriptorSetLayouts); // Temp!
     GraphicsPipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
 
     GraphicsPipelineBuilder& SetShaderModules(std::vector<ShaderModule>&& shaderModules);
@@ -60,7 +59,6 @@ private:
     const VulkanContext* vulkanContext = nullptr;
 
     // Temp! (parse from shaders)
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts; 
     std::vector<VkPushConstantRange> pushConstantRanges;
 
     std::vector<ShaderModule> shaderModules;

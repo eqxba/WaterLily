@@ -1,7 +1,8 @@
 #include "Engine/Render/Vulkan/Pipelines/ComputePipelineBuilder.hpp"
 
-#include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
+#include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderUtils.hpp"
 
 ComputePipelineBuilder::ComputePipelineBuilder(const VulkanContext& aVulkanContext)
     : vulkanContext{&aVulkanContext}
@@ -11,11 +12,14 @@ Pipeline ComputePipelineBuilder::Build() const
 {
     using namespace VulkanUtils;
 
-    Assert(shaderModule);
+    Assert(shaderModule != nullptr);
     
     const VkDevice device = vulkanContext->GetDevice();
-
-    const VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayouts, pushConstantRanges, device);
+    const ShaderReflection& reflection = shaderModule->GetReflection();
+    
+    std::vector<DescriptorSetLayout> setLayouts = CreateDescriptorSetLayouts(reflection.descriptorSets, *vulkanContext);
+    
+    const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
     VkComputePipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
     pipelineInfo.stage = shaderModule->GetVkPipelineShaderStageCreateInfo();
@@ -29,15 +33,7 @@ Pipeline ComputePipelineBuilder::Build() const
     const VkResult result = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
     Assert(result == VK_SUCCESS);
 
-    return { pipeline, pipelineLayout, PipelineType::eCompute, *vulkanContext };
-}
-
-ComputePipelineBuilder& ComputePipelineBuilder::SetDescriptorSetLayouts(
-    std::vector<VkDescriptorSetLayout> aDescriptorSetLayouts)
-{
-    descriptorSetLayouts = std::move(aDescriptorSetLayouts);
-
-    return *this;
+    return { pipeline, { pipelineLayout, PipelineType::eCompute, reflection.descriptorSets, std::move(setLayouts) }, *vulkanContext };
 }
 
 ComputePipelineBuilder& ComputePipelineBuilder::AddPushConstantRange(const VkPushConstantRange pushConstantRange)

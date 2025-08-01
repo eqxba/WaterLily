@@ -13,12 +13,12 @@ namespace ShaderCompilerDetails
 {
     static bool initialized = false;
 
-    static std::unordered_map<ShaderType, EShLanguage> glslangStages = {
-        { ShaderType::eVertex, EShLangVertex },
-        { ShaderType::eFragment, EShLangFragment },
-        { ShaderType::eCompute, EShLangCompute },
-        { ShaderType::eTask, EShLangTask },
-        { ShaderType::eMesh, EShLangMesh },
+    static std::unordered_map<VkShaderStageFlagBits, EShLanguage> glslangStages = {
+        { VK_SHADER_STAGE_VERTEX_BIT, EShLangVertex },
+        { VK_SHADER_STAGE_FRAGMENT_BIT, EShLangFragment },
+        { VK_SHADER_STAGE_COMPUTE_BIT, EShLangCompute },
+        { VK_SHADER_STAGE_TASK_BIT_EXT, EShLangTask },
+        { VK_SHADER_STAGE_MESH_BIT_EXT, EShLangMesh },
     };
 }
 
@@ -40,7 +40,7 @@ ShaderCompiler::~ShaderCompiler()
     }
 }
 
-std::vector<uint32_t> ShaderCompiler::Compile(const std::string_view glslCode, const ShaderType shaderType,
+std::vector<uint32_t> ShaderCompiler::Compile(const std::string_view glslCode, const VkShaderStageFlagBits shaderStage,
     const FilePath& includeDir)
 {
     using namespace ShaderCompilerDetails;
@@ -50,8 +50,8 @@ std::vector<uint32_t> ShaderCompiler::Compile(const std::string_view glslCode, c
     
     static_assert(VulkanConfig::apiVersion == VK_API_VERSION_1_3); // Don't forget to change EShTargetClientVersion :)
 
-    Assert(glslangStages.contains(shaderType));
-    const EShLanguage stage = glslangStages.find(shaderType)->second;
+    Assert(glslangStages.contains(shaderStage));
+    const EShLanguage stage = glslangStages.find(shaderStage)->second;
 
     const char* code = glslCode.data();
     const auto length = static_cast<int>(glslCode.size());

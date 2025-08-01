@@ -8,37 +8,25 @@
 namespace PrimitiveCullStageDetails
 {
     static constexpr std::string_view shaderPath = "~/Shaders/Culling/PrimitiveCull.comp";
-
-    static std::tuple<VkDescriptorSet, DescriptorSetLayout> CreateDescriptors(const RenderContext& renderContext, 
-        const VulkanContext& vulkanContext)
-    {
-        return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetBuilder(DescriptorScope::eSceneRenderer)
-            .Bind(0, renderContext.primitiveBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Bind(1, renderContext.drawBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Bind(2, renderContext.commandCountBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Bind(3, renderContext.commandBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Bind(4, renderContext.drawDebugDataBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // TODO: Optional?
-            .Build();
-    }
 }
 
 PrimitiveCullStage::PrimitiveCullStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : RenderStage{ aVulkanContext, aRenderContext }
-{}
+{
+    using namespace PrimitiveCullStageDetails;
+    
+    ShaderModule shaderModule = vulkanContext->GetShaderManager().
+        CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines);
+    Assert(shaderModule.IsValid());
+    
+    pipeline = CreatePipeline(std::move(shaderModule));
+}
 
 PrimitiveCullStage::~PrimitiveCullStage() = default;
 
 void PrimitiveCullStage::Prepare(const Scene& scene)
 {
-    using namespace PrimitiveCullStageDetails;
-
-    std::tie(descriptorSet, descriptorSetLayout) = CreateDescriptors(*renderContext, *vulkanContext);
-
-    if (!pipeline.IsValid())
-    {
-        pipeline = CreatePipeline();
-        Assert(pipeline.IsValid());
-    }
+    CreateDescriptors();
 }
 
 void PrimitiveCullStage::Execute(const Frame& frame)
@@ -72,7 +60,8 @@ void PrimitiveCullStage::Execute(const Frame& frame)
     vkCmdPushConstants(cmd, pipeline.GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, 
         static_cast<uint32_t>(sizeof(gpu::PushConstants)), &renderContext->globals);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.GetLayout(), 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.GetLayout(), 0,
+        static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
     const auto groupCountX = static_cast<uint32_t>(std::ceil(static_cast<float>(renderContext->globals.drawCount) /
         static_cast<float>(gpu::primitiveCullWgSize)));
@@ -88,31 +77,55 @@ void PrimitiveCullStage::Execute(const Frame& frame)
     SetMemoryBarrier(cmd, afterCullBarrier);
 }
 
-void PrimitiveCullStage::TryReloadShaders()
-{
-    if (Pipeline newPipeline = CreatePipeline(); newPipeline.IsValid())
-    {
-        pipeline = std::move(newPipeline);
-    }
-}
-
-Pipeline PrimitiveCullStage::CreatePipeline() const
+bool PrimitiveCullStage::TryReloadShaders()
 {
     using namespace PrimitiveCullStageDetails;
+    
+    reloadedShader = std::make_unique<ShaderModule>(vulkanContext->GetShaderManager().
+        CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines));
+    
+    return reloadedShader->IsValid();
+}
 
-    ShaderModule shaderModule = vulkanContext->GetShaderManager().CreateShaderModule(FilePath(shaderPath),
-        ShaderType::eCompute, renderContext->globalDefines);
+void PrimitiveCullStage::ApplyReloadedShaders()
+{
+    descriptors.clear();
+    
+    pipeline = CreatePipeline(std::move(*reloadedShader));
+    CreateDescriptors();
+}
 
-    if (!shaderModule.IsValid())
-    {
-        return {};
-    }
+void PrimitiveCullStage::OnSceneClose()
+{
+    descriptors.clear();
+}
 
-    std::vector<VkDescriptorSetLayout> layouts = { descriptorSetLayout };
-
+Pipeline PrimitiveCullStage::CreatePipeline(ShaderModule&& shaderModule) const
+{
     return ComputePipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts(std::move(layouts)) // TODO: Why telling stage here?? We need reflection...
         .AddPushConstantRange({ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(gpu::PushConstants) })
         .SetShaderModule(std::move(shaderModule))
         .Build();
+}
+
+void PrimitiveCullStage::CreateDescriptors()
+{
+    Assert(descriptors.empty());
+    
+    const bool meshPipeline = renderContext->graphicsPipelineType == GraphicsPipelineType::eMesh;
+    
+    ReflectiveDescriptorSetBuilder builder = vulkanContext->GetDescriptorSetsManager()
+        .GetReflectiveDescriptorSetBuilder(pipeline, DescriptorScope::eSceneRenderer)
+        .Bind("Primitives", renderContext->primitiveBuffer)
+        .Bind("Draws", renderContext->drawBuffer)
+        .Bind("CommandCount", renderContext->commandCountBuffer)
+        .Bind(meshPipeline ? "TaskCommands" : "IndirectCommands", renderContext->commandBuffer)
+        .Bind("Primitives", renderContext->primitiveBuffer);
+    
+    if (renderContext->visualizeLods)
+    {
+        builder.Bind("DrawsDebugData", renderContext->drawDebugDataBuffer);
+    }
+    
+    descriptors = builder.Build();
 }

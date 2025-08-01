@@ -106,8 +106,8 @@ namespace UiRendererDetails
         std::vector<ShaderModule> shaderModules;
         shaderModules.reserve(2);
 
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), ShaderType::eVertex, {}));
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), ShaderType::eFragment, {}));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), VK_SHADER_STAGE_VERTEX_BIT, {}));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), VK_SHADER_STAGE_FRAGMENT_BIT, {}));
 
         return shaderModules;
     }
@@ -188,14 +188,11 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     framebuffers = CreateFramebuffers(renderPass, *vulkanContext);
     fontTexture = CreateFontTexture(ImGui::GetIO(), *vulkanContext);
 
-    std::tie(descriptor, layout) = vulkanContext->GetDescriptorSetsManager().GetDescriptorSetBuilder()
-        .Bind(0, fontTexture, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .Build();
-
     std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext->GetShaderManager());
     Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
 
     CreateGraphicsPipeline(std::move(shaderModules));
+    CreateDescriptors();
     
     CreateWidgets(widgets, *vulkanContext);
 
@@ -213,6 +210,8 @@ UiRenderer::~UiRenderer()
 
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+    
+    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eUiRenderer);
 
     VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
 }
@@ -269,7 +268,7 @@ void UiRenderer::Render(const Frame& frame)
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
-        0, 1, &descriptor, 0, nullptr);
+        0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
     
     vkCmdPushConstants(commandBuffer, graphicsPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
         sizeof(PushConstants), &pushConstants);
@@ -311,7 +310,6 @@ void UiRenderer::Render(const Frame& frame)
 void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
 {
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts({ layout })
         .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants) })
         .SetShaderModules(std::move(shaderModules))
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())
@@ -322,6 +320,16 @@ void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModule
         .EnableBlending()
         .SetDepthState(false, false, VK_COMPARE_OP_NEVER)
         .SetRenderPass(renderPass)
+        .Build();
+}
+
+void UiRenderer::CreateDescriptors()
+{
+    Assert(descriptors.empty());
+    
+    descriptors = vulkanContext->GetDescriptorSetsManager()
+        .GetReflectiveDescriptorSetBuilder(graphicsPipeline, DescriptorScope::eUiRenderer)
+        .Bind("fontSampler", fontTexture)
         .Build();
 }
 
@@ -414,7 +422,12 @@ void UiRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
     if (std::vector<ShaderModule> shaderModules = UiRendererDetails::GetShaderModules(vulkanContext->GetShaderManager());
         std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
     {
+        vulkanContext->GetDevice().WaitIdle();
+        vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eUiRenderer);
+        descriptors.clear();
+        
         CreateGraphicsPipeline(std::move(shaderModules));
+        CreateDescriptors();
     }
 }
 

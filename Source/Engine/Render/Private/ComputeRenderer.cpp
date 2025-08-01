@@ -25,16 +25,6 @@ namespace ComputeRendererDetails
         
         return { description, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext };
     }
-
-    static std::tuple<VkDescriptorSet, DescriptorSetLayout> CreateRenderTargetDescriptor(
-        const RenderTarget& renderTarget, const VulkanContext& vulkanContext)
-    {
-        DescriptorSetManager& descriptorSetManager = vulkanContext.GetDescriptorSetsManager();
-        
-        return descriptorSetManager.GetDescriptorSetBuilder(DescriptorScope::eComputeRenderer)
-            .Bind(0, renderTarget, VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT)
-            .Build();
-    }
 }
 
 ComputeRenderer::ComputeRenderer(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
@@ -44,14 +34,14 @@ ComputeRenderer::ComputeRenderer(EventSystem& aEventSystem, const VulkanContext&
     using namespace ComputeRendererDetails;
 
     renderTarget = CreateRenderTarget(*vulkanContext);
-    std::tie(descriptor, layout) = CreateRenderTargetDescriptor(renderTarget, *vulkanContext);
     
     const ShaderManager& shaderManager = vulkanContext->GetShaderManager();
     
-    ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), ShaderType::eCompute, {});
+    ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, {});
     Assert(shaderModule.IsValid());
 
     CreatePipeline(std::move(shaderModule));
+    CreateDescriptors();
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &ComputeRenderer::OnBeforeSwapchainRecreated);
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &ComputeRenderer::OnSwapchainRecreated);
@@ -62,8 +52,7 @@ ComputeRenderer::~ComputeRenderer()
 {
     eventSystem->UnsubscribeAll(this);
     
-    DescriptorSetManager& descriptorSetManager = vulkanContext->GetDescriptorSetsManager();
-    descriptorSetManager.ResetDescriptors(DescriptorScope::eComputeRenderer);
+    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eComputeRenderer);
 }
 
 void ComputeRenderer::Process(const Frame& frame, const float deltaSeconds)
@@ -83,7 +72,8 @@ void ComputeRenderer::Render(const Frame& frame)
     FillImage(commandBuffer, renderTarget, Color::magenta);
     
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.GetLayout(), 0, 1, &descriptor, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.GetLayout(), 0,
+        static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
 
     const VkExtent3D groupCount = { static_cast<uint32_t>(std::ceil(targetExtent.width / 16.0)),
         static_cast<uint32_t>(std::ceil(targetExtent.height / 16.0)), 1 };
@@ -107,20 +97,25 @@ void ComputeRenderer::Render(const Frame& frame)
 
 void ComputeRenderer::CreatePipeline(ShaderModule&& shaderModule)
 {
-    using namespace VulkanUtils;
-
-    std::vector<VkDescriptorSetLayout> layouts = { layout };
-    
     computePipeline = ComputePipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts(std::move(layouts))
         .SetShaderModule(std::move(shaderModule))
+        .Build();
+}
+
+void ComputeRenderer::CreateDescriptors()
+{
+    Assert(descriptors.empty());
+    
+    descriptors = vulkanContext->GetDescriptorSetsManager()
+        .GetReflectiveDescriptorSetBuilder(computePipeline, DescriptorScope::eComputeRenderer)
+        .Bind("renderTarget", renderTarget, VK_IMAGE_LAYOUT_GENERAL)
         .Build();
 }
 
 void ComputeRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
 {
-    DescriptorSetManager& descriptorSetManager = vulkanContext->GetDescriptorSetsManager();
-    descriptorSetManager.ResetDescriptors(DescriptorScope::eComputeRenderer);
+    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eComputeRenderer);
+    descriptors.clear();
     
     renderTarget.~RenderTarget();
 }
@@ -130,7 +125,7 @@ void ComputeRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
     using namespace ComputeRendererDetails;
 
     renderTarget = CreateRenderTarget(*vulkanContext);
-    std::tie(descriptor, layout) = CreateRenderTargetDescriptor(renderTarget, *vulkanContext);
+    CreateDescriptors();
 }
 
 void ComputeRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
@@ -139,9 +134,14 @@ void ComputeRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
     
     const ShaderManager& shaderManager = vulkanContext->GetShaderManager();
 
-    if (ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), ShaderType::eCompute, {});
+    if (ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, {});
         shaderModule.IsValid())
     {
+        vulkanContext->GetDevice().WaitIdle();
+        vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eComputeRenderer);
+        descriptors.clear();
+        
         CreatePipeline(std::move(shaderModule));
+        CreateDescriptors();
     }
 }

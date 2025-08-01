@@ -88,26 +88,6 @@ namespace ForwardStageDetails
         return framebuffers;
     }
 
-    static DescriptorSetLayout GetMeshDescriptorSetLayout(const VulkanContext& vulkanContext)
-    {
-        // TODO: Parse from SPIR-V reflection
-        return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_EXT) // Vertices
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_EXT) // MeshletData
-            .AddBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT) // Meshlets
-            .AddBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT) // Draws
-            .AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_TASK_BIT_EXT) // TaskCommands
-            .Build();
-    }
-
-    static DescriptorSetLayout GetVertexDescriptorSetLayout(const VulkanContext& vulkanContext)
-    {
-        return vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder()
-            .AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // Draws
-            .AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT) // DrawsDebugData // TODO: Optional?
-            .Build();
-    }
-
     static std::vector<ShaderModule> GetShaderModules(const GraphicsPipelineType type,
         const RenderContext& renderContext, const VulkanContext& vulkanContext)
     {
@@ -117,15 +97,15 @@ namespace ForwardStageDetails
 
         if (type == GraphicsPipelineType::eMesh)
         {
-            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(taskShaderPath), ShaderType::eTask, renderContext.globalDefines));
-            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(meshShaderPath), ShaderType::eMesh, renderContext.globalDefines));
+            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(taskShaderPath), VK_SHADER_STAGE_TASK_BIT_EXT, renderContext.globalDefines));
+            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(meshShaderPath), VK_SHADER_STAGE_MESH_BIT_EXT, renderContext.globalDefines));
         }
         else
         {
-            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), ShaderType::eVertex, renderContext.globalDefines));
+            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), VK_SHADER_STAGE_VERTEX_BIT, renderContext.globalDefines));
         }
 
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), ShaderType::eFragment, renderContext.globalDefines));
+        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), VK_SHADER_STAGE_FRAGMENT_BIT, renderContext.globalDefines));
 
         return shaderModules;
     }
@@ -141,16 +121,16 @@ ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& a
     
     if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
-        descriptors[GraphicsPipelineType::eMesh] = { VK_NULL_HANDLE, GetMeshDescriptorSetLayout(*vulkanContext) };
+        std::vector<ShaderModule> shaderModules = GetShaderModules(GraphicsPipelineType::eMesh, *renderContext, *vulkanContext);
+        Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
         
-        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline();
-        Assert(graphicsPipelines[GraphicsPipelineType::eMesh].IsValid());
+        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline(std::move(shaderModules));
     }
     
-    descriptors[GraphicsPipelineType::eVertex] = { VK_NULL_HANDLE, GetVertexDescriptorSetLayout(*vulkanContext) };
+    std::vector<ShaderModule> shaderModules = GetShaderModules(GraphicsPipelineType::eVertex, *renderContext, *vulkanContext);
+    Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
     
-    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline();
-    Assert(graphicsPipelines[GraphicsPipelineType::eVertex].IsValid());
+    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline(std::move(shaderModules));
 }
 
 ForwardStage::~ForwardStage()
@@ -160,27 +140,7 @@ ForwardStage::~ForwardStage()
 
 void ForwardStage::Prepare(const Scene& scene)
 {
-    DescriptorSetManager& descriptorSetManager = vulkanContext->GetDescriptorSetsManager();
-    
-    if (descriptors.contains(GraphicsPipelineType::eMesh))
-    {
-        auto& pair = descriptors[GraphicsPipelineType::eMesh];
-        
-        pair = descriptorSetManager.GetDescriptorSetBuilder(pair.second, DescriptorScope::eSceneRenderer)
-            .Bind(0, renderContext->vertexBuffer)
-            .Bind(1, renderContext->meshletDataBuffer)
-            .Bind(2, renderContext->meshletBuffer)
-            .Bind(3, renderContext->drawBuffer)
-            .Bind(4, renderContext->commandBuffer)
-            .Build();
-    }
-    
-    auto& pair = descriptors[GraphicsPipelineType::eVertex];
-    
-    pair = descriptorSetManager.GetDescriptorSetBuilder(pair.second, DescriptorScope::eSceneRenderer)
-        .Bind(0, renderContext->drawBuffer)
-        .Bind(1, renderContext->drawDebugDataBuffer)
-        .Build();
+    CreateDescriptors();
 }
 
 void ForwardStage::Execute(const Frame& frame)
@@ -219,9 +179,11 @@ void ForwardStage::Execute(const Frame& frame)
     vkCmdPushConstants(commandBuffer, graphicsPipeline.GetLayout(),
         pipelineType == GraphicsPipelineType::eMesh ? VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT :
         VK_SHADER_STAGE_VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(gpu::PushConstants)), &renderContext->globals);
+    
+    const std::vector<VkDescriptorSet>& descriptorSets = descriptors[pipelineType];
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
-        0, 1, &descriptors[pipelineType].first, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(), 0,
+        static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
     if (pipelineType == GraphicsPipelineType::eMesh)
     {
@@ -241,34 +203,47 @@ void ForwardStage::RecreateFramebuffers()
     framebuffers = ForwardStageDetails::CreateFramebuffers(renderPass, *vulkanContext, *renderContext);
 }
 
-void ForwardStage::TryReloadShaders()
+bool ForwardStage::TryReloadShaders()
 {
     using namespace ForwardStageDetails;
+    
+    bool success = true;
+    
+    for (const auto& [type, pipeline] : graphicsPipelines)
+    {
+        std::vector<ShaderModule> shaderModules = GetShaderModules(type, *renderContext, *vulkanContext);
+        success = success && std::ranges::all_of(shaderModules, &ShaderModule::IsValid);
+        
+        reloadedShaders[type] = std::move(shaderModules);
+    }
+    
+    return success;
+}
+
+void ForwardStage::ApplyReloadedShaders()
+{
+    descriptors.clear();
     
     for (auto& [type, pipeline] : graphicsPipelines)
     {
-        Pipeline newPipeline = type == GraphicsPipelineType::eMesh ? CreateMeshPipeline() : CreateVertexPipeline();
-        
-        if (newPipeline.IsValid())
-        {
-            pipeline = std::move(newPipeline);
-        }
+        pipeline = type == GraphicsPipelineType::eMesh
+            ? CreateMeshPipeline(std::move(reloadedShaders[type]))
+            : CreateVertexPipeline(std::move(reloadedShaders[type]));
     }
+    
+    CreateDescriptors();
 }
 
-Pipeline ForwardStage::CreateMeshPipeline()
+void ForwardStage::OnSceneClose()
+{
+    descriptors.clear();
+}
+
+Pipeline ForwardStage::CreateMeshPipeline(std::vector<ShaderModule>&& shaderModules)
 {
     using namespace ForwardStageDetails;
-    
-    std::vector<ShaderModule> shaderModules = GetShaderModules(GraphicsPipelineType::eMesh, *renderContext, *vulkanContext);
-    
-    if (!std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
-    {
-        return {};
-    }
 
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts({ descriptors[GraphicsPipelineType::eMesh].second })
         .AddPushConstantRange({ VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(gpu::PushConstants) })
         .SetShaderModules(std::move(shaderModules))
         .SetPolygonMode(PolygonMode::eFill)
@@ -278,19 +253,11 @@ Pipeline ForwardStage::CreateMeshPipeline()
         .Build();
 }
 
-Pipeline ForwardStage::CreateVertexPipeline()
+Pipeline ForwardStage::CreateVertexPipeline(std::vector<ShaderModule>&& shaderModules)
 {
     using namespace ForwardStageDetails;
     
-    std::vector<ShaderModule> shaderModules = GetShaderModules(GraphicsPipelineType::eVertex, *renderContext, *vulkanContext);
-    
-    if (!std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
-    {
-        return {};
-    }
-    
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetDescriptorSetLayouts({ descriptors[GraphicsPipelineType::eVertex].second })
         .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gpu::PushConstants) })
         .SetShaderModules(std::move(shaderModules))
         .SetVertexData(SceneHelpers::GetVertexBindings(), SceneHelpers::GetVertexAttributes())
@@ -301,6 +268,34 @@ Pipeline ForwardStage::CreateVertexPipeline()
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
         .SetRenderPass(renderPass)
         .Build();
+}
+
+void ForwardStage::CreateDescriptors()
+{
+    Assert(descriptors.empty());
+    
+    if (graphicsPipelines.contains(GraphicsPipelineType::eMesh))
+    {
+        descriptors[GraphicsPipelineType::eMesh] = vulkanContext->GetDescriptorSetsManager()
+            .GetReflectiveDescriptorSetBuilder(graphicsPipelines[GraphicsPipelineType::eMesh], DescriptorScope::eSceneRenderer)
+            .Bind("Vertices", renderContext->vertexBuffer)
+            .Bind("MeshletData32", renderContext->meshletDataBuffer)
+            .Bind("Meshlets", renderContext->meshletBuffer)
+            .Bind("Draws", renderContext->drawBuffer)
+            .Bind("TaskCommands", renderContext->commandBuffer)
+            .Build();
+    }
+    
+    ReflectiveDescriptorSetBuilder builder = vulkanContext->GetDescriptorSetsManager()
+        .GetReflectiveDescriptorSetBuilder(graphicsPipelines[GraphicsPipelineType::eVertex], DescriptorScope::eSceneRenderer)
+        .Bind("Draws", renderContext->drawBuffer);
+    
+    if (renderContext->visualizeLods)
+    {
+        builder.Bind("DrawsDebugData", renderContext->drawDebugDataBuffer);
+    }
+    
+    descriptors[GraphicsPipelineType::eVertex] = builder.Build();
 }
 
 void ForwardStage::ExecuteMesh(const Frame& frame) const

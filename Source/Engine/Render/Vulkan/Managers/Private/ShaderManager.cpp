@@ -8,6 +8,7 @@ DISABLE_WARNINGS_END
 
 #include "Utils/Helpers.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderUtils.hpp"
 
 namespace ShaderManagerDetails
 {
@@ -22,44 +23,13 @@ namespace ShaderManagerDetails
         
         return FilePath(compiledShadersDir) / relativeToShadersDir;
     }
-
-    static void InsertShaderDefines(std::string& glslCode, const std::vector<ShaderDefine>& shaderDefines)
-    {
-        if (shaderDefines.empty())
-        {
-            return;
-        }
-        
-        const size_t versionPos = glslCode.find("#version");
-        
-        if (versionPos == std::string::npos)
-        {
-            return;
-        }
-        
-        size_t versionLineEndPos = glslCode.find('\n', versionPos);
-        
-        if (versionLineEndPos == std::string::npos)
-        {
-            versionLineEndPos = glslCode.length();
-        }
-
-        std::string definesBlock = "\n";
-
-        for (const auto& define : shaderDefines)
-        {
-            definesBlock += std::format("#define {} {}\n", define.first, define.second);
-        }
-
-        glslCode.insert(versionLineEndPos + 1, definesBlock);
-    }
 }
 
 ShaderManager::ShaderManager(const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {}
 
-ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const ShaderType shaderType,
+ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const VkShaderStageFlagBits shaderStage,
     const std::vector<ShaderDefine>& shaderDefines, bool useCacheOnFailure /* = true */) const
 {
     using namespace ShaderManagerDetails;
@@ -72,9 +42,9 @@ ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const Shade
     const std::vector<char> glslCodeVector = FileSystem::ReadFile(path);
     auto glslCode = std::string(glslCodeVector.begin(), glslCodeVector.end());
     
-    InsertShaderDefines(glslCode, shaderDefines);
+    ShaderUtils::InsertDefines(glslCode, shaderDefines);
     
-    const std::vector<uint32_t> spirv = ShaderCompiler::Compile(glslCode, shaderType, FilePath(shadersDir));
+    const std::vector<uint32_t> spirv = ShaderCompiler::Compile(glslCode, shaderStage, FilePath(shadersDir));
     
     const FilePath compiledShaderPath = CreateCompiledShaderPath(path);
     
@@ -84,7 +54,7 @@ ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const Shade
         FileSystem::CreateDirectories(compiledShaderPath);
         glslang::OutputSpvBin(spirv, compiledShaderPath.GetAbsolute().c_str());
         
-        return CreateShaderModule(spirv, shaderType);
+        return CreateShaderModule(spirv, shaderStage);
     }
     
     // Try to load shader module from cache if allowed
@@ -96,14 +66,14 @@ ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const Shade
         {
             const std::span spirvSpan(reinterpret_cast<const uint32_t*>(cachedSpirv.data()), cachedSpirv.size() / sizeof(uint32_t));
             
-            return CreateShaderModule(spirvSpan, shaderType);
+            return CreateShaderModule(spirvSpan, shaderStage);
         }
     }
     
-    return { VK_NULL_HANDLE, shaderType, vulkanContext };
+    return { VK_NULL_HANDLE, {}, vulkanContext };
 }
 
-ShaderModule ShaderManager::CreateShaderModule(const std::span<const uint32_t> spirvCode, const ShaderType shaderType) const
+ShaderModule ShaderManager::CreateShaderModule(const std::span<const uint32_t> spirvCode, const VkShaderStageFlagBits shaderStage) const
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -114,5 +84,5 @@ ShaderModule ShaderManager::CreateShaderModule(const std::span<const uint32_t> s
     const VkResult result = vkCreateShaderModule(vulkanContext.GetDevice(), &createInfo, nullptr, &shaderModule);
     Assert(result == VK_SUCCESS);
     
-    return { shaderModule, shaderType, vulkanContext };
+    return { shaderModule, ShaderUtils::GenerateReflection(spirvCode, shaderStage), vulkanContext };
 }

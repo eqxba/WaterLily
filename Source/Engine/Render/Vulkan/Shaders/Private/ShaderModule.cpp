@@ -2,40 +2,13 @@
 
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
-namespace ShaderModuleDetails
-{
-    static VkShaderStageFlagBits GetVkShaderStageFlagBits(const ShaderType shaderType)
-    {
-        VkShaderStageFlagBits result{};
-        
-        switch (shaderType)
-        {
-            case ShaderType::eVertex:
-                result = VK_SHADER_STAGE_VERTEX_BIT;
-                break;
-            case ShaderType::eFragment:
-                result = VK_SHADER_STAGE_FRAGMENT_BIT;
-                break;
-            case ShaderType::eCompute:
-                result = VK_SHADER_STAGE_COMPUTE_BIT;
-                break;
-            case ShaderType::eTask:
-                result = VK_SHADER_STAGE_TASK_BIT_EXT;
-                break;
-            case ShaderType::eMesh:
-                result = VK_SHADER_STAGE_MESH_BIT_EXT;
-                break;
-        }
+namespace ShaderModuleDetails {}
 
-        return result;
-    }
-}
-
-ShaderModule::ShaderModule(const VkShaderModule aShaderModule, const ShaderType aShaderType, 
+ShaderModule::ShaderModule(const VkShaderModule aShaderModule, ShaderReflection aReflection,
     const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
     , shaderModule{ aShaderModule }
-    , shaderType{ aShaderType }
+    , reflection{ std::move(aReflection) }
 {}
 
 ShaderModule::~ShaderModule()
@@ -49,7 +22,7 @@ ShaderModule::~ShaderModule()
 ShaderModule::ShaderModule(ShaderModule&& other) noexcept
     : vulkanContext{ other.vulkanContext }
     , shaderModule{ other.shaderModule }
-    , shaderType{ other.shaderType }
+    , reflection{ std::move(other.reflection) }
 {
     other.shaderModule = VK_NULL_HANDLE;
 }
@@ -60,8 +33,8 @@ ShaderModule& ShaderModule::operator=(ShaderModule&& other) noexcept
     {
         std::swap(vulkanContext, other.vulkanContext);
         std::swap(shaderModule, other.shaderModule);
-        std::swap(shaderType, other.shaderType);
-    }    
+        std::swap(reflection, other.reflection);
+    }
     return *this;
 }
 
@@ -71,7 +44,7 @@ VkPipelineShaderStageCreateInfo ShaderModule::GetVkPipelineShaderStageCreateInfo
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
     shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStageCreateInfo.stage = ShaderModuleDetails::GetVkShaderStageFlagBits(shaderType);
+    shaderStageCreateInfo.stage = reflection.shaderStage;
     shaderStageCreateInfo.module = shaderModule;
     shaderStageCreateInfo.pName = "main"; // Let's use "main" entry point by default
 

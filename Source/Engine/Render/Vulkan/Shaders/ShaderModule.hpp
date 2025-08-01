@@ -2,21 +2,22 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetReflection.hpp"
+
 class VulkanContext;
 
-enum class ShaderType
+using ShaderDefine = std::pair<std::string_view, std::string_view>;
+
+struct ShaderReflection
 {
-    eVertex,
-    eFragment,
-    eCompute,
-    eTask,
-    eMesh,
+    VkShaderStageFlagBits shaderStage;
+    std::vector<DescriptorSetReflection> descriptorSets;
 };
 
 class ShaderModule
 {
 public:
-    ShaderModule(const VkShaderModule shaderModule, const ShaderType shaderType, const VulkanContext& aVulkanContext);
+    ShaderModule(const VkShaderModule shaderModule, ShaderReflection reflection, const VulkanContext& aVulkanContext);
     ~ShaderModule();
 
     ShaderModule(const ShaderModule&) = delete;
@@ -28,10 +29,15 @@ public:
     VkPipelineShaderStageCreateInfo GetVkPipelineShaderStageCreateInfo() const;
 
     bool IsValid() const;
+    
+    const ShaderReflection& GetReflection() const
+    {
+        return reflection;
+    }
 
 private:
     const VulkanContext* vulkanContext = nullptr;
 
     VkShaderModule shaderModule = VK_NULL_HANDLE;
-    ShaderType shaderType;
+    ShaderReflection reflection;
 };

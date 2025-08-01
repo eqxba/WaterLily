@@ -14,12 +14,17 @@ public:
 
     void Execute(const Frame& frame) override;
 
-    void TryReloadShaders() override;
+    bool TryReloadShaders() override;
+    void ApplyReloadedShaders() override;
+    
+    void OnSceneClose() override;
 
 private:
-    Pipeline CreatePipeline() const;
+    Pipeline CreatePipeline(ShaderModule&& shaderModule) const;
+    void CreateDescriptors();
 
-    DescriptorSetLayout descriptorSetLayout;
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet> descriptors;
     Pipeline pipeline;
+    
+    std::unique_ptr<ShaderModule> reloadedShader;
 };

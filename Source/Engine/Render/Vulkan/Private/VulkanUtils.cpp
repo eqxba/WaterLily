@@ -190,6 +190,20 @@ VkPipelineLayout VulkanUtils::CreatePipelineLayout(const std::vector<VkDescripto
     return pipelineLayout;
 }
 
+VkPipelineLayout VulkanUtils::CreatePipelineLayout(const std::vector<DescriptorSetLayout>& descriptorSetLayouts,
+    const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device)
+{
+    std::vector<VkDescriptorSetLayout> convertedLayouts;
+    convertedLayouts.reserve(descriptorSetLayouts.size());
+    
+    for (const DescriptorSetLayout& layout : descriptorSetLayouts)
+    {
+        convertedLayouts.push_back(layout);
+    }
+    
+    return CreatePipelineLayout(convertedLayouts, pushConstantRanges, device);
+}
+
 const VkDescriptorSetLayoutBinding& VulkanUtils::GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, 
     const uint32_t index)
 {
@@ -198,4 +212,30 @@ const VkDescriptorSetLayoutBinding& VulkanUtils::GetBinding(const std::vector<Vk
     Assert(it != bindings.end());
 
     return *it;
+}
+
+std::vector<DescriptorSetLayout> VulkanUtils::CreateDescriptorSetLayouts(const std::vector<DescriptorSetReflection>& reflections,
+    const VulkanContext& vulkanContext)
+{
+    std::vector<DescriptorSetLayout> layouts;
+    layouts.reserve(reflections.size());
+    
+    for (const DescriptorSetReflection& reflection : reflections)
+    {
+        std::unordered_set<uint32_t> boundIndexes;
+        DescriptorSetLayoutBuilder builder = vulkanContext.GetDescriptorSetsManager().GetDescriptorSetLayoutBuilder();
+        
+        for (const BindingReflection& binding : reflection.bindings)
+        {
+            if (!boundIndexes.contains(binding.index))
+            {
+                boundIndexes.insert(binding.index);
+                builder.AddBinding(binding.index, binding.type, binding.shaderStages);
+            }
+        }
+        
+        layouts.push_back(builder.Build());
+    }
+    
+    return layouts;
 }

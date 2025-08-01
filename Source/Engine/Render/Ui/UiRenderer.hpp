@@ -51,6 +51,7 @@ public:
 
 private:
     void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
+    void CreateDescriptors();
     
     void UpdateBuffers(uint32_t frameIndex);
     
@@ -79,8 +80,7 @@ private:
 
     Texture fontTexture;
 
-    VkDescriptorSet descriptor = VK_NULL_HANDLE;
-    DescriptorSetLayout layout;
+    std::vector<VkDescriptorSet> descriptors;
 
     PushConstants pushConstants;
 

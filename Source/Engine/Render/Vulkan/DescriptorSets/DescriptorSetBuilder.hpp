@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
+#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetReflection.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayoutBuilder.hpp"
 
 class VulkanContext;
@@ -58,4 +59,34 @@ private:
     std::vector<VkDescriptorImageInfo> imageInfos;
 
     std::vector<VkWriteDescriptorSet> descriptorWrites;
+};
+
+class ReflectiveDescriptorSetBuilder
+{
+public:
+    ReflectiveDescriptorSetBuilder(DescriptorSetAllocator& allocator, const std::vector<DescriptorSetReflection>& setReflections,
+        const std::vector<DescriptorSetLayout>& setLayouts, const VulkanContext& vulkanContext);
+    
+    std::vector<VkDescriptorSet> Build();
+    
+    // Some helpers for high-level resources
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const RenderTarget& renderTarget, VkImageLayout layout);
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const Texture& texture);
+    
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const Buffer& buffer);
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const ImageView& imageView, VkImageLayout layout);
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, VkSampler sampler);
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const ImageView& imageView, VkImageLayout layout, VkSampler sampler);
+    
+private:
+    std::tuple<DescriptorSetBuilder*, const BindingReflection*> GetBuilderAndBinding(std::string_view name);
+    
+    const VulkanContext* vulkanContext;
+
+    DescriptorSetAllocator* allocator;
+    
+    const std::vector<DescriptorSetReflection>* setReflections;
+    const std::vector<DescriptorSetLayout>* setLayouts;
+    
+    std::unordered_map<uint32_t, DescriptorSetBuilder> setBuilders;
 };
