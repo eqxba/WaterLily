@@ -111,6 +111,28 @@ namespace ShaderUtilsDetails
             }
         }
     }
+
+    static std::vector<SpecializationConstantReflection> GetSpecializationConstantsReflection(
+        const spv_reflect::ShaderModule& shaderModule)
+    {
+        uint32_t specializationConstantCount;
+        SpvReflectResult result = shaderModule.EnumerateSpecializationConstants(&specializationConstantCount, nullptr);
+        Assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        std::vector<SpvReflectSpecializationConstant*> specializationConstants(specializationConstantCount);
+        result = shaderModule.EnumerateSpecializationConstants(&specializationConstantCount, specializationConstants.data());
+        Assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        
+        std::vector<SpecializationConstantReflection> reflection;
+        reflection.reserve(specializationConstantCount);
+        
+        for (const auto& constant : specializationConstants)
+        {
+            reflection.emplace_back(constant->constant_id, constant->name);
+        }
+        
+        return reflection;
+    }
 }
 
 void ShaderUtils::InsertDefines(std::string& glslCode, const std::vector<ShaderDefine>& shaderDefines)
@@ -153,7 +175,10 @@ ShaderReflection ShaderUtils::GenerateReflection(const std::span<const uint32_t>
 
     Assert(GetShaderStage(shaderModule.GetShaderStage()) == shaderStage);
     
-    return { .shaderStage = shaderStage, .descriptorSets = GetDescriptorSetsReflection(shaderModule, shaderStage) };
+    return {
+        .shaderStage = shaderStage,
+        .descriptorSets = GetDescriptorSetsReflection(shaderModule, shaderStage),
+        .specializationConstants = GetSpecializationConstantsReflection(shaderModule) };
 }
 
 std::vector<DescriptorSetReflection> ShaderUtils::MergeReflections(const std::vector<ShaderModule>& shaderModules)

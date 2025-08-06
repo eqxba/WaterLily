@@ -26,6 +26,7 @@ public:
     ComputePipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
 
     ComputePipelineBuilder& SetShaderModule(ShaderModule&& shaderModule);
+    ComputePipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
 
 private:
     const VulkanContext* vulkanContext = nullptr;
@@ -34,4 +35,5 @@ private:
     std::vector<VkPushConstantRange> pushConstantRanges;
 
     std::unique_ptr<ShaderModule> shaderModule;
+    std::vector<SpecializationConstant> specializationConstants;
 };

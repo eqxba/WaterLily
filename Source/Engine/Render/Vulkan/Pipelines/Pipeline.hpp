@@ -13,12 +13,19 @@ enum class PipelineType
     eCompute,
 };
 
+struct SpecializationConstant
+{
+    std::string_view name;
+    std::variant<VkBool32, int, float> value;
+};
+
 struct PipelineData
 {
     VkPipelineLayout layout;
     PipelineType type;
     std::vector<DescriptorSetReflection> setReflections;
     std::vector<DescriptorSetLayout> setLayouts;
+    std::vector<SpecializationConstant> specializationConstants;
 };
 
 class Pipeline
@@ -73,4 +80,5 @@ private:
     
     std::vector<DescriptorSetReflection> setReflections;
     std::vector<DescriptorSetLayout> setLayouts;
+    std::vector<SpecializationConstant> specializationConstants;
 };

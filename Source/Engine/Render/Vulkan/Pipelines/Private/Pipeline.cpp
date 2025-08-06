@@ -9,6 +9,7 @@ Pipeline::Pipeline(const VkPipeline aPipeline, PipelineData pipelineData, const 
     , type{ pipelineData.type }
     , setReflections{ std::move(pipelineData.setReflections) }
     , setLayouts{ std::move(pipelineData.setLayouts) }
+    , specializationConstants{ std::move(pipelineData.specializationConstants) }
 {
     Assert(IsValid());
     Assert(setReflections.size() == setLayouts.size());
@@ -37,6 +38,7 @@ Pipeline::Pipeline(Pipeline&& other) noexcept
     , type{ other.type }
     , setReflections{ std::move(other.setReflections) }
     , setLayouts{ std::move(other.setLayouts) }
+    , specializationConstants{ std::move(other.specializationConstants) }
 {
     other.vulkanContext = nullptr;
     other.pipeline = VK_NULL_HANDLE;
@@ -53,6 +55,7 @@ Pipeline& Pipeline::operator=(Pipeline&& other) noexcept
         std::swap(type, other.type);
         std::swap(setReflections, other.setReflections);
         std::swap(setLayouts, other.setLayouts);
+        std::swap(specializationConstants, other.specializationConstants);
     }
 
     return *this;

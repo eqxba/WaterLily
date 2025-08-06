@@ -8,10 +8,17 @@ class VulkanContext;
 
 using ShaderDefine = std::pair<std::string_view, std::string_view>;
 
+struct SpecializationConstantReflection
+{
+    uint32_t costantId = 0;
+    std::string name;
+};
+
 struct ShaderReflection
 {
     VkShaderStageFlagBits shaderStage;
     std::vector<DescriptorSetReflection> descriptorSets;
+    std::vector<SpecializationConstantReflection> specializationConstants;
 };
 
 class ShaderModule

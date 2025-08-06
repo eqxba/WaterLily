@@ -175,11 +175,23 @@ Pipeline GraphicsPipelineBuilder::Build() const
 
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
-    const std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
-
-    const std::optional<VkPipelineVertexInputStateCreateInfo> vertexInputInfo
-        = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
     
+    std::vector<std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>>> specializationData;
+    std::vector<VkSpecializationInfo> specializationInfos;
+    
+    for (uint32_t i = 0; i < shaderStages.size(); ++i)
+    {
+        if (auto [entries, data] = CreateSpecializationData(shaderModules[i], specializationConstants); !entries.empty())
+        {
+            specializationInfos.emplace_back(static_cast<uint32_t>(entries.size()), entries.data(), data.size(), data.data());
+            specializationData.emplace_back(std::move(entries), std::move(data));
+            shaderStages[i].pSpecializationInfo = &specializationInfos.back();
+        }
+    }
+
+    const std::optional<VkPipelineVertexInputStateCreateInfo> vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
+
     const VkPipelineDynamicStateCreateInfo dynamicState = GetPipelineDynamicStateCreateInfo(dynamicStates);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
@@ -204,8 +216,15 @@ Pipeline GraphicsPipelineBuilder::Build() const
     VkPipeline pipeline;
     const VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
     Assert(result == VK_SUCCESS);
+    
+    PipelineData pipelineData = {
+        .layout = pipelineLayout,
+        .type = PipelineType::eGraphics,
+        .setReflections = std::move(reflections),
+        .setLayouts = std::move(setLayouts),
+        .specializationConstants = std::move(specializationConstants) };
 
-    return { pipeline, { pipelineLayout, PipelineType::eGraphics, std::move(reflections), std::move(setLayouts) }, *vulkanContext };
+    return { pipeline, std::move(pipelineData), *vulkanContext };
 }
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddPushConstantRange(const VkPushConstantRange pushConstantRange)
@@ -218,6 +237,14 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddPushConstantRange(const VkP
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(std::vector<ShaderModule>&& aShaderModules)
 {
     shaderModules = std::move(aShaderModules);
+
+    return *this;
+}
+
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetSpecializationConstants(
+    std::vector<SpecializationConstant> aSpecializationConstants)
+{
+    specializationConstants = std::move(aSpecializationConstants);
 
     return *this;
 }

@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
+#include "Engine/Render/Vulkan/Shaders/ShaderModule.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 #include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetReflection.hpp"
 
@@ -48,10 +50,13 @@ namespace VulkanUtils
     VkPipelineLayout CreatePipelineLayout(const std::vector<DescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<VkPushConstantRange>& pushConstantRanges, VkDevice device);
 
-    const VkDescriptorSetLayoutBinding&  GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, uint32_t index);
+    const VkDescriptorSetLayoutBinding& GetBinding(const std::vector<VkDescriptorSetLayoutBinding>& bindings, uint32_t index);
 
     std::vector<DescriptorSetLayout> CreateDescriptorSetLayouts(const std::vector<DescriptorSetReflection>& reflections,
         const VulkanContext& vulkanContext);
+
+    std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> CreateSpecializationData(
+        const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants);
 }
 
 template <>

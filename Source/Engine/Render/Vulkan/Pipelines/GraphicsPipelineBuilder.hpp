@@ -46,6 +46,7 @@ public:
     GraphicsPipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
 
     GraphicsPipelineBuilder& SetShaderModules(std::vector<ShaderModule>&& shaderModules);
+    GraphicsPipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
     GraphicsPipelineBuilder& SetVertexData(VertexBindings bindings, VertexAttributes attributes);
     GraphicsPipelineBuilder& SetInputTopology(InputTopology topology);
     GraphicsPipelineBuilder& SetPolygonMode(PolygonMode polygonMode);
@@ -62,6 +63,7 @@ private:
     std::vector<VkPushConstantRange> pushConstantRanges;
 
     std::vector<ShaderModule> shaderModules;
+    std::vector<SpecializationConstant> specializationConstants;
     VertexBindings vertexBindings;
     VertexAttributes vertexAttributes;
     std::optional<VkPipelineInputAssemblyStateCreateInfo> inputAssembly;
