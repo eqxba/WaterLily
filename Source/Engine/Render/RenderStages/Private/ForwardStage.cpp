@@ -88,7 +88,7 @@ namespace ForwardStageDetails
         return framebuffers;
     }
 
-    static std::vector<ShaderModule> GetShaderModules(const GraphicsPipelineType type,
+    static std::vector<ShaderModule> CreateShaderModules(const GraphicsPipelineType type,
         const RenderContext& renderContext, const VulkanContext& vulkanContext)
     {
         const ShaderManager& shaderManager = vulkanContext.GetShaderManager();
@@ -121,16 +121,12 @@ ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& a
     
     if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
-        std::vector<ShaderModule> shaderModules = GetShaderModules(GraphicsPipelineType::eMesh, *renderContext, *vulkanContext);
-        Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
-        
-        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline(std::move(shaderModules));
+        shaders[GraphicsPipelineType::eMesh] = CreateShaderModules(GraphicsPipelineType::eMesh, *renderContext, *vulkanContext);
+        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline(shaders[GraphicsPipelineType::eMesh]);
     }
     
-    std::vector<ShaderModule> shaderModules = GetShaderModules(GraphicsPipelineType::eVertex, *renderContext, *vulkanContext);
-    Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
-    
-    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline(std::move(shaderModules));
+    shaders[GraphicsPipelineType::eVertex] = CreateShaderModules(GraphicsPipelineType::eVertex, *renderContext, *vulkanContext);
+    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline(shaders[GraphicsPipelineType::eVertex]);
 }
 
 ForwardStage::~ForwardStage()
@@ -211,10 +207,8 @@ bool ForwardStage::TryReloadShaders()
     
     for (const auto& [type, pipeline] : graphicsPipelines)
     {
-        std::vector<ShaderModule> shaderModules = GetShaderModules(type, *renderContext, *vulkanContext);
-        success = success && std::ranges::all_of(shaderModules, &ShaderModule::IsValid);
-        
-        reloadedShaders[type] = std::move(shaderModules);
+        reloadedShaders[type] = CreateShaderModules(type, *renderContext, *vulkanContext);
+        success = success && std::ranges::all_of(reloadedShaders[type], &ShaderModule::IsValid);
     }
     
     return success;
@@ -223,12 +217,11 @@ bool ForwardStage::TryReloadShaders()
 void ForwardStage::ApplyReloadedShaders()
 {
     descriptors.clear();
+    shaders = std::move(reloadedShaders);
     
     for (auto& [type, pipeline] : graphicsPipelines)
     {
-        pipeline = type == GraphicsPipelineType::eMesh
-            ? CreateMeshPipeline(std::move(reloadedShaders[type]))
-            : CreateVertexPipeline(std::move(reloadedShaders[type]));
+        pipeline = type == GraphicsPipelineType::eMesh ? CreateMeshPipeline(shaders[type]) : CreateVertexPipeline(shaders[type]);
     }
     
     CreateDescriptors();
@@ -239,13 +232,13 @@ void ForwardStage::OnSceneClose()
     descriptors.clear();
 }
 
-Pipeline ForwardStage::CreateMeshPipeline(std::vector<ShaderModule>&& shaderModules)
+Pipeline ForwardStage::CreateMeshPipeline(const std::vector<ShaderModule>& shaderModules)
 {
     using namespace ForwardStageDetails;
 
     return GraphicsPipelineBuilder(*vulkanContext)
         .AddPushConstantRange({ VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(gpu::PushConstants) })
-        .SetShaderModules(std::move(shaderModules))
+        .SetShaderModules(shaderModules)
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(vulkanContext->GetDevice().GetProperties().maxSampleCount)
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
@@ -253,13 +246,13 @@ Pipeline ForwardStage::CreateMeshPipeline(std::vector<ShaderModule>&& shaderModu
         .Build();
 }
 
-Pipeline ForwardStage::CreateVertexPipeline(std::vector<ShaderModule>&& shaderModules)
+Pipeline ForwardStage::CreateVertexPipeline(const std::vector<ShaderModule>& shaderModules)
 {
     using namespace ForwardStageDetails;
     
     return GraphicsPipelineBuilder(*vulkanContext)
         .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gpu::PushConstants) })
-        .SetShaderModules(std::move(shaderModules))
+        .SetShaderModules(shaderModules)
         .SetVertexData(SceneHelpers::GetVertexBindings(), SceneHelpers::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)

@@ -12,7 +12,7 @@ Pipeline ComputePipelineBuilder::Build() const
 {
     using namespace VulkanUtils;
 
-    Assert(shaderModule != nullptr);
+    Assert(shaderModule && shaderModule->IsValid());
     
     const VkDevice device = vulkanContext->GetDevice();
     const ShaderReflection& reflection = shaderModule->GetReflection();
@@ -59,9 +59,9 @@ ComputePipelineBuilder& ComputePipelineBuilder::AddPushConstantRange(const VkPus
     return *this;
 }
 
-ComputePipelineBuilder& ComputePipelineBuilder::SetShaderModule(ShaderModule&& aShaderModule)
+ComputePipelineBuilder& ComputePipelineBuilder::SetShaderModule(const ShaderModule& aShaderModule)
 {
-    shaderModule = std::make_unique<ShaderModule>(std::move(aShaderModule));
+    shaderModule = &aShaderModule;
 
     return *this;
 }

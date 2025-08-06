@@ -20,11 +20,13 @@ public:
     void OnSceneClose() override;
 
 private:
-    Pipeline CreatePipeline(ShaderModule&& shaderModule) const;
+    Pipeline CreatePipeline(const ShaderModule& shaderModule) const;
     void CreateDescriptors();
 
     std::vector<VkDescriptorSet> descriptors;
-    Pipeline pipeline;
     
+    std::unique_ptr<ShaderModule> shader;
     std::unique_ptr<ShaderModule> reloadedShader;
+    
+    Pipeline pipeline;
 };

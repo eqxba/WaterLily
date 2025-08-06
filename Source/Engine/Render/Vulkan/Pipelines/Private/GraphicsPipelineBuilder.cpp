@@ -164,25 +164,25 @@ Pipeline GraphicsPipelineBuilder::Build() const
 {
     using namespace GraphicsPipelineBuilderDetails;
     using namespace VulkanUtils;
-
-    Assert(!shaderModules.empty());
+    
+    Assert(shaderModules && !shaderModules->empty() && std::ranges::all_of(*shaderModules, &ShaderModule::IsValid));
     Assert(renderPass != nullptr);
     
     const VkDevice device = vulkanContext->GetDevice();
     
-    std::vector<DescriptorSetReflection> reflections = ShaderUtils::MergeReflections(shaderModules);
+    std::vector<DescriptorSetReflection> reflections = ShaderUtils::MergeReflections(*shaderModules);
     std::vector<DescriptorSetLayout> setLayouts = CreateDescriptorSetLayouts(reflections, *vulkanContext);
 
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(shaderModules);
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(*shaderModules);
     
     std::vector<std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>>> specializationData;
     std::vector<VkSpecializationInfo> specializationInfos;
     
     for (uint32_t i = 0; i < shaderStages.size(); ++i)
     {
-        if (auto [entries, data] = CreateSpecializationData(shaderModules[i], specializationConstants); !entries.empty())
+        if (auto [entries, data] = CreateSpecializationData((*shaderModules)[i], specializationConstants); !entries.empty())
         {
             specializationInfos.emplace_back(static_cast<uint32_t>(entries.size()), entries.data(), data.size(), data.data());
             specializationData.emplace_back(std::move(entries), std::move(data));
@@ -234,9 +234,9 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddPushConstantRange(const VkP
     return *this;
 }
 
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(std::vector<ShaderModule>&& aShaderModules)
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(const std::vector<ShaderModule>& aShaderModules)
 {
-    shaderModules = std::move(aShaderModules);
+    shaderModules = &aShaderModules;
 
     return *this;
 }

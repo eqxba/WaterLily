@@ -50,7 +50,7 @@ public:
     void Render(const Frame& frame) override;
 
 private:
-    void CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules);
+    void CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules);
     void CreateDescriptors();
     
     void UpdateBuffers(uint32_t frameIndex);
@@ -71,18 +71,20 @@ private:
     const Window* window = nullptr;
 
     RenderPass renderPass;
-    Pipeline graphicsPipeline;
-
+    
     std::vector<VkFramebuffer> framebuffers;
 
     std::vector<Buffer> vertexBuffers;
     std::vector<Buffer> indexBuffers;
 
     Texture fontTexture;
-
-    std::vector<VkDescriptorSet> descriptors;
-
+    
     PushConstants pushConstants;
+    std::vector<VkDescriptorSet> descriptors;
+    
+    std::vector<ShaderModule> shaders;
+    
+    Pipeline graphicsPipeline;
 
     InputMode inputMode = InputMode::eEngine;
     

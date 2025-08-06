@@ -101,7 +101,7 @@ namespace UiRendererDetails
         return framebuffers;
     }
 
-    static std::vector<ShaderModule> GetShaderModules(const ShaderManager& shaderManager)
+    static std::vector<ShaderModule> CreateShaderModules(const ShaderManager& shaderManager)
     {
         std::vector<ShaderModule> shaderModules;
         shaderModules.reserve(2);
@@ -188,10 +188,9 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     framebuffers = CreateFramebuffers(renderPass, *vulkanContext);
     fontTexture = CreateFontTexture(ImGui::GetIO(), *vulkanContext);
 
-    std::vector<ShaderModule> shaderModules = GetShaderModules(vulkanContext->GetShaderManager());
-    Assert(std::ranges::all_of(shaderModules, &ShaderModule::IsValid));
+    shaders = CreateShaderModules(vulkanContext->GetShaderManager());
 
-    CreateGraphicsPipeline(std::move(shaderModules));
+    CreateGraphicsPipeline(shaders);
     CreateDescriptors();
     
     CreateWidgets(widgets, *vulkanContext);
@@ -307,11 +306,11 @@ void UiRenderer::Render(const Frame& frame)
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void UiRenderer::CreateGraphicsPipeline(std::vector<ShaderModule>&& shaderModules)
+void UiRenderer::CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules)
 {
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
         .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants) })
-        .SetShaderModules(std::move(shaderModules))
+        .SetShaderModules(shaderModules)
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)
@@ -419,14 +418,15 @@ void UiRenderer::OnWindowRecreated(const ES::WindowRecreated& event)
 
 void UiRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
 {
-    if (std::vector<ShaderModule> shaderModules = UiRendererDetails::GetShaderModules(vulkanContext->GetShaderManager());
-        std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
+    if (std::vector<ShaderModule> reloadedShaders = UiRendererDetails::CreateShaderModules(vulkanContext->GetShaderManager());
+        std::ranges::all_of(reloadedShaders, &ShaderModule::IsValid))
     {
         vulkanContext->GetDevice().WaitIdle();
         vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eUiRenderer);
         descriptors.clear();
+        shaders = std::move(reloadedShaders);
         
-        CreateGraphicsPipeline(std::move(shaderModules));
+        CreateGraphicsPipeline(shaders);
         CreateDescriptors();
     }
 }

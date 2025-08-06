@@ -25,7 +25,7 @@ public:
     // TODO: Get set layouts and push constants from reflection
     ComputePipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
 
-    ComputePipelineBuilder& SetShaderModule(ShaderModule&& shaderModule);
+    ComputePipelineBuilder& SetShaderModule(const ShaderModule& shaderModule);
     ComputePipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
 
 private:
@@ -34,6 +34,6 @@ private:
     // Temp! (parse from shaders)
     std::vector<VkPushConstantRange> pushConstantRanges;
 
-    std::unique_ptr<ShaderModule> shaderModule;
+    const ShaderModule* shaderModule = nullptr;
     std::vector<SpecializationConstant> specializationConstants;
 };

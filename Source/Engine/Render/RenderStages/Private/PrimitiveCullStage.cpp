@@ -8,18 +8,27 @@
 namespace PrimitiveCullStageDetails
 {
     static constexpr std::string_view shaderPath = "~/Shaders/Culling/PrimitiveCull.comp";
+
+    constexpr PipelineBarrier afterCullBarrier = {
+        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT };
+
+    constexpr PipelineBarrier meshAfterCullBarrier = {
+        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT,
+        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT };
 }
 
 PrimitiveCullStage::PrimitiveCullStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : RenderStage{ aVulkanContext, aRenderContext }
 {
-    using namespace PrimitiveCullStageDetails;
+    shader = std::make_unique<ShaderModule>(vulkanContext->GetShaderManager().CreateShaderModule(
+        FilePath(PrimitiveCullStageDetails::shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines));
     
-    ShaderModule shaderModule = vulkanContext->GetShaderManager().
-        CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines);
-    Assert(shaderModule.IsValid());
-    
-    pipeline = CreatePipeline(std::move(shaderModule));
+    pipeline = CreatePipeline(*shader);
 }
 
 PrimitiveCullStage::~PrimitiveCullStage() = default;
@@ -32,6 +41,7 @@ void PrimitiveCullStage::Prepare(const Scene& scene)
 void PrimitiveCullStage::Execute(const Frame& frame)
 {
     using namespace SynchronizationUtils;
+    using namespace PrimitiveCullStageDetails;
 
     const VkCommandBuffer cmd = frame.commandBuffer;
 
@@ -68,21 +78,13 @@ void PrimitiveCullStage::Execute(const Frame& frame)
 
     vkCmdDispatch(cmd, groupCountX, 1, 1);
 
-    constexpr PipelineBarrier afterCullBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT,
-        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT };
-
-    SetMemoryBarrier(cmd, afterCullBarrier);
+    SetMemoryBarrier(cmd, vulkanContext->GetDevice().GetProperties().meshShadersSupported ? meshAfterCullBarrier : afterCullBarrier);
 }
 
 bool PrimitiveCullStage::TryReloadShaders()
 {
-    using namespace PrimitiveCullStageDetails;
-    
-    reloadedShader = std::make_unique<ShaderModule>(vulkanContext->GetShaderManager().
-        CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines));
+    reloadedShader = std::make_unique<ShaderModule>(vulkanContext->GetShaderManager().CreateShaderModule(
+        FilePath(PrimitiveCullStageDetails::shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines));
     
     return reloadedShader->IsValid();
 }
@@ -90,8 +92,9 @@ bool PrimitiveCullStage::TryReloadShaders()
 void PrimitiveCullStage::ApplyReloadedShaders()
 {
     descriptors.clear();
+    shader = std::move(reloadedShader);
     
-    pipeline = CreatePipeline(std::move(*reloadedShader));
+    pipeline = CreatePipeline(*shader);
     CreateDescriptors();
 }
 
@@ -100,11 +103,11 @@ void PrimitiveCullStage::OnSceneClose()
     descriptors.clear();
 }
 
-Pipeline PrimitiveCullStage::CreatePipeline(ShaderModule&& shaderModule) const
+Pipeline PrimitiveCullStage::CreatePipeline(const ShaderModule& shaderModule) const
 {
     return ComputePipelineBuilder(*vulkanContext)
         .AddPushConstantRange({ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(gpu::PushConstants) })
-        .SetShaderModule(std::move(shaderModule))
+        .SetShaderModule(shaderModule)
         .Build();
 }
 

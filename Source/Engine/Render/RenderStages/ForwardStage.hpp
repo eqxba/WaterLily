@@ -23,8 +23,8 @@ public:
     void OnSceneClose() override;
     
 private:
-    Pipeline CreateMeshPipeline(std::vector<ShaderModule>&& shaderModules);
-    Pipeline CreateVertexPipeline(std::vector<ShaderModule>&& shaderModules);
+    Pipeline CreateMeshPipeline(const std::vector<ShaderModule>& shaderModules);
+    Pipeline CreateVertexPipeline(const std::vector<ShaderModule>& shaderModules);
     void CreateDescriptors();
     
     void ExecuteMesh(const Frame& frame) const;
@@ -34,7 +34,9 @@ private:
     std::vector<VkFramebuffer> framebuffers;
     
     std::unordered_map<GraphicsPipelineType, std::vector<VkDescriptorSet>> descriptors;
-    std::unordered_map<GraphicsPipelineType, Pipeline> graphicsPipelines;
     
+    std::unordered_map<GraphicsPipelineType, std::vector<ShaderModule>> shaders;
     std::unordered_map<GraphicsPipelineType, std::vector<ShaderModule>> reloadedShaders;
+    
+    std::unordered_map<GraphicsPipelineType, Pipeline> graphicsPipelines;
 };
