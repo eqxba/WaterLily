@@ -18,6 +18,7 @@ struct ShaderReflection
 {
     VkShaderStageFlagBits shaderStage;
     std::vector<DescriptorSetReflection> descriptorSets;
+    std::unordered_map<std::string, VkPushConstantRange> pushConstants; // Separate members, not valid for pipeline layout creation
     std::vector<SpecializationConstantReflection> specializationConstants;
 };
 

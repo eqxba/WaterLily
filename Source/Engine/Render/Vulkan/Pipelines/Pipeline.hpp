@@ -25,6 +25,7 @@ struct PipelineData
     PipelineType type;
     std::vector<DescriptorSetReflection> setReflections;
     std::vector<DescriptorSetLayout> setLayouts;
+    std::unordered_map<std::string, VkPushConstantRange> pushConstants;
     std::vector<SpecializationConstant> specializationConstants;
 };
 
@@ -60,6 +61,16 @@ public:
     {
         return setLayouts;
     }
+    
+    const std::unordered_map<std::string, VkPushConstantRange>& GetPushConstants() const
+    {
+        return pushConstants;
+    }
+    
+    const std::vector<SpecializationConstant>& GetSpecializationConstants() const
+    {
+        return specializationConstants;
+    }
 
     bool IsValid() const
     {
@@ -80,5 +91,6 @@ private:
     
     std::vector<DescriptorSetReflection> setReflections;
     std::vector<DescriptorSetLayout> setLayouts;
+    std::unordered_map<std::string, VkPushConstantRange> pushConstants;
     std::vector<SpecializationConstant> specializationConstants;
 };

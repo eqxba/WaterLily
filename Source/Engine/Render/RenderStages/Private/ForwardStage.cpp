@@ -2,6 +2,7 @@
 
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
+#include "Engine/Render/Vulkan/Pipelines/PipelineUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
 namespace ForwardStageDetails
@@ -142,6 +143,7 @@ void ForwardStage::Prepare(const Scene& scene)
 void ForwardStage::Execute(const Frame& frame)
 {
     using namespace VulkanUtils;
+    using namespace PipelineUtils;
     
     const GraphicsPipelineType pipelineType = RenderOptions::Get().GetGraphicsPipelineType();
     const Pipeline& graphicsPipeline = graphicsPipelines[pipelineType];
@@ -172,9 +174,7 @@ void ForwardStage::Execute(const Frame& frame)
     const VkRect2D scissor = GetScissor(extent);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdPushConstants(commandBuffer, graphicsPipeline.GetLayout(),
-        pipelineType == GraphicsPipelineType::eMesh ? VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT :
-        VK_SHADER_STAGE_VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(gpu::PushConstants)), &renderContext->globals);
+    PushConstants(commandBuffer, graphicsPipeline, "globals", renderContext->globals);
     
     const std::vector<VkDescriptorSet>& descriptorSets = descriptors[pipelineType];
 
@@ -237,7 +237,6 @@ Pipeline ForwardStage::CreateMeshPipeline(const std::vector<ShaderModule>& shade
     using namespace ForwardStageDetails;
 
     return GraphicsPipelineBuilder(*vulkanContext)
-        .AddPushConstantRange({ VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_TASK_BIT_EXT, 0, sizeof(gpu::PushConstants) })
         .SetShaderModules(shaderModules)
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(vulkanContext->GetDevice().GetProperties().maxSampleCount)
@@ -251,7 +250,6 @@ Pipeline ForwardStage::CreateVertexPipeline(const std::vector<ShaderModule>& sha
     using namespace ForwardStageDetails;
     
     return GraphicsPipelineBuilder(*vulkanContext)
-        .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(gpu::PushConstants) })
         .SetShaderModules(shaderModules)
         .SetVertexData(SceneHelpers::GetVertexBindings(), SceneHelpers::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)

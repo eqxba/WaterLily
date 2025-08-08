@@ -159,8 +159,10 @@ Pipeline GraphicsPipelineBuilder::Build() const
     
     const VkDevice device = vulkanContext->GetDevice();
     
-    std::vector<DescriptorSetReflection> reflections = ShaderUtils::MergeReflections(*shaderModules);
-    std::vector<DescriptorSetLayout> setLayouts = CreateDescriptorSetLayouts(reflections, *vulkanContext);
+    std::vector<DescriptorSetReflection> setReflections = MergeDescriptorSetReflections(*shaderModules);
+    std::vector<DescriptorSetLayout> setLayouts = CreateDescriptorSetLayouts(setReflections, *vulkanContext);
+    std::unordered_map<std::string, VkPushConstantRange> pushConstantReflections = MergePushConstantReflections(*shaderModules);
+    std::vector<VkPushConstantRange> pushConstantRanges = GetPushConstantRanges(pushConstantReflections);
 
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
@@ -197,18 +199,12 @@ Pipeline GraphicsPipelineBuilder::Build() const
     PipelineData pipelineData = {
         .layout = pipelineLayout,
         .type = PipelineType::eGraphics,
-        .setReflections = std::move(reflections),
+        .setReflections = std::move(setReflections),
         .setLayouts = std::move(setLayouts),
+        .pushConstants = std::move(pushConstantReflections),
         .specializationConstants = std::move(specializationConstants) };
 
     return { pipeline, std::move(pipelineData), *vulkanContext };
-}
-
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::AddPushConstantRange(const VkPushConstantRange pushConstantRange)
-{
-    pushConstantRanges.push_back(pushConstantRange);
-
-    return *this;
 }
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(const std::vector<ShaderModule>& aShaderModules)

@@ -19,6 +19,7 @@ Pipeline ComputePipelineBuilder::Build() const
     const ShaderReflection& reflection = shaderModule->GetReflection();
     
     std::vector<DescriptorSetLayout> setLayouts = CreateDescriptorSetLayouts(reflection.descriptorSets, *vulkanContext);
+    std::vector<VkPushConstantRange> pushConstantRanges = GetPushConstantRanges(reflection.pushConstants);
     
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
@@ -27,15 +28,6 @@ Pipeline ComputePipelineBuilder::Build() const
     VkComputePipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
     pipelineInfo.stage = GetShaderStageCreateInfo(shaderInstance);
     pipelineInfo.layout = pipelineLayout;
-    
-    std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> specializationData = CreateSpecializationData(*shaderModule, specializationConstants);
-    VkSpecializationInfo specializationInfo = {};
-    
-    if (const auto& [entries, data] = specializationData; !entries.empty())
-    {
-        specializationInfo = { static_cast<uint32_t>(entries.size()), entries.data(), data.size(), data.data() };
-        pipelineInfo.stage.pSpecializationInfo = &specializationInfo;
-    }
     
     // Can be used to create pipeline from similar one (which is faster than entirely new one)
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -50,16 +42,10 @@ Pipeline ComputePipelineBuilder::Build() const
         .type = PipelineType::eCompute,
         .setReflections = reflection.descriptorSets,
         .setLayouts = std::move(setLayouts),
+        .pushConstants = reflection.pushConstants,
         .specializationConstants = std::move(specializationConstants) };
 
     return { pipeline, std::move(pipelineData), *vulkanContext };
-}
-
-ComputePipelineBuilder& ComputePipelineBuilder::AddPushConstantRange(const VkPushConstantRange pushConstantRange)
-{
-    pushConstantRanges.push_back(pushConstantRange);
-
-    return *this;
 }
 
 ComputePipelineBuilder& ComputePipelineBuilder::SetShaderModule(const ShaderModule& aShaderModule)

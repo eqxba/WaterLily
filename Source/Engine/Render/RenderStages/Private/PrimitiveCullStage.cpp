@@ -2,6 +2,7 @@
 
 #include "Shaders/Common.h"
 #include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Vulkan/Pipelines/PipelineUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/ComputePipelineBuilder.hpp"
 #include "Engine/Render/Vulkan/Synchronization/SynchronizationUtils.hpp"
 
@@ -42,6 +43,7 @@ void PrimitiveCullStage::Execute(const Frame& frame)
 {
     using namespace SynchronizationUtils;
     using namespace PrimitiveCullStageDetails;
+    using namespace PipelineUtils;
 
     const VkCommandBuffer cmd = frame.commandBuffer;
 
@@ -67,8 +69,7 @@ void PrimitiveCullStage::Execute(const Frame& frame)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
-    vkCmdPushConstants(cmd, pipeline.GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, 
-        static_cast<uint32_t>(sizeof(gpu::PushConstants)), &renderContext->globals);
+    PushConstants(cmd, pipeline, "globals", renderContext->globals);
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.GetLayout(), 0,
         static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
@@ -105,10 +106,7 @@ void PrimitiveCullStage::OnSceneClose()
 
 Pipeline PrimitiveCullStage::CreatePipeline(const ShaderModule& shaderModule) const
 {
-    return ComputePipelineBuilder(*vulkanContext)
-        .AddPushConstantRange({ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(gpu::PushConstants) })
-        .SetShaderModule(shaderModule)
-        .Build();
+    return ComputePipelineBuilder(*vulkanContext).SetShaderModule(shaderModule).Build();
 }
 
 void PrimitiveCullStage::CreateDescriptors()

@@ -42,10 +42,6 @@ public:
 
     Pipeline Build() const;
 
-    // TODO: Get set layouts and push constants from reflection
-    GraphicsPipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
-
-    // TODO: Stop moving here, pass by reference - we can reuse shader modules when creating pipelines with different specialization constants
     GraphicsPipelineBuilder& SetShaderModules(const std::vector<ShaderModule>& shaderModules);
     GraphicsPipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
     GraphicsPipelineBuilder& SetVertexData(VertexBindings bindings, VertexAttributes attributes);
@@ -59,9 +55,6 @@ public:
 
 private:
     const VulkanContext* vulkanContext = nullptr;
-
-    // Temp! (parse from shaders)
-    std::vector<VkPushConstantRange> pushConstantRanges;
 
     const std::vector<ShaderModule>* shaderModules = nullptr;
     std::vector<SpecializationConstant> specializationConstants;

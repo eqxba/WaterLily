@@ -68,7 +68,7 @@ namespace ShaderUtilsDetails
         return bindingsReflection;
     }
 
-    static std::vector<DescriptorSetReflection> GetDescriptorSetsReflection(
+    static std::vector<DescriptorSetReflection> GetDescriptorSetReflections(
         const spv_reflect::ShaderModule& shaderModule, const VkShaderStageFlagBits shaderStage)
     {
         uint32_t descriptorSetsCount;
@@ -112,7 +112,31 @@ namespace ShaderUtilsDetails
         }
     }
 
-    static std::vector<SpecializationConstantReflection> GetSpecializationConstantsReflection(
+    static std::unordered_map<std::string, VkPushConstantRange> GetPushConstantReflections(
+        const spv_reflect::ShaderModule& shaderModule, const VkShaderStageFlagBits shaderStage)
+    {
+        std::unordered_map<std::string, VkPushConstantRange> reflections;
+        
+        uint32_t pushConstantCount;
+        bool result = shaderModule.EnumeratePushConstantBlocks(&pushConstantCount, nullptr);
+        Assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        std::vector<SpvReflectBlockVariable*> pushConstants(pushConstantCount);
+        result = shaderModule.EnumeratePushConstantBlocks(&pushConstantCount, pushConstants.data());
+        Assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        
+        for (const auto pushConstant : pushConstants)
+        {
+            for (const SpvReflectBlockVariable& member : std::span(pushConstant->members, pushConstant->member_count))
+            {
+                reflections.emplace(member.name, VkPushConstantRange(shaderStage, member.offset, member.size));
+            }
+        }
+       
+        return reflections;
+    }
+
+    static std::vector<SpecializationConstantReflection> GetSpecializationConstantReflections(
         const spv_reflect::ShaderModule& shaderModule)
     {
         uint32_t specializationConstantCount;
@@ -132,6 +156,39 @@ namespace ShaderUtilsDetails
         }
         
         return reflection;
+    }
+
+    static std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> CreateSpecializationData(
+        const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
+    {
+        std::vector<VkSpecializationMapEntry> mapEntries;
+        std::vector<std::byte> data;
+        
+        for (const SpecializationConstantReflection& reflection : shaderModule.GetReflection().specializationConstants)
+        {
+            const auto& it = std::ranges::find_if(specializationConstants, [&](const SpecializationConstant& constant){
+                return constant.name == reflection.name;
+            });
+            
+            if (it != specializationConstants.end())
+            {
+                const auto offset = static_cast<uint32_t>(data.size());
+                
+                const auto& visitPred = [&](const auto& value){
+                    using T = std::decay_t<decltype(value)>;
+                    const size_t size = sizeof(T);
+                    
+                    data.resize(data.size() + size);
+                    std::memcpy(data.data() + offset, &value, size);
+                    
+                    mapEntries.emplace_back(reflection.costantId, offset, size);
+                };
+                
+                std::visit(visitPred, it->value);
+            }
+        }
+        
+        return { std::move(mapEntries), std::move(data) };
     }
 }
 
@@ -177,11 +234,12 @@ ShaderReflection ShaderUtils::GenerateReflection(const std::span<const uint32_t>
     
     return {
         .shaderStage = shaderStage,
-        .descriptorSets = GetDescriptorSetsReflection(shaderModule, shaderStage),
-        .specializationConstants = GetSpecializationConstantsReflection(shaderModule) };
+        .descriptorSets = GetDescriptorSetReflections(shaderModule, shaderStage),
+        .pushConstants = GetPushConstantReflections(shaderModule, shaderStage),
+        .specializationConstants = GetSpecializationConstantReflections(shaderModule) };
 }
 
-std::vector<DescriptorSetReflection> ShaderUtils::MergeReflections(const std::vector<ShaderModule>& shaderModules)
+std::vector<DescriptorSetReflection> ShaderUtils::MergeDescriptorSetReflections(const std::vector<ShaderModule>& shaderModules)
 {
     std::vector<DescriptorSetReflection> resultReflections;
     
@@ -210,41 +268,38 @@ std::vector<DescriptorSetReflection> ShaderUtils::MergeReflections(const std::ve
     return resultReflections;
 }
 
-std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> ShaderUtils::CreateSpecializationData(
-    const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
+std::unordered_map<std::string, VkPushConstantRange> ShaderUtils::MergePushConstantReflections(const std::vector<ShaderModule>& shaderModules)
 {
-    std::vector<VkSpecializationMapEntry> mapEntries;
-    std::vector<std::byte> data;
+    std::unordered_map<std::string, VkPushConstantRange> resultReflections;
     
-    for (const SpecializationConstantReflection& reflection : shaderModule.GetReflection().specializationConstants)
+    for (const ShaderModule& shaderModule : shaderModules)
     {
-        const auto& it = std::ranges::find_if(specializationConstants, [&](const SpecializationConstant& constant){
-            return constant.name == reflection.name;
-        });
+        const ShaderReflection& shaderReflection = shaderModule.GetReflection();
         
-        if (it != specializationConstants.end())
+        for (const auto& [name, range] : shaderReflection.pushConstants)
         {
-            const auto offset = static_cast<uint32_t>(data.size());
-            
-            const auto& visitPred = [&](const auto& value){
-                using T = std::decay_t<decltype(value)>;
-                const size_t size = sizeof(T);
+            if (resultReflections.contains(name))
+            {
+                VkPushConstantRange& existingRange = resultReflections[name];
+                Assert(existingRange.size == range.size);
+                Assert(existingRange.offset == range.offset);
                 
-                data.resize(data.size() + size);
-                std::memcpy(data.data() + offset, &value, size);
-                
-                mapEntries.emplace_back(reflection.costantId, offset, size);
-            };
-            
-            std::visit(visitPred, it->value);
+                existingRange.stageFlags |= range.stageFlags;
+            }
+            else
+            {
+                resultReflections.emplace(name, range);
+            }
         }
     }
     
-    return { std::move(mapEntries), std::move(data) };
+    return resultReflections;
 }
 
 ShaderInstance ShaderUtils::CreateShaderInstance(const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
 {
+    using namespace ShaderUtilsDetails;
+    
     ShaderInstance shaderInstance = { .shaderModule = &shaderModule };
     
     if (auto [entries, data] = CreateSpecializationData(shaderModule, specializationConstants); !entries.empty())
@@ -269,4 +324,37 @@ VkPipelineShaderStageCreateInfo ShaderUtils::GetShaderStageCreateInfo(const Shad
     shaderStageCreateInfo.pSpecializationInfo = shaderInstance.specializationMapEntries.empty() ? nullptr : &shaderInstance.specializationInfo;
 
     return shaderStageCreateInfo;
+}
+
+std::vector<VkPushConstantRange> ShaderUtils::GetPushConstantRanges(const std::unordered_map<std::string, VkPushConstantRange>& reflectionRanges)
+{
+    std::vector<VkPushConstantRange> resultRanges;
+    
+    for (const auto& [name, range] : reflectionRanges)
+    {
+        auto it = std::ranges::find_if(resultRanges, [&](const VkPushConstantRange& pushConstantRange){
+            return pushConstantRange.stageFlags == range.stageFlags;
+        });
+
+        if (it != resultRanges.end())
+        {
+            if (it->offset < range.offset)
+            {
+                Assert(it->offset + it->size <= range.offset);
+                it->size = range.offset + range.size - it->offset;
+            }
+            else
+            {
+                Assert(range.offset + range.size <= it->offset);
+                it->size = it->offset + it->size - range.offset;
+                it->offset = range.offset;
+            }
+        }
+        else
+        {
+            resultRanges.push_back(range);
+        }
+    }
+    
+    return resultRanges;
 }

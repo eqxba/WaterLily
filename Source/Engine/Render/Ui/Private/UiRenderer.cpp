@@ -6,10 +6,11 @@
 #include "Engine/Window.hpp"
 #include "Engine/EventSystem.hpp"
 #include "Engine/Render/Ui/StatsWidget.hpp"
+#include "Engine/Render/Ui/SettingsWidget.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-#include "Engine/Render/Ui/SettingsWidget.hpp"
 #include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
+#include "Engine/Render/Vulkan/Pipelines/PipelineUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
 namespace UiRendererDetails
@@ -269,9 +270,9 @@ void UiRenderer::Render(const Frame& frame)
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
     
-    vkCmdPushConstants(commandBuffer, graphicsPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
-        sizeof(PushConstants), &pushConstants);
-
+    PipelineUtils::PushConstants(commandBuffer, graphicsPipeline, "scale", pushConstants.scale);
+    PipelineUtils::PushConstants(commandBuffer, graphicsPipeline, "translate", pushConstants.translate);
+    
     if (const ImDrawData* drawData = ImGui::GetDrawData(); !drawData->CmdLists.empty())
     {
         const VkBuffer vkVertexBuffers[] = { vertexBuffer };
@@ -309,7 +310,6 @@ void UiRenderer::Render(const Frame& frame)
 void UiRenderer::CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules)
 {
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
-        .AddPushConstantRange({ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants) })
         .SetShaderModules(shaderModules)
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)

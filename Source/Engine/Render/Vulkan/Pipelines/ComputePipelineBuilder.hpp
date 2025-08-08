@@ -22,17 +22,11 @@ public:
 
     Pipeline Build() const;
 
-    // TODO: Get set layouts and push constants from reflection
-    ComputePipelineBuilder& AddPushConstantRange(VkPushConstantRange pushConstantRange); // Temp!
-
     ComputePipelineBuilder& SetShaderModule(const ShaderModule& shaderModule);
     ComputePipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
 
 private:
     const VulkanContext* vulkanContext = nullptr;
-
-    // Temp! (parse from shaders)
-    std::vector<VkPushConstantRange> pushConstantRanges;
 
     const ShaderModule* shaderModule = nullptr;
     std::vector<SpecializationConstant> specializationConstants;
