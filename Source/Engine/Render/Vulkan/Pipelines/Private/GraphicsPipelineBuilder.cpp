@@ -1,5 +1,6 @@
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
 
+#include "Utils/Helpers.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
@@ -131,19 +132,6 @@ namespace GraphicsPipelineBuilderDetails
         colorBlendStateCreateInfo.pAttachments = &attachmentState;
         return colorBlendStateCreateInfo;
     }
-
-    static std::vector<VkPipelineShaderStageCreateInfo> GetShaderStageCreateInfos(
-        const std::vector<ShaderModule>& shaders)
-    {
-        std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-        shaderStages.reserve(shaders.size());
-
-        std::ranges::transform(shaders, std::back_inserter(shaderStages), [](const ShaderModule& shader) {
-            return shader.GetVkPipelineShaderStageCreateInfo();
-        });
-
-        return shaderStages;
-    }
 }
 
 GraphicsPipelineBuilder::GraphicsPipelineBuilder(const VulkanContext& aVulkanContext)
@@ -164,6 +152,7 @@ Pipeline GraphicsPipelineBuilder::Build() const
 {
     using namespace GraphicsPipelineBuilderDetails;
     using namespace VulkanUtils;
+    using namespace ShaderUtils;
     
     Assert(shaderModules && !shaderModules->empty() && std::ranges::all_of(*shaderModules, &ShaderModule::IsValid));
     Assert(renderPass != nullptr);
@@ -175,20 +164,8 @@ Pipeline GraphicsPipelineBuilder::Build() const
 
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = GetShaderStageCreateInfos(*shaderModules);
-    
-    std::vector<std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>>> specializationData;
-    std::vector<VkSpecializationInfo> specializationInfos;
-    
-    for (uint32_t i = 0; i < shaderStages.size(); ++i)
-    {
-        if (auto [entries, data] = CreateSpecializationData((*shaderModules)[i], specializationConstants); !entries.empty())
-        {
-            specializationInfos.emplace_back(static_cast<uint32_t>(entries.size()), entries.data(), data.size(), data.data());
-            specializationData.emplace_back(std::move(entries), std::move(data));
-            shaderStages[i].pSpecializationInfo = &specializationInfos.back();
-        }
-    }
+    std::vector<ShaderInstance> shaderInstances = Helpers::Transform(CreateShaderInstance, *shaderModules, specializationConstants);
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages = Helpers::Transform(GetShaderStageCreateInfo, shaderInstances);
 
     const std::optional<VkPipelineVertexInputStateCreateInfo> vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
 

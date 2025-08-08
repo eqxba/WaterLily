@@ -21,6 +21,16 @@ struct ShaderReflection
     std::vector<SpecializationConstantReflection> specializationConstants;
 };
 
+class ShaderModule;
+
+struct ShaderInstance
+{
+    const ShaderModule* shaderModule = nullptr;
+    std::vector<VkSpecializationMapEntry> specializationMapEntries;
+    std::vector<std::byte> specializationData;
+    VkSpecializationInfo specializationInfo;
+};
+
 class ShaderModule
 {
 public:
@@ -33,13 +43,16 @@ public:
     ShaderModule(ShaderModule&& other) noexcept;
     ShaderModule& operator=(ShaderModule&& other) noexcept;
 
-    VkPipelineShaderStageCreateInfo GetVkPipelineShaderStageCreateInfo() const;
-
     bool IsValid() const;
     
     const ShaderReflection& GetReflection() const
     {
         return reflection;
+    }
+    
+    operator VkShaderModule() const
+    {
+        return shaderModule;
     }
 
 private:

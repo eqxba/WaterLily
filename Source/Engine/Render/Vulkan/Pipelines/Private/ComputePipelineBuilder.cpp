@@ -11,6 +11,7 @@ ComputePipelineBuilder::ComputePipelineBuilder(const VulkanContext& aVulkanConte
 Pipeline ComputePipelineBuilder::Build() const
 {
     using namespace VulkanUtils;
+    using namespace ShaderUtils;
 
     Assert(shaderModule && shaderModule->IsValid());
     
@@ -21,8 +22,10 @@ Pipeline ComputePipelineBuilder::Build() const
     
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
+    ShaderInstance shaderInstance = CreateShaderInstance(*shaderModule, specializationConstants);
+    
     VkComputePipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-    pipelineInfo.stage = shaderModule->GetVkPipelineShaderStageCreateInfo();
+    pipelineInfo.stage = GetShaderStageCreateInfo(shaderInstance);
     pipelineInfo.layout = pipelineLayout;
     
     std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> specializationData = CreateSpecializationData(*shaderModule, specializationConstants);

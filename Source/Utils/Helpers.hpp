@@ -21,5 +21,23 @@ private:
 
 namespace Helpers
 {
+    template<typename Func, typename Vector, typename... Args>
+    auto Transform(Func&& func, const Vector& input, Args&&... args);
+}
 
+template<typename Func, typename Vector, typename... Args>
+auto Helpers::Transform(Func&& func, const Vector& input, Args&&... args)
+{
+    using InType = typename Vector::value_type;
+    using OutType = std::invoke_result_t<Func, const InType&, Args...>;
+
+    std::vector<OutType> output;
+    output.reserve(input.size());
+
+    for (const auto& elem : input)
+    {
+        output.emplace_back(std::invoke(std::forward<Func>(func), elem, std::forward<Args>(args)...));
+    }
+
+    return output;
 }

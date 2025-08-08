@@ -209,3 +209,64 @@ std::vector<DescriptorSetReflection> ShaderUtils::MergeReflections(const std::ve
     
     return resultReflections;
 }
+
+std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> ShaderUtils::CreateSpecializationData(
+    const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
+{
+    std::vector<VkSpecializationMapEntry> mapEntries;
+    std::vector<std::byte> data;
+    
+    for (const SpecializationConstantReflection& reflection : shaderModule.GetReflection().specializationConstants)
+    {
+        const auto& it = std::ranges::find_if(specializationConstants, [&](const SpecializationConstant& constant){
+            return constant.name == reflection.name;
+        });
+        
+        if (it != specializationConstants.end())
+        {
+            const auto offset = static_cast<uint32_t>(data.size());
+            
+            const auto& visitPred = [&](const auto& value){
+                using T = std::decay_t<decltype(value)>;
+                const size_t size = sizeof(T);
+                
+                data.resize(data.size() + size);
+                std::memcpy(data.data() + offset, &value, size);
+                
+                mapEntries.emplace_back(reflection.costantId, offset, size);
+            };
+            
+            std::visit(visitPred, it->value);
+        }
+    }
+    
+    return { std::move(mapEntries), std::move(data) };
+}
+
+ShaderInstance ShaderUtils::CreateShaderInstance(const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
+{
+    ShaderInstance shaderInstance = { .shaderModule = &shaderModule };
+    
+    if (auto [entries, data] = CreateSpecializationData(shaderModule, specializationConstants); !entries.empty())
+    {
+        shaderInstance.specializationInfo = { static_cast<uint32_t>(entries.size()), entries.data(), data.size(), data.data() };
+        shaderInstance.specializationMapEntries = std::move(entries);
+        shaderInstance.specializationData = std::move(data);
+    }
+    
+    return shaderInstance;
+}
+
+VkPipelineShaderStageCreateInfo ShaderUtils::GetShaderStageCreateInfo(const ShaderInstance& shaderInstance)
+{
+    Assert(shaderInstance.shaderModule);
+    
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
+    shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageCreateInfo.stage = shaderInstance.shaderModule->GetReflection().shaderStage;
+    shaderStageCreateInfo.module = *shaderInstance.shaderModule;
+    shaderStageCreateInfo.pName = "main"; // Let's use "main" entry point by default
+    shaderStageCreateInfo.pSpecializationInfo = shaderInstance.specializationMapEntries.empty() ? nullptr : &shaderInstance.specializationInfo;
+
+    return shaderStageCreateInfo;
+}

@@ -38,19 +38,6 @@ ShaderModule& ShaderModule::operator=(ShaderModule&& other) noexcept
     return *this;
 }
 
-VkPipelineShaderStageCreateInfo ShaderModule::GetVkPipelineShaderStageCreateInfo() const
-{
-    Assert(IsValid());
-
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
-    shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStageCreateInfo.stage = reflection.shaderStage;
-    shaderStageCreateInfo.module = shaderModule;
-    shaderStageCreateInfo.pName = "main"; // Let's use "main" entry point by default
-
-    return shaderStageCreateInfo;
-}
-
 bool ShaderModule::IsValid() const
 {
     return shaderModule != VK_NULL_HANDLE;

@@ -54,9 +54,6 @@ namespace VulkanUtils
 
     std::vector<DescriptorSetLayout> CreateDescriptorSetLayouts(const std::vector<DescriptorSetReflection>& reflections,
         const VulkanContext& vulkanContext);
-
-    std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> CreateSpecializationData(
-        const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants);
 }
 
 template <>
