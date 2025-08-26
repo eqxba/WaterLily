@@ -105,7 +105,7 @@ void main()
 
     float radius = primitive.radius * draw.scale;
 
-    bool bCulled = frustumCull(center, radius) || contributionCull(center, radius);    
+    bool bCulled = frustumCull(center, radius); // TODO: Fix contribution culling! || contributionCull(center, radius);    
 
     #if MESH_PIPELINE || DRAW_INDIRECT_COUNT
         if (bCulled)

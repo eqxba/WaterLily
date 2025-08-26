@@ -14,4 +14,7 @@ namespace EngineConfig
         .inputMode = InputMode::eEngine };
 
     constexpr std::string_view defaultScenePath = "~/Assets/Scenes/Duck/Duck.glb";
+
+    // Feature to copy the whole scene with random transforms many times to reach significant amount of issued draws
+    constexpr bool randomlyCopyScene = true;
 }

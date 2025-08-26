@@ -87,6 +87,12 @@ void SettingsWidget::Build()
                 [&]() { return renderOptions->GetGraphicsPipelineType(); },
                 [&](auto type) { renderOptions->SetGraphicsPipelineType(type); });
         }
+        
+        int drawCount = renderOptions->GetCurrentDrawCount();
+        if (ImGui::SliderInt("Draw count", &drawCount, 1, renderOptions->GetMaxDrawCount()))
+        {
+            renderOptions->SetCurrentDrawCount(drawCount);
+        }
     }
     
     if (ImGui::CollapsingHeader("Misc."))

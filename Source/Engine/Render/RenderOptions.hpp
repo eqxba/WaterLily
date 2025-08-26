@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Shaders/Common.h"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 
 class EventSystem;
@@ -64,6 +65,12 @@ public:
     bool GetFreezeCamera() const;
     void SetFreezeCamera(bool freezeCamera);
     
+    uint32_t GetCurrentDrawCount() const;
+    void SetCurrentDrawCount(uint32_t currentDrawCount);
+    
+    uint32_t GetMaxDrawCount() const;
+    void SetMaxDrawCount(uint32_t maxDrawCount);
+    
 private:
     void OnKeyInput(const ES::KeyInput& event);
     
@@ -76,4 +83,7 @@ private:
     bool useLods = true;
     bool visualizeLods = false;
     bool freezeCamera = false;
+    
+    uint32_t currentDrawCount = gpu::primitiveCullMaxCommands;
+    uint32_t maxDrawCount = gpu::primitiveCullMaxCommands;
 };

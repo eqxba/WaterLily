@@ -1,11 +1,16 @@
 #include "Engine/Scene/SceneHelpers.hpp"
 
+#include "Engine/EngineConfig.hpp"
 #include "Utils/Helpers.hpp"
 
 DISABLE_WARNINGS_BEGIN
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 #include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#undef GLM_ENABLE_EXPERIMENTAL
 DISABLE_WARNINGS_END
 
 #include <meshoptimizer.h>
@@ -381,6 +386,93 @@ namespace SceneHelpersDetails
             }
         }
     }
+
+    static std::tuple<glm::vec3, float> CalculateSceneBoundingSphere(const RawScene& rawScene)
+    {
+        auto sceneMin = glm::vec3(std::numeric_limits<float>::max());
+        auto sceneMax = glm::vec3(-std::numeric_limits<float>::max());
+        
+        for (const Mesh& mesh : rawScene.meshes)
+        {
+            for (uint32_t index : std::ranges::views::iota(mesh.firstPrimitiveIndex, mesh.firstPrimitiveIndex + mesh.primitiveCount))
+            {
+                const gpu::Primitive& primitive = rawScene.primitives[index];
+                
+                const glm::vec3 worldCenter = glm::vec3(mesh.transform * glm::vec4(primitive.center, 1.0f));
+                
+                const glm::vec3 axisX = glm::vec3(mesh.transform[0]);
+                const glm::vec3 axisY = glm::vec3(mesh.transform[1]);
+                const glm::vec3 axisZ = glm::vec3(mesh.transform[2]);
+
+                const float maxScale = std::max(std::max(glm::length(axisX), glm::length(axisY)), glm::length(axisZ));
+                const float worldRadius = primitive.radius * maxScale;
+                
+                sceneMin = glm::min(sceneMin, worldCenter - glm::vec3(worldRadius));
+                sceneMax = glm::max(sceneMax, worldCenter + glm::vec3(worldRadius));
+            }
+        }
+
+        const glm::vec3 sceneCenter = (sceneMin + sceneMax) * 0.5f;
+        
+        return { sceneCenter, glm::length(sceneMax - sceneCenter) };
+    }
+
+    static void RandomlyCopyScene(const RawScene& rawScene, std::vector<gpu::Draw>& draws)
+    {
+        static constexpr size_t maxDrawCount = gpu::primitiveCullMaxCommands;
+        
+        const size_t singleSceneDrawCount = draws.size();
+        const size_t sceneCountMultiplier = maxDrawCount / singleSceneDrawCount;
+        
+        const auto& [sceneCenter, sceneRadius] = SceneHelpersDetails::CalculateSceneBoundingSphere(rawScene);
+
+        const float cubeHalfSize = std::cbrt(static_cast<float>(sceneCountMultiplier)) * (sceneRadius * 2.0f) * 0.5f;
+
+        std::mt19937 rng(228);
+
+        std::uniform_real_distribution<float> positionDist(-cubeHalfSize, cubeHalfSize);
+        std::uniform_real_distribution<float> angleDist(0.0f, glm::two_pi<float>());
+        std::uniform_real_distribution<float> scaleDist(0.2f, 1.0f);
+        
+        std::vector<glm::vec3> scenePositions;
+        scenePositions.reserve(sceneCountMultiplier);
+        
+        // Preproceess positions to sort them
+        for (size_t i = 0; i < sceneCountMultiplier - 1; ++i)
+        {
+            scenePositions.push_back(glm::vec3(positionDist(rng), positionDist(rng), positionDist(rng)));
+        }
+        
+        std::ranges::sort(scenePositions, {}, [](const glm::vec3& v) { return glm::length2(v); });
+
+        // Copy the whole scene with random transforms enough times to reach required number of issued draws
+        for (size_t i = 0; i < sceneCountMultiplier - 1; ++i)
+        {
+            const float scaleFactor = scaleDist(rng);
+            const auto sceneRotationQuat = glm::quat(glm::vec3(angleDist(rng), angleDist(rng), angleDist(rng)));
+
+            for (size_t j = 0; j < singleSceneDrawCount; ++j)
+            {
+                if (draws.size() == gpu::primitiveCullMaxCommands)
+                {
+                    return;
+                }
+                
+                const auto& base = draws[j];
+
+                const glm::vec3 localPos = base.position - sceneCenter;
+                const glm::vec3 transformedPos = sceneRotationQuat * (localPos * scaleFactor);
+                const glm::vec3 finalPos = transformedPos + scenePositions[i];
+                const float finalScale = base.scale * scaleFactor;
+
+                const auto baseRotationQuat = glm::quat(base.rotation.w, base.rotation.x, base.rotation.y, base.rotation.z);
+                const glm::quat finalRotationQuat = sceneRotationQuat * baseRotationQuat;
+                const auto finalRotation = glm::vec4(finalRotationQuat.x, finalRotationQuat.y, finalRotationQuat.z, finalRotationQuat.w);
+
+                draws.emplace_back(finalPos, finalScale, finalRotation, base.primitiveIndex);
+            }
+        }
+    }
 }
 
 std::optional<RawScene> SceneHelpers::LoadGltfScene(const FilePath& path)
@@ -454,37 +546,38 @@ void SceneHelpers::GenerateMeshlets(RawScene& rawScene)
 std::vector<gpu::Draw> SceneHelpers::GenerateDraws(const RawScene& rawScene)
 {
     std::vector<gpu::Draw> draws;
-
-    constexpr size_t drawCount = platformMac ? 20000 : gpu::primitiveCullMaxCommands;
-
-    const float cubeHalfSize = std::cbrt(static_cast<float>(drawCount)) * (rawScene.primitives[0].radius * 2.5f) * 0.5f;
-
-    std::mt19937 rng(52);
-
-    std::uniform_real_distribution positionDist(-cubeHalfSize, cubeHalfSize);
-    std::uniform_real_distribution angleDist(0.0f, glm::two_pi<float>());
-    std::uniform_real_distribution scaleDist(0.2f, 1.0f);
-
-    for (size_t i = 0; i < drawCount; ++i)
+    
+    for (const Mesh& mesh : rawScene.meshes)
     {
-        const auto rotation = glm::quat(glm::vec3(angleDist(rng), angleDist(rng), angleDist(rng)));
-
-        for (const Mesh& mesh : rawScene.meshes)
+        glm::vec3 position;
+        glm::vec3 scale;
+        glm::quat rotationQuat;
+        glm::vec3 skew;
+        glm::vec4 perspective;
+        
+        glm::decompose(mesh.transform, scale, rotationQuat, position, skew, perspective);
+        
+        const float scaleScalar = (scale.x + scale.y + scale.z) / 3.0f;
+        const glm::vec4 rotation = glm::vec4(rotationQuat.x, rotationQuat.y, rotationQuat.z, rotationQuat.w);
+        
+        for (uint32_t index : std::ranges::views::iota(mesh.firstPrimitiveIndex, mesh.firstPrimitiveIndex + mesh.primitiveCount))
         {
-            for (uint32_t index : std::ranges::views::iota(mesh.firstPrimitiveIndex, 
-                mesh.firstPrimitiveIndex + mesh.primitiveCount))
+            if (draws.size() == gpu::primitiveCullMaxCommands)
             {
-                draws.emplace_back(
-                    glm::vec3(positionDist(rng), positionDist(rng), positionDist(rng)), 
-                    scaleDist(rng),
-                    glm::vec4(rotation.x, rotation.y, rotation.z, rotation.w), index);
+                return draws;
             }
+            
+            draws.emplace_back(position, scaleScalar, rotation, index);
         }
+    }
+    
+    if constexpr (EngineConfig::randomlyCopyScene)
+    {
+        SceneHelpersDetails::RandomlyCopyScene(rawScene, draws);
     }
 
     return draws;
 }
-
 
 std::vector<VkVertexInputBindingDescription> SceneHelpers::GetVertexBindings()
 {

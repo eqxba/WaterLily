@@ -100,9 +100,14 @@ namespace SceneRendererDetails
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         renderContext.primitiveBuffer = Buffer(primitiveBufferDescription, true, primitiveSpan, vulkanContext);
-
+        
         const std::vector<gpu::Draw> draws = SceneHelpers::GenerateDraws(rawScene);
-        renderContext.globals.drawCount = static_cast<uint32_t>(draws.size());
+    
+        RenderOptions& renderOptions = RenderOptions::Get();
+        renderOptions.SetCurrentDrawCount(std::min(20'000u, static_cast<uint32_t>(draws.size())));
+        renderOptions.SetMaxDrawCount(static_cast<uint32_t>(draws.size()));
+
+        renderContext.globals.drawCount = renderOptions.GetCurrentDrawCount();
 
         SetSceneStats(rawScene, draws);
 
@@ -181,6 +186,7 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
 
     renderContext.globals.view = camera.GetViewMatrix();
     renderContext.globals.projection = projection;
+    renderContext.globals.drawCount = renderOptions.GetCurrentDrawCount();
     renderContext.globals.bMeshPipeline = renderOptions.GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
     renderContext.globals.bUseLods = renderOptions.GetUseLods();
     renderContext.globals.lodTarget = glm::tan(camera.GetVerticalFov() / 2.0f) 

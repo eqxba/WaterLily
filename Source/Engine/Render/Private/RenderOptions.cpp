@@ -105,6 +105,26 @@ void RenderOptions::SetFreezeCamera(const bool aFreezeCamera)
     freezeCamera = aFreezeCamera;
 }
 
+uint32_t RenderOptions::GetCurrentDrawCount() const
+{
+    return currentDrawCount;
+}
+
+void RenderOptions::SetCurrentDrawCount(const uint32_t aCurrentDrawCount)
+{
+    currentDrawCount = aCurrentDrawCount;
+}
+
+uint32_t RenderOptions::GetMaxDrawCount() const
+{
+    return maxDrawCount;
+}
+
+void RenderOptions::SetMaxDrawCount(const uint32_t aMaxDrawCount)
+{
+    maxDrawCount = aMaxDrawCount;
+}
+
 void RenderOptions::OnKeyInput(const ES::KeyInput& event)
 {
     if (event.key == Key::eF1 && event.action == KeyAction::ePress)
