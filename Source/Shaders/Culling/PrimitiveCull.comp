@@ -27,7 +27,7 @@ layout(set = 0, binding = 2) buffer CommandCount
     uint commandCount;
 };
 
-#if MESH_PIPELINE // TODO: same set+binding w/o preprocessor and use spec constant for mesh pipeline?
+#if MESH_PIPELINE
 layout(set = 0, binding = 3) writeonly buffer TaskCommands
 {
     TaskCommand taskCommands[];

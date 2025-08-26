@@ -187,7 +187,6 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
     renderContext.globals.view = camera.GetViewMatrix();
     renderContext.globals.projection = projection;
     renderContext.globals.drawCount = renderOptions.GetCurrentDrawCount();
-    renderContext.globals.bMeshPipeline = renderOptions.GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
     renderContext.globals.bUseLods = renderOptions.GetUseLods();
     renderContext.globals.lodTarget = glm::tan(camera.GetVerticalFov() / 2.0f) 
         * 2.0f / static_cast<float>(swapchainExtent.height); // 1px in primitive space
@@ -256,6 +255,7 @@ void SceneRenderer::DestroyRenderTargets()
 void SceneRenderer::PrepareGlobalDefines()
 {
     const RenderOptions& renderOptions = RenderOptions::Get();
+    const DeviceProperties& deviceProperties = vulkanContext->GetDevice().GetProperties();
     
     // TODO: Defines initialization and storage structures
     renderContext.visualizeLods = renderOptions.GetVisualizeLods();
@@ -263,8 +263,9 @@ void SceneRenderer::PrepareGlobalDefines()
     
     renderContext.globalDefines.clear();
     
-    renderContext.globalDefines.emplace_back(gpu::defines::visualizeLods, renderContext.visualizeLods ? "1" : "0");
     renderContext.globalDefines.emplace_back(gpu::defines::meshPipeline, renderContext.graphicsPipelineType == GraphicsPipelineType::eMesh ? "1" : "0");
+    renderContext.globalDefines.emplace_back(gpu::defines::drawIndirectCount, deviceProperties.drawIndirectCountSupported ? "1" : "0");
+    renderContext.globalDefines.emplace_back(gpu::defines::visualizeLods, renderContext.visualizeLods ? "1" : "0");
 }
 
 void SceneRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)

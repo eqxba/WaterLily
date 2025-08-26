@@ -18,8 +18,9 @@
     #define MESH_PIPELINE 1
 #endif
 
-// TODO: Sync with real support
-#define DRAW_INDIRECT_COUNT 0
+#ifndef DRAW_INDIRECT_COUNT
+    #define DRAW_INDIRECT_COUNT 1
+#endif
 
 #define VISUALIZE_MESHLETS 0 // TODO: Toggle from render options as well
 
@@ -50,8 +51,9 @@ namespace gpu
 
 namespace gpu::defines
 {
-    constexpr std::string_view visualizeLods = "VISUALIZE_LODS";
     constexpr std::string_view meshPipeline = "MESH_PIPELINE";
+    constexpr std::string_view drawIndirectCount = "DRAW_INDIRECT_COUNT";
+    constexpr std::string_view visualizeLods = "VISUALIZE_LODS";
 }
 
 #endif

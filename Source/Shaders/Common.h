@@ -39,9 +39,9 @@ struct PushConstants
     mat4 view;
     mat4 projection;
     uint drawCount;
-    uint bMeshPipeline;
     uint bUseLods;
     float lodTarget; // lod target error at z = 1
+    uint padding;
     CullData cullData;
 };
 
