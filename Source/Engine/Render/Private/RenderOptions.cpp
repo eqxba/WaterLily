@@ -48,81 +48,6 @@ bool RenderOptions::IsGraphicsPipelineTypeSupported(GraphicsPipelineType aGraphi
     return true;
 }
 
-RendererType RenderOptions::GetRendererType() const
-{
-    return rendererType;
-}
-
-void RenderOptions::SetRendererType(const RendererType aRendererType)
-{
-    SetOption<RendererType, ES::RO::RendererType>(rendererType, aRendererType);
-}
-
-GraphicsPipelineType RenderOptions::GetGraphicsPipelineType() const
-{
-    return graphicsPipelineType;
-}
-
-void RenderOptions::SetGraphicsPipelineType(const GraphicsPipelineType aGraphicsPipelineType)
-{
-    if (!IsGraphicsPipelineTypeSupported(aGraphicsPipelineType))
-    {
-        return;
-    }
-    
-    SetOption<GraphicsPipelineType, ES::RO::GraphicsPipelineType>(graphicsPipelineType, aGraphicsPipelineType);
-}
-
-bool RenderOptions::GetUseLods() const
-{
-    return useLods;
-}
-
-void RenderOptions::SetUseLods(const bool aUseLods)
-{
-    useLods = aUseLods;
-}
-
-bool RenderOptions::GetVisualizeLods() const
-{
-    return visualizeLods;
-}
-
-void RenderOptions::SetVisualizeLods(const bool aVisualizeLods)
-{
-    SetOption<bool, ES::RO::VisualizeLods>(visualizeLods, aVisualizeLods);
-}
-
-bool RenderOptions::GetFreezeCamera() const
-{
-    return freezeCamera;
-}
-
-void RenderOptions::SetFreezeCamera(const bool aFreezeCamera)
-{
-    freezeCamera = aFreezeCamera;
-}
-
-uint32_t RenderOptions::GetCurrentDrawCount() const
-{
-    return currentDrawCount;
-}
-
-void RenderOptions::SetCurrentDrawCount(const uint32_t aCurrentDrawCount)
-{
-    currentDrawCount = aCurrentDrawCount;
-}
-
-uint32_t RenderOptions::GetMaxDrawCount() const
-{
-    return maxDrawCount;
-}
-
-void RenderOptions::SetMaxDrawCount(const uint32_t aMaxDrawCount)
-{
-    maxDrawCount = aMaxDrawCount;
-}
-
 void RenderOptions::OnKeyInput(const ES::KeyInput& event)
 {
     if (event.key == Key::eF1 && event.action == KeyAction::ePress)
@@ -137,16 +62,16 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
 
     if (event.key == Key::eL && event.action == KeyAction::ePress)
     {
-        SetUseLods(!useLods);
+        SetUseLods(!_UseLods);
     }
     
     if (event.key == Key::eSemicolon && event.action == KeyAction::ePress)
     {
-        SetVisualizeLods(!visualizeLods);
+        SetVisualizeLods(!_VisualizeLods);
     }
 
     if (event.key == Key::eF && event.action == KeyAction::ePress)
     {
-        SetFreezeCamera(!freezeCamera);
+        SetFreezeCamera(!_FreezeCamera);
     }
 }

@@ -23,48 +23,26 @@ public:
     RenderOptions& operator=(RenderOptions&&) = delete;
 
     // Support functions
+    constexpr bool AlwaysSupported(std::any) { return true; }
     bool IsGraphicsPipelineTypeSupported(GraphicsPipelineType graphicsPipelineType) const;
     
     // Getters and setters
-    RendererType GetRendererType() const;
-    void SetRendererType(RendererType rendererType);
+    RENDER_OPTION(RendererType, RendererType, RendererType::eScene, AlwaysSupported)
+    RENDER_OPTION(GraphicsPipelineType, GraphicsPipelineType, GraphicsPipelineType::eVertex, IsGraphicsPipelineTypeSupported)
+    RENDER_OPTION(UseLods, bool, true, AlwaysSupported)
+    RENDER_OPTION(VisualizeLods, bool, false, AlwaysSupported)
+    RENDER_OPTION(FreezeCamera, bool, false, AlwaysSupported)
+    RENDER_OPTION(CurrentDrawCount, uint32_t, gpu::primitiveCullMaxCommands, AlwaysSupported)
+    RENDER_OPTION(MaxDrawCount, uint32_t, gpu::primitiveCullMaxCommands, AlwaysSupported)
 
-    GraphicsPipelineType GetGraphicsPipelineType() const;
-    void SetGraphicsPipelineType(GraphicsPipelineType graphicsPipelineType);
-
-    bool GetUseLods() const;
-    void SetUseLods(bool useLods);
-    
-    bool GetVisualizeLods() const;
-    void SetVisualizeLods(bool visualizeLods);
-
-    bool GetFreezeCamera() const;
-    void SetFreezeCamera(bool freezeCamera);
-    
-    uint32_t GetCurrentDrawCount() const;
-    void SetCurrentDrawCount(uint32_t currentDrawCount);
-    
-    uint32_t GetMaxDrawCount() const;
-    void SetMaxDrawCount(uint32_t maxDrawCount);
-    
+private:
     template<typename Option, typename Event>
     void SetOption(Option& value, const Option newValue);
     
-private:
     void OnKeyInput(const ES::KeyInput& event);
     
     const VulkanContext* vulkanContext = nullptr;
-    
     EventSystem* eventSystem = nullptr;
-    
-    RendererType rendererType = RendererType::eScene;
-    GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
-    bool useLods = true;
-    bool visualizeLods = false;
-    bool freezeCamera = false;
-    
-    uint32_t currentDrawCount = gpu::primitiveCullMaxCommands;
-    uint32_t maxDrawCount = gpu::primitiveCullMaxCommands;
 };
 
 template<typename Option, typename Event>

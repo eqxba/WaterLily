@@ -3,7 +3,6 @@
 #include "Engine/Window.hpp"
 #include "Engine/Scene/Scene.hpp"
 #include "Engine/InputUtils.hpp"
-#include "Engine/Render/RenderOptionsTypes.hpp"
 
 namespace ES // Event system
 {

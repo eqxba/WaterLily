@@ -19,12 +19,25 @@ namespace OptionValues
     inline constexpr std::array graphicsPipelineTypes = { GraphicsPipelineType::eMesh, GraphicsPipelineType::eVertex };
 }
 
-namespace ES // Event system
-{
-    namespace RO // RenderOptions, helper types for render options change callbacks
-    {
-        struct RendererType {};
-        struct GraphicsPipelineType {};
-        struct VisualizeLods {};
-    }
-}
+// Helper macro for boilerplate getters, setters and change event structs
+#define RENDER_OPTION(Name, Type, InitialValue, SupportFunction)                             \
+public:                                                                                      \
+    struct Name##Changed {};                                                                 \
+                                                                                             \
+    Type Get##Name() const                                                                   \
+    {                                                                                        \
+        return _##Name;                                                                      \
+    }                                                                                        \
+                                                                                             \
+    void Set##Name(const Type value)                                                         \
+    {                                                                                        \
+        if (!SupportFunction(value))                                                         \
+        {                                                                                    \
+            return;                                                                          \
+        }                                                                                    \
+                                                                                             \
+        SetOption<Type, Name##Changed>(_##Name, value);                                      \
+    }                                                                                        \
+                                                                                             \
+private:                                                                                     \
+    Type _##Name = InitialValue;

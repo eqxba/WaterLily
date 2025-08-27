@@ -153,8 +153,8 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     eventSystem->Subscribe<ES::TryReloadShaders>(this, &SceneRenderer::OnTryReloadShaders);
     eventSystem->Subscribe<ES::SceneOpened>(this, &SceneRenderer::OnSceneOpen);
     eventSystem->Subscribe<ES::SceneClosed>(this, &SceneRenderer::OnSceneClose);
-    eventSystem->Subscribe<ES::RO::GraphicsPipelineType>(this, &SceneRenderer::OnGlobalDefinesChanged);
-    eventSystem->Subscribe<ES::RO::VisualizeLods>(this, &SceneRenderer::OnGlobalDefinesChanged);
+    eventSystem->Subscribe<RenderOptions::GraphicsPipelineTypeChanged>(this, &SceneRenderer::OnGlobalDefinesChanged);
+    eventSystem->Subscribe<RenderOptions::VisualizeLodsChanged>(this, &SceneRenderer::OnGlobalDefinesChanged);
 }
 
 SceneRenderer::~SceneRenderer()

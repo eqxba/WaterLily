@@ -82,7 +82,7 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     }
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
-    eventSystem.Subscribe<ES::RO::RendererType>(this, &RenderSystem::OnRendererTypeChanged);
+    eventSystem.Subscribe<RenderOptions::RendererTypeChanged>(this, &RenderSystem::OnRendererTypeChanged);
 }
 
 RenderSystem::~RenderSystem()
