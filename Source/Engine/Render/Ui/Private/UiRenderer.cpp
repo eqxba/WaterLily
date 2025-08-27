@@ -396,17 +396,17 @@ void UiRenderer::UpdateImGuiInputState() const
     }
 }
 
-void UiRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
+void UiRenderer::OnBeforeSwapchainRecreated()
 {
     VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
 }
 
-void UiRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
+void UiRenderer::OnSwapchainRecreated()
 {
     framebuffers = UiRendererDetails::CreateFramebuffers(renderPass, *vulkanContext);
 }
 
-void UiRenderer::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
+void UiRenderer::OnBeforeWindowRecreated()
 {
     ImGui_ImplGlfw_Shutdown();
 }
@@ -416,7 +416,7 @@ void UiRenderer::OnWindowRecreated(const ES::WindowRecreated& event)
     ImGui_ImplGlfw_InitForOther(event.window->GetGlfwWindow(), true);
 }
 
-void UiRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
+void UiRenderer::OnTryReloadShaders()
 {
     if (std::vector<ShaderModule> reloadedShaders = UiRendererDetails::CreateShaderModules(vulkanContext->GetShaderManager());
         std::ranges::all_of(reloadedShaders, &ShaderModule::IsValid))

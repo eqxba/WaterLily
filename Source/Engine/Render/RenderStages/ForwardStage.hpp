@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/RenderStages/RenderStage.hpp"
 #include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"

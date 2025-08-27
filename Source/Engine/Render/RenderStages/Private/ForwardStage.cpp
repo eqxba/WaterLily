@@ -1,6 +1,7 @@
 #include "Engine/Render/RenderStages/ForwardStage.hpp"
 
 #include "Engine/Scene/SceneHelpers.hpp"
+#include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/VulkanUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/PipelineUtils.hpp"
 #include "Engine/Render/Vulkan/Pipelines/GraphicsPipelineBuilder.hpp"
@@ -163,16 +164,16 @@ void ForwardStage::Execute(const Frame& frame)
     renderPassInfo.pClearValues = clearValues.data();
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
+    
     const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
     VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     const VkRect2D scissor = GetScissor(extent);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     PushConstants(commandBuffer, graphicsPipeline, "globals", renderContext->globals);
     

@@ -82,7 +82,6 @@ struct Lod
 
 struct Primitive
 {
-    // TODO: Calculate for culling
     vec3 center;
     float radius;
 

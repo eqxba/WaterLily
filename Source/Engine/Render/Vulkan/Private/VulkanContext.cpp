@@ -68,7 +68,7 @@ void VulkanContext::OnResize(const ES::WindowResized& event)
     eventSystem.Fire<ES::SwapchainRecreated>();
 }
 
-void VulkanContext::OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event)
+void VulkanContext::OnBeforeWindowRecreated()
 {
     device->WaitIdle();
     

@@ -112,7 +112,7 @@ void ComputeRenderer::CreateDescriptors()
         .Build();
 }
 
-void ComputeRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
+void ComputeRenderer::OnBeforeSwapchainRecreated()
 {
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eComputeRenderer);
     descriptors.clear();
@@ -120,7 +120,7 @@ void ComputeRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecrea
     renderTarget.~RenderTarget();
 }
 
-void ComputeRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
+void ComputeRenderer::OnSwapchainRecreated()
 {
     using namespace ComputeRendererDetails;
 
@@ -128,7 +128,7 @@ void ComputeRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
     CreateDescriptors();
 }
 
-void ComputeRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
+void ComputeRenderer::OnTryReloadShaders()
 {
     using namespace ComputeRendererDetails;
     

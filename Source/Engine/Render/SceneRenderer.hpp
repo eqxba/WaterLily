@@ -10,11 +10,7 @@ class Scene;
 
 namespace ES
 {
-    struct BeforeSwapchainRecreated;
-    struct SwapchainRecreated;
-    struct TryReloadShaders;
     struct SceneOpened;
-    struct SceneClosed;
 }
 
 class SceneRenderer : public Renderer
@@ -39,11 +35,11 @@ private:
     
     void PrepareGlobalDefines();
 
-    void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
-    void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
-    void OnTryReloadShaders(const ES::TryReloadShaders& event);
+    void OnBeforeSwapchainRecreated();
+    void OnSwapchainRecreated();
+    void OnTryReloadShaders();
     void OnSceneOpen(const ES::SceneOpened& event);
-    void OnSceneClose(const ES::SceneClosed& event);
+    void OnSceneClose();
 
     const VulkanContext* vulkanContext = nullptr;
 

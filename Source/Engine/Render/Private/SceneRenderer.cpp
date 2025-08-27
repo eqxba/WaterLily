@@ -268,12 +268,12 @@ void SceneRenderer::PrepareGlobalDefines()
     renderContext.globalDefines.emplace_back(gpu::defines::visualizeLods, renderContext.visualizeLods ? "1" : "0");
 }
 
-void SceneRenderer::OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event)
+void SceneRenderer::OnBeforeSwapchainRecreated()
 {
     DestroyRenderTargets();
 }
 
-void SceneRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
+void SceneRenderer::OnSwapchainRecreated()
 {
     CreateRenderTargets();
 
@@ -281,7 +281,7 @@ void SceneRenderer::OnSwapchainRecreated(const ES::SwapchainRecreated& event)
     forwardStage->RecreateFramebuffers();
 }
 
-void SceneRenderer::OnTryReloadShaders(const ES::TryReloadShaders& event)
+void SceneRenderer::OnTryReloadShaders()
 {
     if (primitiveCullStage->TryReloadShaders() && forwardStage->TryReloadShaders())
     {
@@ -341,7 +341,7 @@ void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
     forwardStage->Prepare(*scene);
 }
 
-void SceneRenderer::OnSceneClose(const ES::SceneClosed& event)
+void SceneRenderer::OnSceneClose()
 {
     vulkanContext->GetDevice().WaitIdle();
 

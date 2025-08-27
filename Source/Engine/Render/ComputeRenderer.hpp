@@ -11,13 +11,6 @@
 class VulkanContext;
 class EventSystem;
 
-namespace ES
-{
-    struct BeforeSwapchainRecreated;
-    struct SwapchainRecreated;
-    struct TryReloadShaders;
-}
-
 class ComputeRenderer : public Renderer
 {
 public:
@@ -38,9 +31,9 @@ private:
     void CreatePipeline(ShaderModule&& shaderModule);
     void CreateDescriptors();
 
-    void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
-    void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
-    void OnTryReloadShaders(const ES::TryReloadShaders& event);
+    void OnBeforeSwapchainRecreated();
+    void OnSwapchainRecreated();
+    void OnTryReloadShaders();
 
     const VulkanContext* vulkanContext = nullptr;
 

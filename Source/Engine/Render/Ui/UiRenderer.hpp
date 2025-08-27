@@ -19,11 +19,7 @@ class Widget;
 
 namespace ES
 {
-    struct BeforeSwapchainRecreated;
-    struct SwapchainRecreated;
-    struct BeforeWindowRecreated;
     struct WindowRecreated;
-    struct TryReloadShaders;
     struct BeforeInputModeUpdated;
 }
 
@@ -57,11 +53,11 @@ private:
     
     void UpdateImGuiInputState() const;
 
-    void OnBeforeSwapchainRecreated(const ES::BeforeSwapchainRecreated& event);
-    void OnSwapchainRecreated(const ES::SwapchainRecreated& event);
-    void OnBeforeWindowRecreated(const ES::BeforeWindowRecreated& event);
+    void OnBeforeSwapchainRecreated();
+    void OnSwapchainRecreated();
+    void OnBeforeWindowRecreated();
     void OnWindowRecreated(const ES::WindowRecreated& event);
-    void OnTryReloadShaders(const ES::TryReloadShaders& event);
+    void OnTryReloadShaders();
     void OnBeforeInputModeUpdated(const ES::BeforeInputModeUpdated& event);
 
     const VulkanContext* vulkanContext = nullptr;
