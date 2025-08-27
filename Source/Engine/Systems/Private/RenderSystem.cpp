@@ -82,6 +82,7 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     }
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
+    eventSystem.Subscribe<ES::RO::RendererType>(this, &RenderSystem::OnRendererTypeChanged);
 }
 
 RenderSystem::~RenderSystem()
@@ -100,11 +101,6 @@ RenderSystem::~RenderSystem()
 
 void RenderSystem::Process(const float deltaSeconds)
 {
-    if (rendererType != renderOptions->GetRendererType())
-    {
-        SetRenderer(renderOptions->GetRendererType());
-    }
-    
     renderer->Process(frames[currentFrame], deltaSeconds);
     uiRenderer->Process(frames[currentFrame], deltaSeconds);
 }
@@ -202,4 +198,9 @@ void RenderSystem::OnKeyInput(const ES::KeyInput& event)
     {
         eventSystem.Fire<ES::TryReloadShaders>();
     }
+}
+
+void RenderSystem::OnRendererTypeChanged()
+{
+    SetRenderer(renderOptions->GetRendererType());
 }

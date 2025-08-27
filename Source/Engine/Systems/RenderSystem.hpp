@@ -39,6 +39,7 @@ private:
     void SetRenderer(RendererType rendererType);
 
     void OnKeyInput(const ES::KeyInput& event);
+    void OnRendererTypeChanged();
 
     const VulkanContext* vulkanContext = nullptr;
     RenderOptions* renderOptions = nullptr;

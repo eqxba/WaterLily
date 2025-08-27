@@ -153,6 +153,8 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     eventSystem->Subscribe<ES::TryReloadShaders>(this, &SceneRenderer::OnTryReloadShaders);
     eventSystem->Subscribe<ES::SceneOpened>(this, &SceneRenderer::OnSceneOpen);
     eventSystem->Subscribe<ES::SceneClosed>(this, &SceneRenderer::OnSceneClose);
+    eventSystem->Subscribe<ES::RO::GraphicsPipelineType>(this, &SceneRenderer::OnGlobalDefinesChanged);
+    eventSystem->Subscribe<ES::RO::VisualizeLods>(this, &SceneRenderer::OnGlobalDefinesChanged);
 }
 
 SceneRenderer::~SceneRenderer()
@@ -172,13 +174,6 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
     }
     
     const RenderOptions& renderOptions = RenderOptions::Get();
-    
-    if (renderContext.visualizeLods != renderOptions.GetVisualizeLods() ||
-        renderContext.graphicsPipelineType != renderOptions.GetGraphicsPipelineType())
-    {
-        PrepareGlobalDefines();
-        eventSystem->Fire<ES::TryReloadShaders>();
-    }
     
     const CameraComponent& camera = scene->GetCamera();
     const glm::mat4 projection = camera.GetProjectionMatrix();
@@ -257,7 +252,7 @@ void SceneRenderer::PrepareGlobalDefines()
     const RenderOptions& renderOptions = RenderOptions::Get();
     const DeviceProperties& deviceProperties = vulkanContext->GetDevice().GetProperties();
     
-    // TODO: Defines initialization and storage structures
+    // TODO: Defines storage structures
     renderContext.visualizeLods = renderOptions.GetVisualizeLods();
     renderContext.graphicsPipelineType = renderOptions.GetGraphicsPipelineType();
     
@@ -365,4 +360,10 @@ void SceneRenderer::OnSceneClose()
     forwardStage->OnSceneClose();
     
     scene = nullptr;
+}
+
+void SceneRenderer::OnGlobalDefinesChanged()
+{
+    PrepareGlobalDefines();
+    eventSystem->Fire<ES::TryReloadShaders>();
 }

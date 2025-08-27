@@ -40,6 +40,7 @@ private:
     void OnTryReloadShaders();
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose();
+    void OnGlobalDefinesChanged();
 
     const VulkanContext* vulkanContext = nullptr;
 

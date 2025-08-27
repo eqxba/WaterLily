@@ -1,33 +1,9 @@
 #pragma once
 
 #include "Shaders/Common.h"
+#include "Engine/EventSystem.hpp"
+#include "Engine/Render/RenderOptionsTypes.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
-
-class EventSystem;
-
-namespace ES
-{
-    struct KeyInput;
-}
-
-enum class RendererType
-{
-    eScene = 0,
-    eCompute,
-};
-
-enum class GraphicsPipelineType
-{
-    eMesh = 0,
-    eVertex,
-};
-
-namespace OptionValues
-{
-    // Other code might need these to iterate through
-    inline constexpr std::array rendererTypes = { RendererType::eScene, RendererType::eCompute };
-    inline constexpr std::array graphicsPipelineTypes = { GraphicsPipelineType::eMesh, GraphicsPipelineType::eVertex };
-}
 
 class RenderOptions
 {
@@ -71,6 +47,9 @@ public:
     uint32_t GetMaxDrawCount() const;
     void SetMaxDrawCount(uint32_t maxDrawCount);
     
+    template<typename Option, typename Event>
+    void SetOption(Option& value, const Option newValue);
+    
 private:
     void OnKeyInput(const ES::KeyInput& event);
     
@@ -87,3 +66,13 @@ private:
     uint32_t currentDrawCount = gpu::primitiveCullMaxCommands;
     uint32_t maxDrawCount = gpu::primitiveCullMaxCommands;
 };
+
+template<typename Option, typename Event>
+void RenderOptions::SetOption(Option& value, const Option newValue)
+{
+    if (value != newValue)
+    {
+        value = newValue;
+        eventSystem->Fire<Event>();
+    }
+}

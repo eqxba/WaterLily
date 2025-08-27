@@ -1,7 +1,5 @@
 #include "Engine/Render/RenderOptions.hpp"
 
-#include "Engine/EventSystem.hpp"
-
 namespace RenderOptionsDetails
 {
     static std::unique_ptr<RenderOptions> renderOptions;
@@ -57,7 +55,7 @@ RendererType RenderOptions::GetRendererType() const
 
 void RenderOptions::SetRendererType(const RendererType aRendererType)
 {
-    rendererType = aRendererType;
+    SetOption<RendererType, ES::RO::RendererType>(rendererType, aRendererType);
 }
 
 GraphicsPipelineType RenderOptions::GetGraphicsPipelineType() const
@@ -72,7 +70,7 @@ void RenderOptions::SetGraphicsPipelineType(const GraphicsPipelineType aGraphics
         return;
     }
     
-    graphicsPipelineType = aGraphicsPipelineType;
+    SetOption<GraphicsPipelineType, ES::RO::GraphicsPipelineType>(graphicsPipelineType, aGraphicsPipelineType);
 }
 
 bool RenderOptions::GetUseLods() const
@@ -92,7 +90,7 @@ bool RenderOptions::GetVisualizeLods() const
 
 void RenderOptions::SetVisualizeLods(const bool aVisualizeLods)
 {
-    visualizeLods = aVisualizeLods;
+    SetOption<bool, ES::RO::VisualizeLods>(visualizeLods, aVisualizeLods);
 }
 
 bool RenderOptions::GetFreezeCamera() const
