@@ -20,4 +20,5 @@ DISABLE_WARNINGS_END
     
     RenderOptions* renderOptions = nullptr;
     std::vector<GraphicsPipelineType> supportedGraphicsPipelineTypes;
+    std::vector<VkSampleCountFlagBits> supportedMsaaSampleCounts;
 };

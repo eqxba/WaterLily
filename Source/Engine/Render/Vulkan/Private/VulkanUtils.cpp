@@ -123,7 +123,7 @@ void VulkanUtils::DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& s
 }
 
 VkFramebuffer VulkanUtils::CreateFrameBuffer(const RenderPass& renderPass, const VkExtent2D extent,
-    const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext)
+    const std::span<const VkImageView> attachments, const VulkanContext& vulkanContext)
 {
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

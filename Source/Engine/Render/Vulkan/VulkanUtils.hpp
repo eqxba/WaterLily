@@ -39,7 +39,7 @@ namespace VulkanUtils
     void DestroySemaphores(VkDevice device, std::vector<VkSemaphore>& semaphores);
 
     VkFramebuffer CreateFrameBuffer(const RenderPass& renderPass, VkExtent2D extent,
-        const std::vector<VkImageView>& attachments, const VulkanContext& vulkanContext);
+        std::span<const VkImageView> attachments, const VulkanContext& vulkanContext);
     void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext);
 
     VkViewport GetViewport(float width, float height);

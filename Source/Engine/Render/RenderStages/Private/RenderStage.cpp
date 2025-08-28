@@ -14,6 +14,9 @@ void RenderStage::Prepare(const Scene& scene)
 void RenderStage::Execute(const Frame& frame)
 {}
 
+void RenderStage::RecreateRenderPasses()
+{}
+
 void RenderStage::RecreateFramebuffers()
 {}
 
@@ -22,7 +25,7 @@ bool RenderStage::TryReloadShaders()
     return true;
 }
 
-void RenderStage::ApplyReloadedShaders()
+void RenderStage::RecreatePipelinesAndDescriptors()
 {}
 
 void RenderStage::OnSceneClose()

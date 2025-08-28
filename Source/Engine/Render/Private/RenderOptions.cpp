@@ -25,10 +25,10 @@ RenderOptions::RenderOptions(const VulkanContext& aVulkanContext, EventSystem& a
     : vulkanContext{ &aVulkanContext }
     , eventSystem{ &aEventSystem }
 {
-    // TODO: We can't init this to eMesh in class initializer as
-    // it won't be verified on construction - that's why we're setting it here
-    // and it will do the check inside the setter, better approach - clamp on load
+    // TODO: Loading from a config file, but now let's keep this initialization here, all setters here
+    // do runtime clamping after vulkan initialization
     SetGraphicsPipelineType(GraphicsPipelineType::eMesh);
+    SetMsaaSampleCount(vulkanContext->GetDevice().GetProperties().maxSampleCount);
     
     eventSystem->Subscribe<ES::KeyInput>(this, &RenderOptions::OnKeyInput);
 }
@@ -38,14 +38,20 @@ RenderOptions::~RenderOptions()
     eventSystem->UnsubscribeAll(this);
 }
 
-bool RenderOptions::IsGraphicsPipelineTypeSupported(GraphicsPipelineType aGraphicsPipelineType) const
+bool RenderOptions::IsGraphicsPipelineTypeSupported(const GraphicsPipelineType graphicsPipelineType) const
 {
-    if (aGraphicsPipelineType == GraphicsPipelineType::eMesh)
+    if (graphicsPipelineType == GraphicsPipelineType::eMesh)
     {
         return vulkanContext->GetDevice().GetProperties().meshShadersSupported;
     }
     
     return true;
+}
+
+bool RenderOptions::IsMsaaSampleCountSupported(const VkSampleCountFlagBits sampleCount) const
+{
+    return std::ranges::contains(OptionValues::msaaSampleCounts, sampleCount) &&
+        sampleCount <= vulkanContext->GetDevice().GetProperties().maxSampleCount;
 }
 
 void RenderOptions::OnKeyInput(const ES::KeyInput& event)

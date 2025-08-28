@@ -50,12 +50,10 @@ SettingsWidget::SettingsWidget(const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
     , renderOptions{ &RenderOptions::Get() }
 {
-    const auto isGraphicsPipelineTypeSupported = [&](const GraphicsPipelineType type) {
-        return renderOptions->IsGraphicsPipelineTypeSupported(type);
-    };
-    
     std::ranges::copy_if(OptionValues::graphicsPipelineTypes, std::back_inserter(supportedGraphicsPipelineTypes),
-        isGraphicsPipelineTypeSupported);
+        [&](const GraphicsPipelineType type) { return renderOptions->IsGraphicsPipelineTypeSupported(type); });
+    std::ranges::copy_if(OptionValues::msaaSampleCounts, std::back_inserter(supportedMsaaSampleCounts),
+        [&](const VkSampleCountFlagBits sampleCount) { return renderOptions->IsMsaaSampleCountSupported(sampleCount); });
 }
 
 void SettingsWidget::Process(const Frame& frame, float deltaSeconds)
@@ -86,12 +84,16 @@ void SettingsWidget::Build()
             Combo<GraphicsPipelineType>("Pipeline", supportedGraphicsPipelineTypes,
                 [&]() { return renderOptions->GetGraphicsPipelineType(); },
                 [&](auto type) { renderOptions->SetGraphicsPipelineType(type); });
-        }
-        
-        int drawCount = renderOptions->GetCurrentDrawCount();
-        if (ImGui::SliderInt("Draw count", &drawCount, 1, renderOptions->GetMaxDrawCount()))
-        {
-            renderOptions->SetCurrentDrawCount(drawCount);
+            
+            int drawCount = renderOptions->GetCurrentDrawCount();
+            if (ImGui::SliderInt("Draw count", &drawCount, 1, renderOptions->GetMaxDrawCount()))
+            {
+                renderOptions->SetCurrentDrawCount(drawCount);
+            }
+            
+            Combo<VkSampleCountFlagBits>("MSAA sample count", supportedMsaaSampleCounts,
+                [&]() { return renderOptions->GetMsaaSampleCount(); },
+                [&](auto count) { renderOptions->SetMsaaSampleCount(count); });
         }
     }
     

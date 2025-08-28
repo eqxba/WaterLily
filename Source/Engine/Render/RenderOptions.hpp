@@ -25,6 +25,7 @@ public:
     // Support functions
     constexpr bool AlwaysSupported(std::any) { return true; }
     bool IsGraphicsPipelineTypeSupported(GraphicsPipelineType graphicsPipelineType) const;
+    bool IsMsaaSampleCountSupported(VkSampleCountFlagBits sampleCount) const;
     
     // Getters and setters
     RENDER_OPTION(RendererType, RendererType, RendererType::eScene, AlwaysSupported)
@@ -34,6 +35,7 @@ public:
     RENDER_OPTION(FreezeCamera, bool, false, AlwaysSupported)
     RENDER_OPTION(CurrentDrawCount, uint32_t, gpu::primitiveCullMaxCommands, AlwaysSupported)
     RENDER_OPTION(MaxDrawCount, uint32_t, gpu::primitiveCullMaxCommands, AlwaysSupported)
+    RENDER_OPTION(MsaaSampleCount, VkSampleCountFlagBits, VK_SAMPLE_COUNT_1_BIT, IsMsaaSampleCountSupported)
 
 private:
     template<typename Option, typename Event>

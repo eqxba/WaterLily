@@ -41,6 +41,7 @@ private:
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose();
     void OnGlobalDefinesChanged();
+    void OnMsaaSampleCountChanged();
 
     const VulkanContext* vulkanContext = nullptr;
 

@@ -90,10 +90,14 @@ bool PrimitiveCullStage::TryReloadShaders()
     return reloadedShader->IsValid();
 }
 
-void PrimitiveCullStage::ApplyReloadedShaders()
+void PrimitiveCullStage::RecreatePipelinesAndDescriptors()
 {
     descriptors.clear();
-    shader = std::move(reloadedShader);
+    
+    if (reloadedShader)
+    {
+        shader = std::move(reloadedShader);
+    }
     
     pipeline = CreatePipeline(*shader);
     CreateDescriptors();

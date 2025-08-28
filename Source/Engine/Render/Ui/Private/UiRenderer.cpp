@@ -96,7 +96,8 @@ namespace UiRendererDetails
         framebuffers.reserve(swapchainTargets.size());
 
         std::ranges::transform(swapchainTargets, std::back_inserter(framebuffers), [&](const RenderTarget& target) {
-            return CreateFrameBuffer(renderPass, swapchain.GetExtent(), { target.view }, vulkanContext);
+            const std::array<VkImageView, 1> attachments = { target.view };
+            return CreateFrameBuffer(renderPass, swapchain.GetExtent(), attachments, vulkanContext);
         });
         
         return framebuffers;
@@ -309,6 +310,7 @@ void UiRenderer::Render(const Frame& frame)
 
 void UiRenderer::CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules)
 {
+    // TODO: Multisampling for UI
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
         .SetShaderModules(shaderModules)
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())

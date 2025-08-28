@@ -15,7 +15,7 @@ public:
     void Execute(const Frame& frame) override;
 
     bool TryReloadShaders() override;
-    void ApplyReloadedShaders() override;
+    void RecreatePipelinesAndDescriptors() override;
     
     void OnSceneClose() override;
 

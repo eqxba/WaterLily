@@ -155,6 +155,7 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     eventSystem->Subscribe<ES::SceneClosed>(this, &SceneRenderer::OnSceneClose);
     eventSystem->Subscribe<RenderOptions::GraphicsPipelineTypeChanged>(this, &SceneRenderer::OnGlobalDefinesChanged);
     eventSystem->Subscribe<RenderOptions::VisualizeLodsChanged>(this, &SceneRenderer::OnGlobalDefinesChanged);
+    eventSystem->Subscribe<RenderOptions::MsaaSampleCountChanged>(this, &SceneRenderer::OnMsaaSampleCountChanged);
 }
 
 SceneRenderer::~SceneRenderer()
@@ -219,25 +220,30 @@ void SceneRenderer::CreateRenderTargets()
 {
     const Swapchain& swapchain = vulkanContext->GetSwapchain();
     const VkExtent2D swapchainExtent = swapchain.GetExtent();
+    const VkSampleCountFlagBits sampleCount = RenderOptions::Get().GetMsaaSampleCount();
 
-    // Render targets
-    ImageDescription colorTargetDescription = {
-        .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
-        .mipLevelsCount = 1,
-        .samples = vulkanContext->GetDevice().GetProperties().maxSampleCount,
-        .format = swapchain.GetSurfaceFormat().format,
-        .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+    // Create color target only when we use MSAA, otherwise render directly into swapchain
+    if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
+    {
+        ImageDescription colorTargetDescription = {
+            .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
+            .mipLevelsCount = 1,
+            .samples = sampleCount,
+            .format = swapchain.GetSurfaceFormat().format,
+            .usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+        
+        renderContext.colorTarget = RenderTarget(colorTargetDescription, VK_IMAGE_ASPECT_COLOR_BIT, *vulkanContext);
+    }
     
     ImageDescription depthTargetDescription = {
         .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
         .mipLevelsCount = 1,
-        .samples = vulkanContext->GetDevice().GetProperties().maxSampleCount,
+        .samples = sampleCount,
         .format = VulkanConfig::depthImageFormat,
         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
     
-    renderContext.colorTarget = RenderTarget(colorTargetDescription, VK_IMAGE_ASPECT_COLOR_BIT, *vulkanContext);
     renderContext.depthTarget = RenderTarget(depthTargetDescription, VK_IMAGE_ASPECT_DEPTH_BIT, *vulkanContext);
 }
 
@@ -283,8 +289,8 @@ void SceneRenderer::OnTryReloadShaders()
         vulkanContext->GetDevice().WaitIdle();
         vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
         
-        primitiveCullStage->ApplyReloadedShaders();
-        forwardStage->ApplyReloadedShaders();
+        primitiveCullStage->RecreatePipelinesAndDescriptors();
+        forwardStage->RecreatePipelinesAndDescriptors();
     }
 }
 
@@ -366,4 +372,21 @@ void SceneRenderer::OnGlobalDefinesChanged()
 {
     PrepareGlobalDefines();
     eventSystem->Fire<ES::TryReloadShaders>();
+}
+
+void SceneRenderer::OnMsaaSampleCountChanged()
+{
+    vulkanContext->GetDevice().WaitIdle();
+    
+    DestroyRenderTargets();
+    CreateRenderTargets();
+    
+    primitiveCullStage->RecreateRenderPasses();
+    forwardStage->RecreateRenderPasses();
+
+    primitiveCullStage->RecreateFramebuffers();
+    forwardStage->RecreateFramebuffers();
+    
+    primitiveCullStage->RecreatePipelinesAndDescriptors();
+    forwardStage->RecreatePipelinesAndDescriptors();
 }

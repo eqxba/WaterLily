@@ -10,7 +10,7 @@ namespace UiStrings
     constexpr std::string_view ToString(T) = delete;
 
     template <>
-    constexpr std::string_view ToString<RendererType>(RendererType rendererType)
+    constexpr std::string_view ToString<RendererType>(const RendererType rendererType)
     {
         switch (rendererType)
         {
@@ -22,7 +22,7 @@ namespace UiStrings
     }
 
     template <>
-    constexpr std::string_view ToString<GraphicsPipelineType>(GraphicsPipelineType graphicsPipelineType)
+    constexpr std::string_view ToString<GraphicsPipelineType>(const GraphicsPipelineType graphicsPipelineType)
     {
         switch (graphicsPipelineType)
         {
@@ -31,5 +31,21 @@ namespace UiStrings
         }
         
         return placeholder;
+    }
+
+    template <>
+    constexpr std::string_view ToString<VkSampleCountFlagBits>(const VkSampleCountFlagBits sampleCount)
+    {
+        switch (sampleCount)
+        {
+            case VK_SAMPLE_COUNT_1_BIT: return "1x";
+            case VK_SAMPLE_COUNT_2_BIT: return "2x";
+            case VK_SAMPLE_COUNT_4_BIT: return "4x";
+            case VK_SAMPLE_COUNT_8_BIT: return "8x";
+            case VK_SAMPLE_COUNT_16_BIT: return "16x";
+            case VK_SAMPLE_COUNT_32_BIT: return "32x";
+            case VK_SAMPLE_COUNT_64_BIT: return "64x";
+            case VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM: return placeholder;
+        }
     }
 }
