@@ -57,7 +57,7 @@ namespace SceneRendererDetails
 
         const BufferDescription vertexBufferDescription = {
             .size = verticesSpan.size_bytes(),
-            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         renderContext.vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, vulkanContext);
@@ -104,7 +104,7 @@ namespace SceneRendererDetails
         const std::vector<gpu::Draw> draws = SceneHelpers::GenerateDraws(rawScene);
     
         RenderOptions& renderOptions = RenderOptions::Get();
-        renderOptions.SetCurrentDrawCount(std::min(20'000u, static_cast<uint32_t>(draws.size())));
+        renderOptions.SetCurrentDrawCount(std::min(10'000u, static_cast<uint32_t>(draws.size())));
         renderOptions.SetMaxDrawCount(static_cast<uint32_t>(draws.size()));
 
         renderContext.globals.drawCount = renderOptions.GetCurrentDrawCount();
@@ -121,6 +121,7 @@ namespace SceneRendererDetails
         renderContext.drawBuffer = Buffer(drawBufferDescription, true, drawSpan, vulkanContext);
         
         // TODO: We always create this one, but can skip if we implement compile time switch for debug features
+        // And/or we can create it lazily
         const BufferDescription drawDebugDataBufferDescription = {
             .size = draws.size() * sizeof(uint32_t),
             .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,

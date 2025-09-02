@@ -239,3 +239,29 @@ std::vector<DescriptorSetLayout> VulkanUtils::CreateDescriptorSetLayouts(const s
     
     return layouts;
 }
+
+VkRenderPassBeginInfo VulkanUtils::GetRenderPassBeginInfo(const VkRenderPass renderPass, const VkFramebuffer framebuffer,
+    const VkRect2D renderArea, const std::span<const VkClearValue> clearValues)
+{
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = framebuffer;
+    renderPassInfo.renderArea.offset = renderArea.offset;
+    renderPassInfo.renderArea.extent = renderArea.extent;
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
+    
+    return renderPassInfo;
+}
+
+void VulkanUtils::SetDefaultViewportAndScissor(const VkCommandBuffer commandBuffer, const Swapchain& swapchain)
+{
+    const VkExtent2D extent = swapchain.GetExtent();
+    
+    VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    const VkRect2D scissor = GetScissor(extent);
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}

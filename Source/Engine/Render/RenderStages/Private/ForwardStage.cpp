@@ -13,6 +13,11 @@ namespace ForwardStageDetails
     static constexpr std::string_view meshShaderPath = "~/Shaders/Meshlet.mesh";
     static constexpr std::string_view fragmentShaderPath = "~/Shaders/Default.frag";
 
+    static constexpr std::array clearValues = {
+        VkClearValue{ .color = { { 0.73f, 0.95f, 1.0f, 1.0f } } }, // Color attachment
+        VkClearValue{ .depthStencil = { 0.0f, 0 } }, // Depth attachment (with msaa disabled)
+        VkClearValue{ .depthStencil = { 0.0f, 0 } } }; // Depth attachment (with msaa enabled, because there's resolve attachment at index 1)
+
     static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
     {
         AttachmentDescription colorAttachmentDescription = {
@@ -162,39 +167,21 @@ void ForwardStage::Execute(const Frame& frame)
 {
     using namespace VulkanUtils;
     using namespace PipelineUtils;
-    
-    const GraphicsPipelineType pipelineType = RenderOptions::Get().GetGraphicsPipelineType();
-    const Pipeline& graphicsPipeline = graphicsPipelines[pipelineType];
-    
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
-    renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = vulkanContext->GetSwapchain().GetExtent();
-
-    std::array<VkClearValue, 3> clearValues{};
-    clearValues[0].color = { { 0.73f, 0.95f, 1.0f, 1.0f } };
-    clearValues[2].depthStencil = { 0.0f, 0 };
-
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
+    using namespace ForwardStageDetails;
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
     
-    const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
-    VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    const VkRect2D scissor = GetScissor(extent);
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    const GraphicsPipelineType pipelineType = RenderOptions::Get().GetGraphicsPipelineType();
+    const Pipeline& graphicsPipeline = graphicsPipelines[pipelineType];
+    const std::vector<VkDescriptorSet>& descriptorSets = descriptors[pipelineType];
+    
+    const VkRenderPassBeginInfo renderPassInfo = GetRenderPassBeginInfo(renderPass, framebuffers[frame.swapchainImageIndex],
+        vulkanContext->GetSwapchain().GetRect(), clearValues);
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     PushConstants(commandBuffer, graphicsPipeline, "globals", renderContext->globals);
-    
-    const std::vector<VkDescriptorSet>& descriptorSets = descriptors[pipelineType];
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(), 0,
         static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);

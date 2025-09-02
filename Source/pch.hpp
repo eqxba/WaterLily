@@ -20,6 +20,7 @@
 #include <functional>
 #include <chrono>
 #include <numeric>
+#include <numbers>
 #include <ranges>
 #include <utility>
 

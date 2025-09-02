@@ -135,6 +135,8 @@ void RenderSystem::Render()
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer commandBuffer) {
         
+        SetDefaultViewportAndScissor(commandBuffer, vulkanContext->GetSwapchain());
+        
         if (useQuery)
         {
             vkCmdResetQueryPool(commandBuffer, queryPool, currentFrame, 1);

@@ -80,4 +80,9 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
     {
         SetFreezeCamera(!_FreezeCamera);
     }
+    
+    if (event.key == Key::eT && event.action == KeyAction::ePress)
+    {
+        SetTestBool(!_TestBool);
+    }
 }

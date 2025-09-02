@@ -265,9 +265,6 @@ void UiRenderer::Render(const Frame& frame)
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-    const VkViewport viewport = GetViewport(static_cast<float>(extent.width), static_cast<float>(extent.height));
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
         0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
     

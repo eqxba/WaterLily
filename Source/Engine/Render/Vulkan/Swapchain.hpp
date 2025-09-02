@@ -37,6 +37,11 @@ public:
     {
         return extent;
     }
+    
+    VkRect2D GetRect() const
+    {
+        return { { 0, 0 }, extent };
+    }
 
     const std::vector<RenderTarget>& GetRenderTargets() const
     {

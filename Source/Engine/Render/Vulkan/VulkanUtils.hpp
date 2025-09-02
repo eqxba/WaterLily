@@ -54,6 +54,11 @@ namespace VulkanUtils
 
     std::vector<DescriptorSetLayout> CreateDescriptorSetLayouts(const std::vector<DescriptorSetReflection>& reflections,
         const VulkanContext& vulkanContext);
+
+    VkRenderPassBeginInfo GetRenderPassBeginInfo(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea,
+        std::span<const VkClearValue> clearValues);
+
+    void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer, const Swapchain& swapchain);
 }
 
 template <>
