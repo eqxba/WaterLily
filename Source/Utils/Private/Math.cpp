@@ -206,49 +206,6 @@ glm::mat4 Math::PerspectiveInfinite(const float verticalFov, const float aspectR
     return matrix;
 }
 
-std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> Math::GenerateSphereMesh(const uint32_t stacks, const uint32_t sectors)
-{
-    using namespace std::numbers;
-    
-    std::vector<glm::vec3> vertices;
-    std::vector<uint32_t> indices;
-    
-    for (uint32_t i = 0; i <= stacks; ++i)
-    {
-        float stackAngle = pi / 2.0f - i * (pi / stacks);
-        float xy = cosf(stackAngle);
-        float z  = sinf(stackAngle);
-
-        for (uint32_t j = 0; j <= sectors; ++j)
-        {
-            float sectorAngle = j * (2.0f * pi / sectors);
-            float x = xy * cosf(sectorAngle);
-            float y = xy * sinf(sectorAngle);
-            
-            vertices.emplace_back(x, y, z);
-        }
-    }
-
-    for (uint32_t i = 0; i < stacks; ++i)
-    {
-        for (uint32_t j = 0; j < sectors; ++j)
-        {
-            uint32_t first = i * (sectors + 1) + j;
-            uint32_t second = first + sectors + 1;
-
-            indices.push_back(first);
-            indices.push_back(second);
-            indices.push_back(first + 1);
-
-            indices.push_back(second);
-            indices.push_back(second + 1);
-            indices.push_back(first + 1);
-        }
-    }
-
-    return { vertices, indices };
-}
-
 Sphere Math::Welzl(std::vector<glm::vec3> points)
 {
     std::ranges::shuffle(points, MathDetails::rng);

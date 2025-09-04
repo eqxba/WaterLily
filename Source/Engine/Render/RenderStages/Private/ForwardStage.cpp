@@ -13,105 +13,6 @@ namespace ForwardStageDetails
     static constexpr std::string_view meshShaderPath = "~/Shaders/Meshlet.mesh";
     static constexpr std::string_view fragmentShaderPath = "~/Shaders/Default.frag";
 
-    static constexpr std::array clearValues = {
-        VkClearValue{ .color = { { 0.73f, 0.95f, 1.0f, 1.0f } } }, // Color attachment
-        VkClearValue{ .depthStencil = { 0.0f, 0 } }, // Depth attachment (with msaa disabled)
-        VkClearValue{ .depthStencil = { 0.0f, 0 } } }; // Depth attachment (with msaa enabled, because there's resolve attachment at index 1)
-
-    static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
-    {
-        AttachmentDescription colorAttachmentDescription = {
-            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-        
-        AttachmentDescription resolveAttachmentDescription = {
-            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-        
-        AttachmentDescription depthStencilAttachmentDescription = {
-            .format = VulkanConfig::depthImageFormat,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
-        
-        std::vector<PipelineBarrier> previousBarriers = { {
-            // Wait for any previous depth output
-            .srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }, {
-            // Wait for any previous color output
-            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
-        
-        std::vector<PipelineBarrier> followingBarriers = { {
-            // Make UI renderer wait for our color output
-            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
-
-        const VkSampleCountFlagBits sampleCount = RenderOptions::Get().GetMsaaSampleCount();
-        
-        auto builder = RenderPassBuilder(vulkanContext)
-            .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
-            .SetMultisampling(sampleCount);
-        
-        // Use separate color attachment only when we use MSAA, otherwise render directly into swapchain
-        // Swapchain images always have 1 sample and we do not provide resolve attachment in that case
-        if (sampleCount == VK_SAMPLE_COUNT_1_BIT)
-        {
-            builder.AddColorAttachment(colorAttachmentDescription);
-        }
-        else
-        {
-            builder.AddColorAndResolveAttachments(colorAttachmentDescription, resolveAttachmentDescription);
-        }
-        
-        return builder
-            .AddDepthStencilAttachment(depthStencilAttachmentDescription)
-            .SetPreviousBarriers(std::move(previousBarriers))
-            .SetFollowingBarriers(std::move(followingBarriers))
-            .Build();
-    }
-
-    static std::vector<VkFramebuffer> CreateFramebuffers(const RenderPass& renderPass,
-        const VulkanContext& vulkanContext, const RenderContext& renderContext)
-    {
-        std::vector<VkFramebuffer> framebuffers;
-        
-        const Swapchain& swapchain = vulkanContext.GetSwapchain();
-        const bool msaaEnabled = VK_SAMPLE_COUNT_1_BIT != RenderOptions::Get().GetMsaaSampleCount();
-        
-        const std::vector<RenderTarget>& swapchainTargets = swapchain.GetRenderTargets();
-        framebuffers.reserve(swapchainTargets.size());
-
-        std::vector<VkImageView> attachments = { renderContext.colorTarget.view, VK_NULL_HANDLE, renderContext.depthTarget.view };
-        const auto attachmentsSpan = std::span(attachments);
-
-        // See CreateRenderPass for attachments usage details
-        std::ranges::transform(swapchainTargets, std::back_inserter(framebuffers), [&](const RenderTarget& target) {
-            attachments[1] = target.view;
-            return VulkanUtils::CreateFrameBuffer(renderPass, swapchain.GetExtent(), msaaEnabled ? attachmentsSpan : attachmentsSpan.subspan(1), vulkanContext);
-        });
-        
-        return framebuffers;
-    }
-
     static std::vector<ShaderModule> CreateShaderModules(const GraphicsPipelineType type,
         const RenderContext& renderContext, const VulkanContext& vulkanContext)
     {
@@ -140,9 +41,6 @@ ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& a
 {
     using namespace ForwardStageDetails;
     
-    renderPass = CreateRenderPass(*vulkanContext);
-    framebuffers = CreateFramebuffers(renderPass, *vulkanContext, *renderContext);
-    
     if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
         shaders[GraphicsPipelineType::eMesh] = CreateShaderModules(GraphicsPipelineType::eMesh, *renderContext, *vulkanContext);
@@ -154,9 +52,7 @@ ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& a
 }
 
 ForwardStage::~ForwardStage()
-{
-    VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
-}
+{}
 
 void ForwardStage::Prepare(const Scene& scene)
 {
@@ -175,10 +71,6 @@ void ForwardStage::Execute(const Frame& frame)
     const Pipeline& graphicsPipeline = graphicsPipelines[pipelineType];
     const std::vector<VkDescriptorSet>& descriptorSets = descriptors[pipelineType];
     
-    const VkRenderPassBeginInfo renderPassInfo = GetRenderPassBeginInfo(renderPass, framebuffers[frame.swapchainImageIndex],
-        vulkanContext->GetSwapchain().GetRect(), clearValues);
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     PushConstants(commandBuffer, graphicsPipeline, "globals", renderContext->globals);
@@ -194,19 +86,6 @@ void ForwardStage::Execute(const Frame& frame)
     {
         ExecuteVertex(frame);
     }
-
-    vkCmdEndRenderPass(commandBuffer);
-}
-
-void ForwardStage::RecreateRenderPasses()
-{
-    renderPass = ForwardStageDetails::CreateRenderPass(*vulkanContext);
-}
-
-void ForwardStage::RecreateFramebuffers()
-{
-    VulkanUtils::DestroyFramebuffers(framebuffers, *vulkanContext);
-    framebuffers = ForwardStageDetails::CreateFramebuffers(renderPass, *vulkanContext, *renderContext);
 }
 
 bool ForwardStage::TryReloadShaders()
@@ -255,7 +134,7 @@ Pipeline ForwardStage::CreateMeshPipeline(const std::vector<ShaderModule>& shade
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderPass)
+        .SetRenderPass(renderContext->renderPass)
         .Build();
 }
 
@@ -271,7 +150,7 @@ Pipeline ForwardStage::CreateVertexPipeline(const std::vector<ShaderModule>& sha
         .SetCullMode(CullMode::eBack, false)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderPass)
+        .SetRenderPass(renderContext->renderPass)
         .Build();
 }
 

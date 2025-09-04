@@ -10,7 +10,7 @@ class RenderPass
 {
 public:
     RenderPass() = default;
-    RenderPass(VkRenderPass renderPass, const VulkanContext& vulkanContext);
+    RenderPass(VkRenderPass renderPass, std::vector<VkClearValue> defaultClearValues, const VulkanContext& vulkanContext);
     ~RenderPass();
 
     RenderPass(const RenderPass&) = delete;
@@ -21,20 +21,28 @@ public:
 
     bool IsValid() const
     {
-        return renderPass != VK_NULL_HANDLE;
+        return renderPass != VK_NULL_HANDLE && !defaultClearValues.empty();
     }
     
     operator VkRenderPass() const
     {
         return renderPass;
     }
+    
+    const std::vector<VkClearValue>& GetDefaultClearValues() const
+    {
+        return defaultClearValues;
+    }
+    
+    VkRenderPassBeginInfo GetBeginInfo(const VkFramebuffer framebuffer);
 
 private:
     const VulkanContext* vulkanContext = nullptr;
 
     VkRenderPass renderPass = VK_NULL_HANDLE;
+    
+    std::vector<VkClearValue> defaultClearValues;
 };
-
 
 struct AttachmentDescription
 {
@@ -46,6 +54,7 @@ struct AttachmentDescription
     VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageLayout actualLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkClearValue defaultClearValue = {};
 };
 
 class RenderPassBuilder
@@ -73,6 +82,8 @@ private:
     std::vector<VkAttachmentReference> colorAttachmentReferences;
     std::vector<VkAttachmentReference> resolveAttachmentReferences;
     std::optional<VkAttachmentReference> depthStencilAttachmentReference;
+    
+    std::vector<VkClearValue> defaultClearValues;
     
     std::vector<PipelineBarrier> previousBarriers;
     std::vector<PipelineBarrier> followingBarriers;

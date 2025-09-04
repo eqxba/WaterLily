@@ -14,12 +14,6 @@ void RenderStage::Prepare(const Scene& scene)
 void RenderStage::Execute(const Frame& frame)
 {}
 
-void RenderStage::RecreateRenderPasses()
-{}
-
-void RenderStage::RecreateFramebuffers()
-{}
-
 bool RenderStage::TryReloadShaders()
 {
     return true;

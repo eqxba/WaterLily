@@ -10,12 +10,14 @@ class RenderPass;
 
 enum class InputTopology
 {
+    eLineList,
     eTriangleList,
 };
 
 enum class PolygonMode
 {
     eFill,
+    eWireframe
 };
 
 enum class CullMode

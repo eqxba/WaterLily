@@ -36,6 +36,9 @@ bld/
 # Compiled shaders folder
 Source/Shaders/Compiled/
 
+# Debug shaders folder, it's debug functionality, do not ignore it :)
+!Source/Shaders/Debug/
+
 # Folder for temp stuff
 Scrapyard/
 

@@ -1,7 +1,8 @@
 #include "Engine/Scene/SceneHelpers.hpp"
 
-#include "Engine/EngineConfig.hpp"
+#include "Utils/Math.hpp"
 #include "Utils/Helpers.hpp"
+#include "Engine/EngineConfig.hpp"
 
 DISABLE_WARNINGS_BEGIN
 #define CGLTF_IMPLEMENTATION
@@ -128,29 +129,16 @@ namespace SceneHelpersDetails
         return removedVertices;
     }
 
-    static glm::vec3 CalculateCenter(const std::span<const gpu::Vertex> vertices)
+    static Sphere GetMinSphere(const std::span<const gpu::Vertex> vertices)
     {
-        glm::vec3 center = Vector3::zero;
-
-        for (const auto& vertex : vertices)
-        {
-            center += glm::vec3(vertex.posAndU.x, vertex.posAndU.y, vertex.posAndU.z);
-        }
-
-        return center / static_cast<float>(vertices.size());
-    }
-
-    static float CalculateRadius(const glm::vec3 center, const std::span<const gpu::Vertex> vertices)
-    {
-        float radius = 0.0f;
-
-        for (const auto& vertex : vertices)
-        {
-            radius = std::max(radius, glm::distance(center,
-                glm::vec3(vertex.posAndU.x, vertex.posAndU.y, vertex.posAndU.z)));
-        }
-
-        return radius;
+        std::vector<glm::vec3> positions;
+        positions.reserve(vertices.size());
+                          
+        std::ranges::transform(vertices, std::back_inserter(positions), [](const gpu::Vertex& vertex) {
+            return glm::vec3(vertex.posAndU.x, vertex.posAndU.y, vertex.posAndU.z);
+        });
+                          
+        return Math::Welzl(std::move(positions));
     }
 
     static void GeneratePrimitive(const cgltf_primitive& cgltfPrimitive, RawScene& rawScene)
@@ -176,8 +164,10 @@ namespace SceneHelpersDetails
 
         gpu::Primitive& primitive = rawScene.primitives.emplace_back();
 
-        primitive.center = CalculateCenter(vertices);
-        primitive.radius = CalculateRadius(primitive.center, vertices);
+        const Sphere minSphere = GetMinSphere(vertices);
+        
+        primitive.center = minSphere.center;
+        primitive.radius = minSphere.radius;
         primitive.vertexOffset = firstVertexOffset;
         primitive.vertexCount = vertexCount;
         primitive.lodCount = 0;

@@ -3,18 +3,23 @@
 #include "Shaders/Common.h"
 #include "Utils/Constants.hpp"
 #include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/Vulkan/Buffer/Buffer.hpp"
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
 #include "Engine/Render/Vulkan/Managers/ShaderManager.hpp"
 
 struct RenderContext
 {
+    RenderPass renderPass;
+    
     RenderTarget colorTarget;
     RenderTarget depthTarget;
+    
+    std::vector<VkFramebuffer> framebuffers;
 
     std::vector<ShaderDefine> globalDefines;
     gpu::PushConstants globals = { .view = Matrix4::identity, .projection = Matrix4::identity };
-
+    
     // Vertex pipeline
     Buffer vertexBuffer;
     Buffer indexBuffer;

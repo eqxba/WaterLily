@@ -250,19 +250,12 @@ void UiRenderer::Render(const Frame& frame)
 
     const Buffer& vertexBuffer = vertexBuffers[frame.index];
     const Buffer& indexBuffer = indexBuffers[frame.index];
-
-    const VkExtent2D extent = vulkanContext->GetSwapchain().GetExtent();
-
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = framebuffers[frame.swapchainImageIndex];
-    renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = extent;
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
+    
+    const VkRenderPassBeginInfo beginInfo = renderPass.GetBeginInfo(framebuffers[frame.swapchainImageIndex]);
 
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),

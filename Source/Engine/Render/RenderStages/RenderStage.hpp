@@ -21,9 +21,6 @@ public:
     
     virtual void Execute(const Frame& frame);
     
-    virtual void RecreateRenderPasses();
-    virtual void RecreateFramebuffers();
-    
     virtual bool TryReloadShaders();
     // Recreates pipelines, descriptors and applies reloaded shaders if such exist
     virtual void RecreatePipelinesAndDescriptors();

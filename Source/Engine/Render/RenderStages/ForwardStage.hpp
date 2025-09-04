@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Engine/Render/Vulkan/RenderPass.hpp"
 #include "Engine/Render/RenderStages/RenderStage.hpp"
 #include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
 
@@ -14,9 +13,6 @@ public:
     
     void Execute(const Frame& frame) override;
     
-    void RecreateRenderPasses() override;
-    void RecreateFramebuffers() override;
-    
     bool TryReloadShaders() override;
     void RecreatePipelinesAndDescriptors() override;
     
@@ -29,9 +25,6 @@ private:
     
     void ExecuteMesh(const Frame& frame) const;
     void ExecuteVertex(const Frame& frame) const;
-    
-    RenderPass renderPass;
-    std::vector<VkFramebuffer> framebuffers;
     
     std::unordered_map<GraphicsPipelineType, std::vector<VkDescriptorSet>> descriptors;
     

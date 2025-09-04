@@ -5,6 +5,7 @@
 #include "Engine/Render/RenderOptions.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
+#include "Engine/Render/RenderStages/DebugStage.hpp"
 #include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
 #include "Engine/Render/RenderStages/ForwardStage.hpp"
 #include "Engine/Render/RenderStages/PrimitiveCullStage.hpp"
@@ -21,6 +22,79 @@ namespace SceneRendererDetails
         }
 
         Scene::SetTotalTriangles(totalTriangles);
+    }
+
+    static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
+    {
+        AttachmentDescription colorAttachmentDescription = {
+            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .defaultClearValue = { .color = { { 0.73f, 0.95f, 1.0f, 1.0f } } } };
+        
+        AttachmentDescription resolveAttachmentDescription = {
+            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+        
+        AttachmentDescription depthStencilAttachmentDescription = {
+            .format = VulkanConfig::depthImageFormat,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .defaultClearValue = { .depthStencil = { 0.0f, 0 } } };
+        
+        std::vector<PipelineBarrier> previousBarriers = { {
+            // Wait for any previous depth output
+            .srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }, {
+            // Wait for any previous color output
+            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
+        
+        std::vector<PipelineBarrier> followingBarriers = { {
+            // Make UI renderer wait for our color output
+            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
+
+        const VkSampleCountFlagBits sampleCount = RenderOptions::Get().GetMsaaSampleCount();
+        
+        auto builder = RenderPassBuilder(vulkanContext)
+            .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
+            .SetMultisampling(sampleCount);
+        
+        // Use separate color attachment only when we use MSAA, otherwise render directly into swapchain
+        // Swapchain images always have 1 sample and we do not provide resolve attachment in that case
+        if (sampleCount == VK_SAMPLE_COUNT_1_BIT)
+        {
+            builder.AddColorAttachment(colorAttachmentDescription);
+        }
+        else
+        {
+            builder.AddColorAndResolveAttachments(colorAttachmentDescription, resolveAttachmentDescription);
+        }
+        
+        return builder
+            .AddDepthStencilAttachment(depthStencilAttachmentDescription)
+            .SetPreviousBarriers(std::move(previousBarriers))
+            .SetFollowingBarriers(std::move(followingBarriers))
+            .Build();
     }
 
     void CreateIndirectBuffers(RenderContext& renderContext, const VulkanContext& vulkanContext)
@@ -140,14 +214,20 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     : vulkanContext{ &aVulkanContext }
     , eventSystem{ &aEventSystem }
 {
-    using namespace SceneRendererDetails;
-
+    renderContext.renderPass = SceneRendererDetails::CreateRenderPass(*vulkanContext);
+    
     CreateRenderTargets();
+    CreateFramebuffers();
     
     PrepareGlobalDefines();
 
     primitiveCullStage = std::make_unique<PrimitiveCullStage>(*vulkanContext, renderContext);
     forwardStage = std::make_unique<ForwardStage>(*vulkanContext, renderContext);
+    debugStage = std::make_unique<DebugStage>(*vulkanContext, renderContext);
+    
+    renderStages.push_back(primitiveCullStage.get());
+    renderStages.push_back(forwardStage.get());
+    renderStages.push_back(debugStage.get());
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &SceneRenderer::OnBeforeSwapchainRecreated);
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &SceneRenderer::OnSwapchainRecreated);
@@ -163,6 +243,7 @@ SceneRenderer::~SceneRenderer()
 {
     eventSystem->UnsubscribeAll(this);
     
+    DestroyFramebuffers();
     DestroyRenderTargets();
 }
 
@@ -208,13 +289,23 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
 
 void SceneRenderer::Render(const Frame& frame)
 {
+    using namespace VulkanUtils;
+    using namespace SceneRendererDetails;
+    
     if (!scene)
     {
         return;
     }
-
+    
     primitiveCullStage->Execute(frame);
+    
+    const VkRenderPassBeginInfo beginInfo = renderContext.renderPass.GetBeginInfo(renderContext.framebuffers[frame.swapchainImageIndex]);
+    vkCmdBeginRenderPass(frame.commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    
     forwardStage->Execute(frame);
+    debugStage->Execute(frame);
+    
+    vkCmdEndRenderPass(frame.commandBuffer);
 }
 
 void SceneRenderer::CreateRenderTargets()
@@ -254,6 +345,32 @@ void SceneRenderer::DestroyRenderTargets()
     renderContext.depthTarget = {};
 }
 
+void SceneRenderer::CreateFramebuffers()
+{
+    const Swapchain& swapchain = vulkanContext->GetSwapchain();
+    const bool msaaEnabled = VK_SAMPLE_COUNT_1_BIT != RenderOptions::Get().GetMsaaSampleCount();
+
+    std::vector<VkImageView> attachments = { VK_NULL_HANDLE /* for swapchain RT */, renderContext.depthTarget.view };
+    
+    if (msaaEnabled)
+    {
+        attachments.insert(attachments.begin(), renderContext.colorTarget.view);
+    }
+    
+    const auto createFrameBuffer = [&](const RenderTarget& target) {
+        attachments[msaaEnabled ? 1 : 0] = target.view;
+        return VulkanUtils::CreateFrameBuffer(renderContext.renderPass, swapchain.GetExtent(), attachments, *vulkanContext);
+    };
+
+    // See CreateRenderPass for attachments usage details
+    std::ranges::transform(swapchain.GetRenderTargets(), std::back_inserter(renderContext.framebuffers), createFrameBuffer);
+}
+
+void SceneRenderer::DestroyFramebuffers()
+{
+    VulkanUtils::DestroyFramebuffers(renderContext.framebuffers, *vulkanContext);
+}
+
 void SceneRenderer::PrepareGlobalDefines()
 {
     const RenderOptions& renderOptions = RenderOptions::Get();
@@ -272,26 +389,24 @@ void SceneRenderer::PrepareGlobalDefines()
 
 void SceneRenderer::OnBeforeSwapchainRecreated()
 {
+    DestroyFramebuffers();
     DestroyRenderTargets();
 }
 
 void SceneRenderer::OnSwapchainRecreated()
 {
     CreateRenderTargets();
-
-    primitiveCullStage->RecreateFramebuffers();
-    forwardStage->RecreateFramebuffers();
+    CreateFramebuffers();
 }
 
 void SceneRenderer::OnTryReloadShaders()
 {
-    if (primitiveCullStage->TryReloadShaders() && forwardStage->TryReloadShaders())
+    if (std::ranges::all_of(renderStages, &RenderStage::TryReloadShaders))
     {
         vulkanContext->GetDevice().WaitIdle();
         vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
         
-        primitiveCullStage->RecreatePipelinesAndDescriptors();
-        forwardStage->RecreatePipelinesAndDescriptors();
+        std::ranges::for_each(renderStages, &RenderStage::RecreatePipelinesAndDescriptors);
     }
 }
 
@@ -339,8 +454,7 @@ void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
     renderContext.drawBuffer.DestroyStagingBuffer();
     renderContext.commandCountBuffer.DestroyStagingBuffer();
     
-    primitiveCullStage->Prepare(*scene);
-    forwardStage->Prepare(*scene);
+    std::ranges::for_each(renderStages, [&](RenderStage* stage) { stage->Prepare(*scene); });
 }
 
 void SceneRenderer::OnSceneClose()
@@ -363,8 +477,7 @@ void SceneRenderer::OnSceneClose()
 
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
     
-    primitiveCullStage->OnSceneClose();
-    forwardStage->OnSceneClose();
+    std::ranges::for_each(renderStages, &RenderStage::OnSceneClose);
     
     scene = nullptr;
 }
@@ -379,15 +492,13 @@ void SceneRenderer::OnMsaaSampleCountChanged()
 {
     vulkanContext->GetDevice().WaitIdle();
     
+    renderContext.renderPass = SceneRendererDetails::CreateRenderPass(*vulkanContext);
+    
+    DestroyFramebuffers();
     DestroyRenderTargets();
+    
     CreateRenderTargets();
+    CreateFramebuffers();
     
-    primitiveCullStage->RecreateRenderPasses();
-    forwardStage->RecreateRenderPasses();
-
-    primitiveCullStage->RecreateFramebuffers();
-    forwardStage->RecreateFramebuffers();
-    
-    primitiveCullStage->RecreatePipelinesAndDescriptors();
-    forwardStage->RecreatePipelinesAndDescriptors();
+    std::ranges::for_each(renderStages, &RenderStage::RecreatePipelinesAndDescriptors);
 }

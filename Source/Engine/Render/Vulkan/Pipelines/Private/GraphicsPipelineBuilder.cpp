@@ -241,6 +241,9 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetInputTopology(const InputTo
 
     switch (aTopology)
     {
+    case InputTopology::eLineList:
+        topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        break;
     case InputTopology::eTriangleList:
         topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         break;
@@ -260,6 +263,9 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetPolygonMode(PolygonMode aPo
     {
     case PolygonMode::eFill:
         polygonMode = VK_POLYGON_MODE_FILL;
+        break;
+    case PolygonMode::eWireframe:
+        polygonMode = VK_POLYGON_MODE_LINE;
         break;
     }
 

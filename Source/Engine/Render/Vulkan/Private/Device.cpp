@@ -190,7 +190,8 @@ namespace DeviceDetails
         VkPhysicalDeviceFeatures deviceFeatures = {
             .multiDrawIndirect = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
-            .pipelineStatisticsQuery = properties.pipelineStatisticsQuerySupported };
+            .pipelineStatisticsQuery = properties.pipelineStatisticsQuerySupported,
+            .fillModeNonSolid = VK_TRUE };
 
         VkPhysicalDeviceVulkan11Features deviceFeatures11 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,

@@ -33,6 +33,9 @@ private:
     void CreateRenderTargets();
     void DestroyRenderTargets();
     
+    void CreateFramebuffers();
+    void DestroyFramebuffers();
+    
     void PrepareGlobalDefines();
 
     void OnBeforeSwapchainRecreated();
@@ -51,6 +54,9 @@ private:
 
     std::unique_ptr<RenderStage> primitiveCullStage;
     std::unique_ptr<RenderStage> forwardStage;
+    std::unique_ptr<RenderStage> debugStage;
+    
+    std::vector<RenderStage*> renderStages;
 
     Scene* scene = nullptr;
 };

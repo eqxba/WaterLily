@@ -16,9 +16,10 @@ namespace RenderPassDetails
     }
 }
 
-RenderPass::RenderPass(const VkRenderPass aRenderPass, const VulkanContext& aVulkanContext)
+RenderPass::RenderPass(const VkRenderPass aRenderPass, std::vector<VkClearValue> aDefaultClearValues, const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
     , renderPass{ aRenderPass }
+    , defaultClearValues{ std::move(aDefaultClearValues) }
 {
     Assert(IsValid());
 }
@@ -34,6 +35,7 @@ RenderPass::~RenderPass()
 RenderPass::RenderPass(RenderPass&& other) noexcept
     : vulkanContext{ other.vulkanContext }
     , renderPass{ other.renderPass }
+    , defaultClearValues{ std::move(other.defaultClearValues) }
 {
     other.vulkanContext = nullptr;
     other.renderPass = VK_NULL_HANDLE;
@@ -45,9 +47,23 @@ RenderPass& RenderPass::operator=(RenderPass&& other) noexcept
     {
         std::swap(vulkanContext, other.vulkanContext);
         std::swap(renderPass, other.renderPass);
+        std::swap(defaultClearValues, other.defaultClearValues);
     }
 
     return *this;
+}
+
+VkRenderPassBeginInfo RenderPass::GetBeginInfo(const VkFramebuffer framebuffer)
+{
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = framebuffer;
+    renderPassInfo.renderArea = vulkanContext->GetSwapchain().GetRect();
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(defaultClearValues.size());
+    renderPassInfo.pClearValues = defaultClearValues.data();
+    
+    return renderPassInfo;
 }
 
 RenderPassBuilder::RenderPassBuilder(const VulkanContext& aVulkanContext)
@@ -97,7 +113,7 @@ RenderPass RenderPassBuilder::Build()
     const VkResult result = vkCreateRenderPass(vulkanContext->GetDevice(), &renderPassInfo, nullptr, &renderPass);
     Assert(result == VK_SUCCESS);
 
-    return { renderPass, *vulkanContext };
+    return { renderPass, std::move(defaultClearValues), *vulkanContext };
 }
 
 RenderPassBuilder& RenderPassBuilder::SetBindPoint(VkPipelineBindPoint aBindPoint)
@@ -173,4 +189,5 @@ void RenderPassBuilder::AddAttachment(const AttachmentDescription& description)
     attachment.finalLayout = description.finalLayout;
 
     attachments.push_back(attachment);
+    defaultClearValues.push_back(description.defaultClearValue);
 }
