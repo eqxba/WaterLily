@@ -12,28 +12,6 @@ namespace ForwardStageDetails
     static constexpr std::string_view taskShaderPath = "~/Shaders/Meshlet.task";
     static constexpr std::string_view meshShaderPath = "~/Shaders/Meshlet.mesh";
     static constexpr std::string_view fragmentShaderPath = "~/Shaders/Default.frag";
-
-    static std::vector<ShaderModule> CreateShaderModules(const GraphicsPipelineType type,
-        const RenderContext& renderContext, const VulkanContext& vulkanContext)
-    {
-        const ShaderManager& shaderManager = vulkanContext.GetShaderManager();
-
-        std::vector<ShaderModule> shaderModules;
-
-        if (type == GraphicsPipelineType::eMesh)
-        {
-            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(taskShaderPath), VK_SHADER_STAGE_TASK_BIT_EXT, renderContext.globalDefines));
-            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(meshShaderPath), VK_SHADER_STAGE_MESH_BIT_EXT, renderContext.globalDefines));
-        }
-        else
-        {
-            shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(vertexShaderPath), VK_SHADER_STAGE_VERTEX_BIT, renderContext.globalDefines));
-        }
-
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(fragmentShaderPath), VK_SHADER_STAGE_FRAGMENT_BIT, renderContext.globalDefines));
-
-        return shaderModules;
-    }
 }
 
 ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
@@ -43,12 +21,21 @@ ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& a
     
     if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
-        shaders[GraphicsPipelineType::eMesh] = CreateShaderModules(GraphicsPipelineType::eMesh, *renderContext, *vulkanContext);
-        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline(shaders[GraphicsPipelineType::eMesh]);
+        AddShaderInfo({ taskShaderPath, VK_SHADER_STAGE_TASK_BIT_EXT, [&]() { return GetGlobalDefines(); } });
+        AddShaderInfo({ meshShaderPath, VK_SHADER_STAGE_MESH_BIT_EXT, [&]() { return GetGlobalDefines(); } });
     }
     
-    shaders[GraphicsPipelineType::eVertex] = CreateShaderModules(GraphicsPipelineType::eVertex, *renderContext, *vulkanContext);
-    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline(shaders[GraphicsPipelineType::eVertex]);
+    AddShaderInfo({ vertexShaderPath, VK_SHADER_STAGE_VERTEX_BIT, [&]() { return GetGlobalDefines(); } });
+    AddShaderInfo({ fragmentShaderPath, VK_SHADER_STAGE_FRAGMENT_BIT, [&]() { return GetGlobalDefines(); } });
+    
+    CompileShaders();
+    
+    if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
+    {
+        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline();
+    }
+    
+    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline();
 }
 
 ForwardStage::~ForwardStage()
@@ -88,33 +75,13 @@ void ForwardStage::Execute(const Frame& frame)
     }
 }
 
-bool ForwardStage::TryReloadShaders()
-{
-    using namespace ForwardStageDetails;
-    
-    bool success = true;
-    
-    for (const auto& [type, pipeline] : graphicsPipelines)
-    {
-        reloadedShaders[type] = CreateShaderModules(type, *renderContext, *vulkanContext);
-        success = success && std::ranges::all_of(reloadedShaders[type], &ShaderModule::IsValid);
-    }
-    
-    return success;
-}
-
 void ForwardStage::RecreatePipelinesAndDescriptors()
 {
     descriptors.clear();
     
-    if (!reloadedShaders.empty())
-    {
-        shaders = std::move(reloadedShaders);
-    }
-    
     for (auto& [type, pipeline] : graphicsPipelines)
     {
-        pipeline = type == GraphicsPipelineType::eMesh ? CreateMeshPipeline(shaders[type]) : CreateVertexPipeline(shaders[type]);
+        pipeline = type == GraphicsPipelineType::eMesh ? CreateMeshPipeline() : CreateVertexPipeline();
     }
     
     CreateDescriptors();
@@ -125,12 +92,12 @@ void ForwardStage::OnSceneClose()
     descriptors.clear();
 }
 
-Pipeline ForwardStage::CreateMeshPipeline(const std::vector<ShaderModule>& shaderModules)
+Pipeline ForwardStage::CreateMeshPipeline()
 {
     using namespace ForwardStageDetails;
 
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules(shaderModules)
+        .SetShaderModules({ GetShader(taskShaderPath), GetShader(meshShaderPath), GetShader(fragmentShaderPath) })
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
@@ -138,12 +105,12 @@ Pipeline ForwardStage::CreateMeshPipeline(const std::vector<ShaderModule>& shade
         .Build();
 }
 
-Pipeline ForwardStage::CreateVertexPipeline(const std::vector<ShaderModule>& shaderModules)
+Pipeline ForwardStage::CreateVertexPipeline()
 {
     using namespace ForwardStageDetails;
     
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules(shaderModules)
+        .SetShaderModules({ GetShader(vertexShaderPath), GetShader(fragmentShaderPath) })
         .SetVertexData(SceneHelpers::GetVertexBindings(), SceneHelpers::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)

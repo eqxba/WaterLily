@@ -12,18 +12,6 @@ namespace DebugStageDetails
     static constexpr std::string_view boundingSphereVertexPath = "~/Shaders/Debug/BoundingSphere.vert";
     static constexpr std::string_view boundingSphereFragmentPath = "~/Shaders/Debug/BoundingSphere.frag";
 
-    static std::vector<ShaderModule> CreateBoundingSphereShaderModules(const VulkanContext& vulkanContext)
-    {
-        const ShaderManager& shaderManager = vulkanContext.GetShaderManager();
-        
-        std::vector<ShaderModule> shaderModules;
-        
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(boundingSphereVertexPath), VK_SHADER_STAGE_VERTEX_BIT, {}));
-        shaderModules.emplace_back(shaderManager.CreateShaderModule(FilePath(boundingSphereFragmentPath), VK_SHADER_STAGE_FRAGMENT_BIT, {}));
-        
-        return shaderModules;
-    }
-
     static std::tuple<Buffer, Buffer, uint32_t> CreateUnitSphereBuffers(const VulkanContext& vulkanContext)
     {
         const auto [vertices, indices] = MeshUtils::GenerateSphereMesh(100, 100);
@@ -57,8 +45,12 @@ DebugStage::DebugStage(const VulkanContext& aVulkanContext, RenderContext& aRend
     using namespace BufferUtils;
     using namespace DebugStageDetails;
     
-    boundingSphereShaders = CreateBoundingSphereShaderModules(*vulkanContext);
-    boundingSpherePipeline = CreateBoundingSpherePipeline(boundingSphereShaders);
+    AddShaderInfo({ boundingSphereVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
+    AddShaderInfo({ boundingSphereFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
+    
+    CompileShaders();
+    
+    boundingSpherePipeline = CreateBoundingSpherePipeline();
     
     std::tie(unitSphereVertexBuffer, unitSphereIndexBuffer, unitSphereIndexCount) = CreateUnitSphereBuffers(*vulkanContext);
 
@@ -111,22 +103,10 @@ void DebugStage::Execute(const Frame& frame)
     }
 }
 
-bool DebugStage::TryReloadShaders()
-{
-    reloadedBoundingSphereShaders = DebugStageDetails::CreateBoundingSphereShaderModules(*vulkanContext);
-    return std::ranges::all_of(reloadedBoundingSphereShaders, &ShaderModule::IsValid);
-}
-
 void DebugStage::RecreatePipelinesAndDescriptors()
 {
     boundingSphereDescriptors.clear();
-    
-    if (!reloadedBoundingSphereShaders.empty())
-    {
-        boundingSphereShaders = std::move(reloadedBoundingSphereShaders);
-    }
-    
-    boundingSpherePipeline = CreateBoundingSpherePipeline(boundingSphereShaders);
+    boundingSpherePipeline = CreateBoundingSpherePipeline();
     CreateBoundingSphereDescriptors();
 }
 
@@ -135,7 +115,7 @@ void DebugStage::OnSceneClose()
     boundingSphereDescriptors.clear();
 }
 
-Pipeline DebugStage::CreateBoundingSpherePipeline(const std::vector<ShaderModule> &shaderModules)
+Pipeline DebugStage::CreateBoundingSpherePipeline()
 {
     using namespace DebugStageDetails;
 
@@ -143,7 +123,7 @@ Pipeline DebugStage::CreateBoundingSpherePipeline(const std::vector<ShaderModule
     const std::vector<VkVertexInputAttributeDescription> attributes = { { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 } };
     
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules(shaderModules)
+        .SetShaderModules({ GetShader(boundingSphereVertexPath), GetShader(boundingSphereFragmentPath) })
         .SetVertexData(bindings, attributes)
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)

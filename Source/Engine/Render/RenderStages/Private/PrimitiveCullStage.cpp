@@ -26,10 +26,11 @@ namespace PrimitiveCullStageDetails
 PrimitiveCullStage::PrimitiveCullStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : RenderStage{ aVulkanContext, aRenderContext }
 {
-    shader = std::make_unique<ShaderModule>(vulkanContext->GetShaderManager().CreateShaderModule(
-        FilePath(PrimitiveCullStageDetails::shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines));
+    AddShaderInfo({ PrimitiveCullStageDetails::shaderPath, VK_SHADER_STAGE_COMPUTE_BIT, [&]() { return GetGlobalDefines(); } });
     
-    pipeline = CreatePipeline(*shader);
+    CompileShaders();
+    
+    pipeline = CreatePipeline();
 }
 
 PrimitiveCullStage::~PrimitiveCullStage() = default;
@@ -82,24 +83,10 @@ void PrimitiveCullStage::Execute(const Frame& frame)
     SetMemoryBarrier(cmd, vulkanContext->GetDevice().GetProperties().meshShadersSupported ? meshAfterCullBarrier : afterCullBarrier);
 }
 
-bool PrimitiveCullStage::TryReloadShaders()
-{
-    reloadedShader = std::make_unique<ShaderModule>(vulkanContext->GetShaderManager().CreateShaderModule(
-        FilePath(PrimitiveCullStageDetails::shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, renderContext->globalDefines));
-    
-    return reloadedShader->IsValid();
-}
-
 void PrimitiveCullStage::RecreatePipelinesAndDescriptors()
 {
     descriptors.clear();
-    
-    if (reloadedShader)
-    {
-        shader = std::move(reloadedShader);
-    }
-    
-    pipeline = CreatePipeline(*shader);
+    pipeline = CreatePipeline();
     CreateDescriptors();
 }
 
@@ -108,9 +95,11 @@ void PrimitiveCullStage::OnSceneClose()
     descriptors.clear();
 }
 
-Pipeline PrimitiveCullStage::CreatePipeline(const ShaderModule& shaderModule) const
+Pipeline PrimitiveCullStage::CreatePipeline() const
 {
-    return ComputePipelineBuilder(*vulkanContext).SetShaderModule(shaderModule).Build();
+    return ComputePipelineBuilder(*vulkanContext)
+        .SetShaderModule(GetShader(PrimitiveCullStageDetails::shaderPath))
+        .Build();
 }
 
 void PrimitiveCullStage::CreateDescriptors()

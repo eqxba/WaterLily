@@ -300,9 +300,14 @@ void UiRenderer::Render(const Frame& frame)
 
 void UiRenderer::CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules)
 {
+    std::vector<const ShaderModule*> shaderPointers;
+    shaderPointers.reserve(shaderModules.size());
+    
+    std::ranges::transform(shaderModules, std::back_inserter(shaderPointers), [](const auto& shader) { return &shader; });
+    
     // TODO: Multisampling for UI
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules(shaderModules)
+        .SetShaderModules(std::move(shaderPointers))
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)

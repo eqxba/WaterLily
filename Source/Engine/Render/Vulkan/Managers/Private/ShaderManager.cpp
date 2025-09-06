@@ -16,9 +16,18 @@ namespace ShaderManagerDetails
     constexpr std::string_view compiledShadersDir = "~/Shaders/Compiled";
     constexpr std::string_view compiledFileExtension = ".spv";
 
-    static FilePath CreateCompiledShaderPath(const FilePath& path)
+    static FilePath CreateCompiledShaderPath(const FilePath& path, const std::span<const ShaderDefine> shaderDefines)
     {
         std::string relativeToShadersDir = path.GetRelativeTo(FilePath(shadersDir));
+        
+        for (const auto& [define, value] : shaderDefines)
+        {
+            relativeToShadersDir.append(".");
+            relativeToShadersDir.append(define);
+            relativeToShadersDir.append("=");
+            relativeToShadersDir.append(value);
+        }
+        
         relativeToShadersDir.append(compiledFileExtension);
         
         return FilePath(compiledShadersDir) / relativeToShadersDir;
@@ -30,7 +39,7 @@ ShaderManager::ShaderManager(const VulkanContext& aVulkanContext)
 {}
 
 ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const VkShaderStageFlagBits shaderStage,
-    const std::vector<ShaderDefine>& shaderDefines, bool useCacheOnFailure /* = true */) const
+    const std::span<const ShaderDefine> shaderDefines, bool useCacheOnFailure /* = true */) const
 {
     using namespace ShaderManagerDetails;
     
@@ -46,7 +55,7 @@ ShaderModule ShaderManager::CreateShaderModule(const FilePath& path, const VkSha
     
     const std::vector<uint32_t> spirv = ShaderCompiler::Compile(glslCode, shaderStage, FilePath(shadersDir));
     
-    const FilePath compiledShaderPath = CreateCompiledShaderPath(path);
+    const FilePath compiledShaderPath = CreateCompiledShaderPath(path, shaderDefines);
     
     // Create shader module on success
     if (!spirv.empty())

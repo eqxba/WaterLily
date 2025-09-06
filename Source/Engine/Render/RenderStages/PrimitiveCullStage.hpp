@@ -2,7 +2,6 @@
 
 #include "Engine/Render/RenderStages/RenderStage.hpp"
 #include "Engine/Render/Vulkan/Pipelines/Pipeline.hpp"
-#include "Engine/Render/Vulkan/DescriptorSets/DescriptorSetLayout.hpp"
 
 class PrimitiveCullStage : public RenderStage
 {
@@ -14,19 +13,14 @@ public:
 
     void Execute(const Frame& frame) override;
 
-    bool TryReloadShaders() override;
     void RecreatePipelinesAndDescriptors() override;
     
     void OnSceneClose() override;
 
 private:
-    Pipeline CreatePipeline(const ShaderModule& shaderModule) const;
+    Pipeline CreatePipeline() const;
     void CreateDescriptors();
 
-    std::vector<VkDescriptorSet> descriptors;
-    
-    std::unique_ptr<ShaderModule> shader;
-    std::unique_ptr<ShaderModule> reloadedShader;
-    
     Pipeline pipeline;
+    std::vector<VkDescriptorSet> descriptors;
 };

@@ -23,7 +23,7 @@ Pipeline ComputePipelineBuilder::Build() const
     
     const VkPipelineLayout pipelineLayout = CreatePipelineLayout(setLayouts, pushConstantRanges, device);
     
-    ShaderInstance shaderInstance = CreateShaderInstance(*shaderModule, specializationConstants);
+    ShaderInstance shaderInstance = CreateShaderInstance(shaderModule, specializationConstants);
     
     VkComputePipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
     pipelineInfo.stage = GetShaderStageCreateInfo(shaderInstance);
@@ -48,9 +48,9 @@ Pipeline ComputePipelineBuilder::Build() const
     return { pipeline, std::move(pipelineData), *vulkanContext };
 }
 
-ComputePipelineBuilder& ComputePipelineBuilder::SetShaderModule(const ShaderModule& aShaderModule)
+ComputePipelineBuilder& ComputePipelineBuilder::SetShaderModule(const ShaderModule* aShaderModule)
 {
-    shaderModule = &aShaderModule;
+    shaderModule = aShaderModule;
 
     return *this;
 }

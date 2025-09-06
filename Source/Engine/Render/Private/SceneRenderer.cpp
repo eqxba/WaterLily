@@ -406,7 +406,7 @@ void SceneRenderer::OnTryReloadShaders()
         vulkanContext->GetDevice().WaitIdle();
         vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
         
-        std::ranges::for_each(renderStages, &RenderStage::RecreatePipelinesAndDescriptors);
+        std::ranges::for_each(renderStages, &RenderStage::ApplyReloadedShaders);
     }
 }
 

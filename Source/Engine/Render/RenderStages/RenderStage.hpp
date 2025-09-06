@@ -21,13 +21,39 @@ public:
     
     virtual void Execute(const Frame& frame);
     
-    virtual bool TryReloadShaders();
-    // Recreates pipelines, descriptors and applies reloaded shaders if such exist
     virtual void RecreatePipelinesAndDescriptors();
     
     virtual void OnSceneClose();
     
+    bool TryReloadShaders();
+    void ApplyReloadedShaders();
+    
 protected:
+    struct ShaderInfo
+    {
+        std::string_view path;
+        VkShaderStageFlagBits shaderStage;
+        std::function<std::span<const ShaderDefine>()> definesGetter;
+    };
+
+    void CompileShaders();
+    
+    void AddShaderInfo(ShaderInfo shaderInfo);
+    const ShaderModule* GetShader(std::string_view path) const;
+    
+    std::span<const ShaderDefine> GetGlobalDefines() const
+    {
+        return renderContext ? renderContext->globalDefines : std::span<const ShaderDefine>();
+    }
+    
     const VulkanContext* vulkanContext = nullptr;
     const RenderContext* renderContext = nullptr;
+    
+private:
+    std::unordered_map<std::string_view, ShaderModule> CompileShadersImpl();
+    
+    std::vector<ShaderInfo> shaderInfos;
+    
+    std::unordered_map<std::string_view, ShaderModule> shaders;
+    std::unordered_map<std::string_view, ShaderModule> reloadedShaders;
 };

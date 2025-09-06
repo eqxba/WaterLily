@@ -13,23 +13,18 @@ public:
     
     void Execute(const Frame& frame) override;
     
-    bool TryReloadShaders() override;
     void RecreatePipelinesAndDescriptors() override;
     
     void OnSceneClose() override;
     
 private:
-    Pipeline CreateMeshPipeline(const std::vector<ShaderModule>& shaderModules);
-    Pipeline CreateVertexPipeline(const std::vector<ShaderModule>& shaderModules);
+    Pipeline CreateMeshPipeline();
+    Pipeline CreateVertexPipeline();
     void CreateDescriptors();
     
     void ExecuteMesh(const Frame& frame) const;
     void ExecuteVertex(const Frame& frame) const;
     
-    std::unordered_map<GraphicsPipelineType, std::vector<VkDescriptorSet>> descriptors;
-    
-    std::unordered_map<GraphicsPipelineType, std::vector<ShaderModule>> shaders;
-    std::unordered_map<GraphicsPipelineType, std::vector<ShaderModule>> reloadedShaders;
-    
     std::unordered_map<GraphicsPipelineType, Pipeline> graphicsPipelines;
+    std::unordered_map<GraphicsPipelineType, std::vector<VkDescriptorSet>> descriptors;
 };

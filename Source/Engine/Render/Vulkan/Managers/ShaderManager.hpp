@@ -12,7 +12,7 @@ public:
     explicit ShaderManager(const VulkanContext& vulkanContext);
 
     ShaderModule CreateShaderModule(const FilePath& path, VkShaderStageFlagBits shaderStage,
-        const std::vector<ShaderDefine>& shaderDefines, bool useCacheOnFailure = true) const;
+        std::span<const ShaderDefine> shaderDefines, bool useCacheOnFailure = true) const;
 
 private:
     ShaderModule CreateShaderModule(std::span<const uint32_t> spirvCode, VkShaderStageFlagBits shaderStage) const;

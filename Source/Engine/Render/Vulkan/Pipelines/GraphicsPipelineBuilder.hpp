@@ -44,7 +44,7 @@ public:
 
     Pipeline Build() const;
 
-    GraphicsPipelineBuilder& SetShaderModules(const std::vector<ShaderModule>& shaderModules);
+    GraphicsPipelineBuilder& SetShaderModules(std::vector<const ShaderModule*> shaderModules);
     GraphicsPipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
     GraphicsPipelineBuilder& SetVertexData(VertexBindings bindings, VertexAttributes attributes);
     GraphicsPipelineBuilder& SetInputTopology(InputTopology topology);
@@ -58,7 +58,7 @@ public:
 private:
     const VulkanContext* vulkanContext = nullptr;
 
-    const std::vector<ShaderModule>* shaderModules = nullptr;
+    std::vector<const ShaderModule*> shaderModules;
     std::vector<SpecializationConstant> specializationConstants;
     VertexBindings vertexBindings;
     VertexAttributes vertexAttributes;

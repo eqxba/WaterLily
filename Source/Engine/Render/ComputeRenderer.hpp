@@ -28,7 +28,7 @@ public:
     void Render(const Frame& frame) override;
 
 private:
-    void CreatePipeline(ShaderModule&& shaderModule);
+    void CreatePipeline(const ShaderModule& shaderModule);
     void CreateDescriptors();
 
     void OnBeforeSwapchainRecreated();

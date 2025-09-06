@@ -40,7 +40,7 @@ ComputeRenderer::ComputeRenderer(EventSystem& aEventSystem, const VulkanContext&
     ShaderModule shaderModule = shaderManager.CreateShaderModule(FilePath(shaderPath), VK_SHADER_STAGE_COMPUTE_BIT, {});
     Assert(shaderModule.IsValid());
 
-    CreatePipeline(std::move(shaderModule));
+    CreatePipeline(shaderModule);
     CreateDescriptors();
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &ComputeRenderer::OnBeforeSwapchainRecreated);
@@ -95,10 +95,10 @@ void ComputeRenderer::Render(const Frame& frame)
         .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT });
 }
 
-void ComputeRenderer::CreatePipeline(ShaderModule&& shaderModule)
+void ComputeRenderer::CreatePipeline(const ShaderModule& shaderModule)
 {
     computePipeline = ComputePipelineBuilder(*vulkanContext)
-        .SetShaderModule(std::move(shaderModule))
+        .SetShaderModule(&shaderModule)
         .Build();
 }
 

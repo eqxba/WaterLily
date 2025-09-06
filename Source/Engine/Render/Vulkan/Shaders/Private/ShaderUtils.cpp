@@ -159,12 +159,12 @@ namespace ShaderUtilsDetails
     }
 
     static std::pair<std::vector<VkSpecializationMapEntry>, std::vector<std::byte>> CreateSpecializationData(
-        const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
+        const ShaderModule* shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
     {
         std::vector<VkSpecializationMapEntry> mapEntries;
         std::vector<std::byte> data;
         
-        for (const SpecializationConstantReflection& reflection : shaderModule.GetReflection().specializationConstants)
+        for (const SpecializationConstantReflection& reflection : shaderModule->GetReflection().specializationConstants)
         {
             const auto& it = std::ranges::find_if(specializationConstants, [&](const SpecializationConstant& constant){
                 return constant.name == reflection.name;
@@ -192,7 +192,7 @@ namespace ShaderUtilsDetails
     }
 }
 
-void ShaderUtils::InsertDefines(std::string& glslCode, const std::vector<ShaderDefine>& shaderDefines)
+void ShaderUtils::InsertDefines(std::string& glslCode, const std::span<const ShaderDefine> shaderDefines)
 {
     if (shaderDefines.empty())
     {
@@ -239,13 +239,13 @@ ShaderReflection ShaderUtils::GenerateReflection(const std::span<const uint32_t>
         .specializationConstants = GetSpecializationConstantReflections(shaderModule) };
 }
 
-std::vector<DescriptorSetReflection> ShaderUtils::MergeDescriptorSetReflections(const std::vector<ShaderModule>& shaderModules)
+std::vector<DescriptorSetReflection> ShaderUtils::MergeDescriptorSetReflections(const std::vector<const ShaderModule*>& shaderModules)
 {
     std::vector<DescriptorSetReflection> resultReflections;
     
-    for (const ShaderModule& shaderModule : shaderModules)
+    for (const ShaderModule* shaderModule : shaderModules)
     {
-        const ShaderReflection& shaderReflection = shaderModule.GetReflection();
+        const ShaderReflection& shaderReflection = shaderModule->GetReflection();
         
         for (const DescriptorSetReflection& shaderSetReflection : shaderReflection.descriptorSets)
         {
@@ -268,13 +268,13 @@ std::vector<DescriptorSetReflection> ShaderUtils::MergeDescriptorSetReflections(
     return resultReflections;
 }
 
-std::unordered_map<std::string, VkPushConstantRange> ShaderUtils::MergePushConstantReflections(const std::vector<ShaderModule>& shaderModules)
+std::unordered_map<std::string, VkPushConstantRange> ShaderUtils::MergePushConstantReflections(const std::vector<const ShaderModule*>& shaderModules)
 {
     std::unordered_map<std::string, VkPushConstantRange> resultReflections;
     
-    for (const ShaderModule& shaderModule : shaderModules)
+    for (const ShaderModule* shaderModule : shaderModules)
     {
-        const ShaderReflection& shaderReflection = shaderModule.GetReflection();
+        const ShaderReflection& shaderReflection = shaderModule->GetReflection();
         
         for (const auto& [name, range] : shaderReflection.pushConstants)
         {
@@ -296,11 +296,11 @@ std::unordered_map<std::string, VkPushConstantRange> ShaderUtils::MergePushConst
     return resultReflections;
 }
 
-ShaderInstance ShaderUtils::CreateShaderInstance(const ShaderModule& shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
+ShaderInstance ShaderUtils::CreateShaderInstance(const ShaderModule* shaderModule, const std::vector<SpecializationConstant>& specializationConstants)
 {
     using namespace ShaderUtilsDetails;
     
-    ShaderInstance shaderInstance = { .shaderModule = &shaderModule };
+    ShaderInstance shaderInstance = { .shaderModule = shaderModule };
     
     if (auto [entries, data] = CreateSpecializationData(shaderModule, specializationConstants); !entries.empty())
     {

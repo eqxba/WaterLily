@@ -13,21 +13,16 @@ public:
     
     void Execute(const Frame& frame) override;
     
-    bool TryReloadShaders() override;
     void RecreatePipelinesAndDescriptors() override;
     
     void OnSceneClose() override;
     
 private:
-    Pipeline CreateBoundingSpherePipeline(const std::vector<ShaderModule>& shaderModules);
+    Pipeline CreateBoundingSpherePipeline();
     void CreateBoundingSphereDescriptors();
     
-    std::vector<VkDescriptorSet> boundingSphereDescriptors;
-    
-    std::vector<ShaderModule> boundingSphereShaders;
-    std::vector<ShaderModule> reloadedBoundingSphereShaders;
-    
     Pipeline boundingSpherePipeline;
+    std::vector<VkDescriptorSet> boundingSphereDescriptors;
     
     Buffer unitSphereVertexBuffer;
     Buffer unitSphereIndexBuffer;
