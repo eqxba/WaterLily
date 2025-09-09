@@ -11,6 +11,7 @@ class RenderPass;
 enum class InputTopology
 {
     eLineList,
+    eLineStrip,
     eTriangleList,
 };
 

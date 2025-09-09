@@ -31,14 +31,6 @@ Buffer::Buffer(BufferDescription aDescription, const bool createStagingBuffer, c
     }
 }
 
-Buffer::Buffer(BufferDescription description, const bool createStagingBuffer, 
-    const std::span<const std::byte> initialData, const VulkanContext& vulkanContext)
-    : Buffer(std::move(description), createStagingBuffer, vulkanContext)
-{
-    Buffer& bufferToFill = createStagingBuffer ? *stagingBuffer : *this;
-    bufferToFill.FillImpl(initialData);
-}
-
 Buffer::~Buffer()
 {
     if (!IsValid())

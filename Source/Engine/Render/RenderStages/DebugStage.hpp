@@ -18,13 +18,24 @@ public:
     void OnSceneClose() override;
     
 private:
+    void ExecuteBoundingSpheres(const Frame& frame);
+    void ExecuteFrozenFrustum(const Frame& frame);
+    
     Pipeline CreateBoundingSpherePipeline();
     void CreateBoundingSphereDescriptors();
+    
+    Pipeline CreateLinePipeline();
     
     Pipeline boundingSpherePipeline;
     std::vector<VkDescriptorSet> boundingSphereDescriptors;
     
+    Pipeline linePipeline;
+    
     Buffer unitSphereVertexBuffer;
     Buffer unitSphereIndexBuffer;
     uint32_t unitSphereIndexCount = 0;
+    
+    Buffer frustumVertexBuffer;
+    Buffer frustumIndexBuffer;
+    bool updatedFrustumVertices = false;
 };

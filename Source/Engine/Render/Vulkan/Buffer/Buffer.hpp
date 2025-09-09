@@ -16,11 +16,9 @@ class Buffer
 public:
     Buffer() = default;
     Buffer(BufferDescription description, bool createStagingBuffer, const VulkanContext& vulkanContext);
-    Buffer(BufferDescription description, bool createStagingBuffer, std::span<const std::byte> initialData,
-        const VulkanContext& vulkanContext);
 
-    template <typename T>
-    Buffer(BufferDescription description, bool createStagingBuffer, std::span<const T> initialData,
+    template <typename T, size_t Extent>
+    Buffer(BufferDescription description, bool createStagingBuffer, std::span<const T, Extent> initialData,
         const VulkanContext& vulkanContext);
 
     ~Buffer();
@@ -34,8 +32,8 @@ public:
     Buffer& CreateStagingBuffer();
     void DestroyStagingBuffer();
 
-    template <typename T>
-    void Fill(std::span<const T> data, size_t offset = 0);
+    template <typename T, size_t Extent>
+    void Fill(std::span<const T, Extent> data, size_t offset = 0);
 
     std::span<std::byte> MapMemory();
     void UnmapMemory();
@@ -79,14 +77,17 @@ private:
     std::unique_ptr<Buffer> stagingBuffer;
 };
 
-template <typename T>
-Buffer::Buffer(BufferDescription description, const bool createStagingBuffer, const std::span<const T> initialData,
+template <typename T, size_t Extent>
+Buffer::Buffer(BufferDescription description, const bool createStagingBuffer, const std::span<const T, Extent> initialData,
     const VulkanContext& vulkanContext)
-    : Buffer{ std::move(description), createStagingBuffer, std::as_bytes(initialData), vulkanContext }
-{}
+    : Buffer{ std::move(description), createStagingBuffer, vulkanContext }
+{
+    Buffer& bufferToFill = createStagingBuffer ? *stagingBuffer : *this;
+    bufferToFill.FillImpl(std::as_bytes(initialData));
+}
 
-template <typename T>
-void Buffer::Fill(const std::span<const T> data, const size_t offset /* = 0 */)
+template <typename T, size_t Extent>
+void Buffer::Fill(const std::span<const T, Extent> data, const size_t offset /* = 0 */)
 {
     FillImpl(std::as_bytes(data), offset);
 }

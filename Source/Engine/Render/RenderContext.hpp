@@ -8,6 +8,11 @@
 #include "Engine/Render/Vulkan/Image/RenderTarget.hpp"
 #include "Engine/Render/Vulkan/Managers/ShaderManager.hpp"
 
+struct DebugData
+{
+    std::array<glm::vec3, 8> frustumCornersWorld;
+};
+
 struct RenderContext
 {
     RenderPass renderPass;
@@ -39,4 +44,6 @@ struct RenderContext
     // Store this in a better way and use a callback on render option change
     bool visualizeLods = false;
     GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
+    
+    DebugData debugData;
 };

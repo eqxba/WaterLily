@@ -86,3 +86,41 @@ std::vector<glm::vec3> MeshUtils::GenerateCircleLineList(const uint32_t segments
 
     return vertices;
 }
+
+std::array<glm::vec3, 8> MeshUtils::GenerateFrustumCorners(const CameraComponent& camera)
+{
+    constexpr float farZ = 500.0f;
+    
+    std::array<glm::vec3, 8> corners;
+    
+    const float near = camera.GetNear();
+    const float verticalFov = camera.GetVerticalFov();
+    const float aspectRatio = camera.GetAspectRatio();
+    
+    const auto nearCenter = glm::vec3(0.0f, 0.0f, -near);
+    const auto farCenter = glm::vec3(0.0f, 0.0f, -farZ);
+    
+    const float heightNear = 2.0f * glm::tan(verticalFov * 0.5f) * near;
+    const float widthNear = heightNear * aspectRatio;
+
+    const float heightFar = 2.0f * glm::tan(verticalFov  * 0.5f) * farZ;
+    const float widthFar = heightFar * aspectRatio;
+    
+    corners[0] = nearCenter + glm::vec3(-widthNear / 2.0f,  heightNear / 2.0f, 0.0f); // near top-left
+    corners[1] = nearCenter + glm::vec3( widthNear / 2.0f,  heightNear / 2.0f, 0.0f); // near top-right
+    corners[2] = nearCenter + glm::vec3( widthNear / 2.0f, -heightNear / 2.0f, 0.0f); // near bottom-right
+    corners[3] = nearCenter + glm::vec3(-widthNear / 2.0f, -heightNear / 2.0f, 0.0f); // near bottom-left
+    
+    corners[4] = farCenter + glm::vec3(-widthFar / 2.0f,  heightFar / 2.0f, 0.0f); // far top-left
+    corners[5] = farCenter + glm::vec3( widthFar / 2.0f,  heightFar / 2.0f, 0.0f); // far top-right
+    corners[6] = farCenter + glm::vec3( widthFar / 2.0f, -heightFar / 2.0f, 0.0f); // far bottom-right
+    corners[7] = farCenter + glm::vec3(-widthFar / 2.0f, -heightFar / 2.0f, 0.0f); // far bottom-left
+    
+    const glm::mat4 invView = glm::inverse(camera.GetViewMatrix());
+    
+    std::ranges::for_each(corners, [&](glm::vec3& corner) {
+        corner = glm::vec3(invView * glm::vec4(corner, 1.0f));
+    });
+    
+    return corners;
+}

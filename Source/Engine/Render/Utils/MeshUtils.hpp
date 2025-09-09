@@ -5,6 +5,7 @@ DISABLE_WARNINGS_BEGIN
 DISABLE_WARNINGS_END
 
 #include "Utils/DataStructures.hpp"
+#include "Engine/Components/CameraComponent.hpp"
 
 namespace MeshUtils
 {
@@ -12,4 +13,5 @@ namespace MeshUtils
     std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> GenerateSphereMesh(uint32_t stacks, uint32_t sectors);
     std::vector<glm::vec3> GenerateCircleLineStrip(uint32_t segments);
     std::vector<glm::vec3> GenerateCircleLineList(uint32_t segments);
+    std::array<glm::vec3, 8> GenerateFrustumCorners(const CameraComponent& camera);
 }

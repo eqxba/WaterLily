@@ -237,20 +237,19 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetInputTopology(const InputTo
         inputAssembly = GraphicsPipelineBuilderDetails::GetTriangleListInputAssembly();
     }
 
-    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
-
     switch (aTopology)
     {
     case InputTopology::eLineList:
-        topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        inputAssembly->topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        break;
+    case InputTopology::eLineStrip:
+        inputAssembly->topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+        inputAssembly->primitiveRestartEnable = VK_TRUE;
         break;
     case InputTopology::eTriangleList:
-        topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         break;
     }
-
-    Assert(topology != VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
-    inputAssembly->topology = topology;
 
     return *this;
 }

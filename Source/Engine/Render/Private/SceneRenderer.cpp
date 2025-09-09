@@ -3,6 +3,7 @@
 #include "Engine/EventSystem.hpp"
 #include "Engine/Scene/SceneHelpers.hpp"
 #include "Engine/Render/RenderOptions.hpp"
+#include "Engine/Render/Utils/MeshUtils.hpp"
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/RenderStages/DebugStage.hpp"
@@ -105,7 +106,7 @@ namespace SceneRendererDetails
             ? std::max(sizeof(gpu::VkDrawIndexedIndirectCommand), sizeof(gpu::TaskCommand))
             : sizeof(gpu::VkDrawIndexedIndirectCommand));
 
-        const std::vector<uint32_t> commandCountValues = { 0, 1, 1 };
+        constexpr std::array<uint32_t, 3> commandCountValues = { 0, 1, 1 };
         const std::span commandCountSpan(commandCountValues);
 
         // We use it as buffer for vkCmdDrawMeshTasksIndirectEXT, so let's just always allocate 2 more uint32_t values
@@ -127,7 +128,7 @@ namespace SceneRendererDetails
 
     void CreateSceneBuffers(const RawScene& rawScene, RenderContext& renderContext, const VulkanContext& vulkanContext)
     {
-        const std::span verticesSpan(std::as_const(rawScene.vertices));
+        const std::span verticesSpan(rawScene.vertices);
 
         const BufferDescription vertexBufferDescription = {
             .size = verticesSpan.size_bytes(),
@@ -136,7 +137,7 @@ namespace SceneRendererDetails
 
         renderContext.vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, vulkanContext);
 
-        const std::span indicesSpan(std::as_const(rawScene.indices));
+        const std::span indicesSpan(rawScene.indices);
 
         const BufferDescription indexBufferDescription = {
             .size = indicesSpan.size_bytes(),
@@ -147,7 +148,7 @@ namespace SceneRendererDetails
 
         if (!rawScene.meshletData.empty())
         {
-            const std::span meshletDataSpan(std::as_const(rawScene.meshletData));
+            const std::span meshletDataSpan(rawScene.meshletData);
 
             const BufferDescription meshletDataBufferDescription = {
                 .size = meshletDataSpan.size_bytes(),
@@ -156,7 +157,7 @@ namespace SceneRendererDetails
 
             renderContext.meshletDataBuffer = Buffer(meshletDataBufferDescription, true, meshletDataSpan, vulkanContext);
 
-            const std::span meshletSpan(std::as_const(rawScene.meshlets));
+            const std::span meshletSpan(rawScene.meshlets);
 
             const BufferDescription meshletBufferDescription = {
                 .size = meshletSpan.size_bytes(),
@@ -166,7 +167,7 @@ namespace SceneRendererDetails
             renderContext.meshletBuffer = Buffer(meshletBufferDescription, true, meshletSpan, vulkanContext);
         }
 
-        const std::span primitiveSpan(std::as_const(rawScene.primitives));
+        const std::span primitiveSpan(rawScene.primitives);
 
         const BufferDescription primitiveBufferDescription = {
             .size = primitiveSpan.size_bytes(),
@@ -185,7 +186,7 @@ namespace SceneRendererDetails
 
         SetSceneStats(rawScene, draws);
 
-        const std::span drawSpan(std::as_const(draws));
+        const std::span drawSpan(draws);
 
         const BufferDescription drawBufferDescription = {
             .size = drawSpan.size_bytes(),
@@ -284,6 +285,8 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
         cullData.frustumTopY = frustumTop.y;
         cullData.frustumTopZ = frustumTop.z;
         cullData.near = -camera.GetNear();
+        
+        renderContext.debugData.frustumCornersWorld = MeshUtils::GenerateFrustumCorners(camera);
     }
 }
 
@@ -423,36 +426,20 @@ void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
 
     SceneRendererDetails::CreateSceneBuffers(scene->GetRaw(), renderContext, *vulkanContext);
     SceneRendererDetails::CreateIndirectBuffers(renderContext, *vulkanContext);
-
-    vulkanContext->GetDevice().ExecuteOneTimeCommandBuffer([&](const VkCommandBuffer cmd) {
-        CopyBufferToBuffer(cmd, renderContext.vertexBuffer.GetStagingBuffer(), renderContext.vertexBuffer);
-        CopyBufferToBuffer(cmd, renderContext.indexBuffer.GetStagingBuffer(), renderContext.indexBuffer);
-
-        if (renderContext.meshletDataBuffer.IsValid())
-        {
-            CopyBufferToBuffer(cmd, renderContext.meshletDataBuffer.GetStagingBuffer(), renderContext.meshletDataBuffer);
-            CopyBufferToBuffer(cmd, renderContext.meshletBuffer.GetStagingBuffer(), renderContext.meshletBuffer);
-        }
-
-        CopyBufferToBuffer(cmd, renderContext.primitiveBuffer.GetStagingBuffer(), renderContext.primitiveBuffer);
-        CopyBufferToBuffer(cmd, renderContext.drawBuffer.GetStagingBuffer(), renderContext.drawBuffer);
-        CopyBufferToBuffer(cmd, renderContext.commandCountBuffer.GetStagingBuffer(), renderContext.commandCountBuffer);
-
-        SynchronizationUtils::SetMemoryBarrier(cmd, Barriers::transferWriteToComputeRead);
-    });
-
-    renderContext.vertexBuffer.DestroyStagingBuffer();
-    renderContext.indexBuffer.DestroyStagingBuffer();
-
+    
+    UploadFromStagingBuffers(*vulkanContext, Barriers::transferWriteToComputeRead, /* destroyStagingBuffers */ true,
+        renderContext.vertexBuffer,
+        renderContext.indexBuffer,
+        renderContext.primitiveBuffer,
+        renderContext.drawBuffer,
+        renderContext.commandCountBuffer);
+    
     if (renderContext.meshletDataBuffer.IsValid())
     {
-        renderContext.meshletDataBuffer.DestroyStagingBuffer();
-        renderContext.meshletBuffer.DestroyStagingBuffer();
+        UploadFromStagingBuffers(*vulkanContext, Barriers::transferWriteToComputeRead, /* destroyStagingBuffers */ true,
+            renderContext.meshletDataBuffer,
+            renderContext.meshletBuffer);
     }
-
-    renderContext.primitiveBuffer.DestroyStagingBuffer();
-    renderContext.drawBuffer.DestroyStagingBuffer();
-    renderContext.commandCountBuffer.DestroyStagingBuffer();
     
     std::ranges::for_each(renderStages, [&](RenderStage* stage) { stage->Prepare(*scene); });
 }
