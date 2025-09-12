@@ -37,6 +37,7 @@ public:
     RENDER_OPTION(MaxDrawCount, uint32_t, gpu::primitiveCullMaxCommands, AlwaysSupported)
     RENDER_OPTION(MsaaSampleCount, VkSampleCountFlagBits, VK_SAMPLE_COUNT_1_BIT, IsMsaaSampleCountSupported)
     RENDER_OPTION(VisualizeBoundingSpheres, bool, false, AlwaysSupported)
+    RENDER_OPTION(VisualizeBoundingRectangles, bool, false, AlwaysSupported)
     
     // Just for random occasional tests
     RENDER_OPTION(TestBool, bool, false, AlwaysSupported)

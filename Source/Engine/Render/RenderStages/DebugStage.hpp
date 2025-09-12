@@ -19,21 +19,30 @@ public:
     
 private:
     void ExecuteBoundingSpheres(const Frame& frame);
+    void ExecuteBoundingRectangles(const Frame& frame);
     void ExecuteFrozenFrustum(const Frame& frame);
     
     Pipeline CreateBoundingSpherePipeline();
     void CreateBoundingSphereDescriptors();
+    
+    Pipeline CreateBoundingRectanglePipeline();
+    void CreateBoundingRectangleDescriptors();
     
     Pipeline CreateLinePipeline();
     
     Pipeline boundingSpherePipeline;
     std::vector<VkDescriptorSet> boundingSphereDescriptors;
     
+    Pipeline boundingRectanglePipeline;
+    std::vector<VkDescriptorSet> boundingRectangleDescriptors;
+    
     Pipeline linePipeline;
     
     Buffer unitSphereVertexBuffer;
     Buffer unitSphereIndexBuffer;
     uint32_t unitSphereIndexCount = 0;
+    
+    Buffer quadIndexBuffer;
     
     Buffer frustumVertexBuffer;
     Buffer frustumIndexBuffer;

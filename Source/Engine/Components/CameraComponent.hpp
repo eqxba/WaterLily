@@ -50,6 +50,7 @@ public:
 
     void SetNear(const float aNear)
     {
+        Assert(aNear >= 0.0f);
         near = aNear;
     }
 

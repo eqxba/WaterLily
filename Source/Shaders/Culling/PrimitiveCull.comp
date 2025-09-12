@@ -56,7 +56,7 @@ bool frustumCull(vec3 center, float radius)
     bCulled = bCulled || cullData.frustumRightX * abs(center.x) + cullData.frustumRightZ * center.z < -radius;
     bCulled = bCulled || cullData.frustumTopY * abs(center.y) + cullData.frustumTopZ * center.z < -radius;
 
-    bCulled = bCulled || cullData.near - center.z < -radius;
+    bCulled = bCulled || center.z - radius > -cullData.near;
     // Note: infinite far
 
     return bCulled;
@@ -64,10 +64,16 @@ bool frustumCull(vec3 center, float radius)
 
 bool contributionCull(vec3 center, float radius)
 {
-    vec4 lbrt = sphereNdcExtents(center, radius, globals.projection);
+    vec4 lbrt;
+    bool validExtents = sphereNdcExtents(center, radius, globals.projection[0][0], globals.projection[1][1], globals.cullData.near, lbrt);
 
-    float width = abs(lbrt.z - lbrt.x);
-    float height = abs(lbrt.w - lbrt.y);
+    if (!validExtents)
+    {
+        return false;
+    }
+
+    float width = lbrt.z - lbrt.x;
+    float height = lbrt.w - lbrt.y;
     
     return max(width, height) < CONTRIBUTION_CULL_THRESHOLD;
 }
@@ -105,7 +111,7 @@ void main()
 
     float radius = primitive.radius * draw.scale;
 
-    bool bCulled = frustumCull(center, radius); // TODO: Fix contribution culling! || contributionCull(center, radius);    
+    bool bCulled = frustumCull(center, radius) || contributionCull(center, radius);
 
     #if MESH_PIPELINE || DRAW_INDIRECT_COUNT
         if (bCulled)

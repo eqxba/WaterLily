@@ -8,15 +8,10 @@
 
 namespace GraphicsPipelineBuilderDetails
 {
-    static std::optional<VkPipelineVertexInputStateCreateInfo> GetVertexInputStateCreateInfo(
-        const std::vector<VkVertexInputBindingDescription>& bindings, 
+    static VkPipelineVertexInputStateCreateInfo GetVertexInputStateCreateInfo(
+        const std::vector<VkVertexInputBindingDescription>& bindings,
         const std::vector<VkVertexInputAttributeDescription>& attributes)
     {
-        if (bindings.empty() || attributes.empty())
-        {
-            return std::nullopt;
-        }
-
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
@@ -169,14 +164,14 @@ Pipeline GraphicsPipelineBuilder::Build() const
     std::vector<ShaderInstance> shaderInstances = Helpers::Transform(CreateShaderInstance, shaderModules, specializationConstants);
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages = Helpers::Transform(GetShaderStageCreateInfo, shaderInstances);
 
-    const std::optional<VkPipelineVertexInputStateCreateInfo> vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
+    const VkPipelineVertexInputStateCreateInfo vertexInputInfo = GetVertexInputStateCreateInfo(vertexBindings, vertexAttributes);
 
     const VkPipelineDynamicStateCreateInfo dynamicState = GetPipelineDynamicStateCreateInfo(dynamicStates);
 
     VkGraphicsPipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
     pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
     pipelineInfo.pStages = shaderStages.data();
-    pipelineInfo.pVertexInputState = vertexInputInfo ? &vertexInputInfo.value() : nullptr;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = inputAssembly ? &inputAssembly.value() : nullptr;
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
@@ -248,6 +243,10 @@ GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetInputTopology(const InputTo
         break;
     case InputTopology::eTriangleList:
         inputAssembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        break;
+    case InputTopology::eTriangleStrip:
+        inputAssembly->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        inputAssembly->primitiveRestartEnable = VK_TRUE;
         break;
     }
 

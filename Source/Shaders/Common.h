@@ -31,7 +31,7 @@ struct CullData
     float frustumRightZ;
     float frustumTopY;
     float frustumTopZ;
-    float near;
+    float near; // Distance to the near plane (so it's always positive)
 };
 
 struct PushConstants 

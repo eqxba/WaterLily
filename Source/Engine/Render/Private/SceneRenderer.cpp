@@ -284,7 +284,7 @@ void SceneRenderer::Process(const Frame& frame, const float deltaSeconds)
         cullData.frustumRightZ = frustumRight.z;
         cullData.frustumTopY = frustumTop.y;
         cullData.frustumTopZ = frustumTop.z;
-        cullData.near = -camera.GetNear();
+        cullData.near = camera.GetNear();
         
         renderContext.debugData.frustumCornersWorld = MeshUtils::GenerateFrustumCorners(camera);
     }

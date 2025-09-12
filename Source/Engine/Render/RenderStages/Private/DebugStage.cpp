@@ -12,11 +12,16 @@ namespace DebugStageDetails
     static constexpr std::string_view boundingSphereVertexPath = "~/Shaders/Debug/BoundingSphere.vert";
     static constexpr std::string_view boundingSphereFragmentPath = "~/Shaders/Debug/BoundingSphere.frag";
 
+    static constexpr std::string_view boundingRectangleVertexPath = "~/Shaders/Debug/SSBoundingRect.vert";
+    static constexpr std::string_view boundingRectangleFragmentPath = "~/Shaders/Debug/SSBoundingRect.frag";
+
     static constexpr std::string_view lineVertexPath = "~/Shaders/Debug/Line.vert";
     static constexpr std::string_view lineFragmentPath = "~/Shaders/Debug/Line.frag";
 
     static constexpr std::array bindings = { VkVertexInputBindingDescription(0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX) };
     static constexpr std::array attributes = { VkVertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0) };
+
+    static constexpr std::array<uint16_t, 4> quadIndices = { 0, 1, 2, 3 }; // For triangle strip
 
     static constexpr std::array<uint32_t, 24> frustumLineListIndices = {
         0,1, 1,2, 2,3, 3,0,    // Near
@@ -47,6 +52,18 @@ namespace DebugStageDetails
         auto indexBuffer = Buffer(indexBufferDescription, true, indicesSpan, vulkanContext);
         
         return { std::move(vertexBuffer), std::move(indexBuffer), sphereIndexCount };
+    }
+
+    static Buffer CreateQuadIndexBuffer(const VulkanContext& vulkanContext)
+    {        
+        const auto indicesSpan = std::span(quadIndices);
+
+        const BufferDescription indexBufferDescription = {
+            .size = indicesSpan.size_bytes(),
+            .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+        
+        return { indexBufferDescription, true, indicesSpan, vulkanContext };
     }
 
     static std::tuple<Buffer, Buffer> CreateFrustumBuffers(const VulkanContext& vulkanContext)
@@ -80,20 +97,26 @@ DebugStage::DebugStage(const VulkanContext& aVulkanContext, RenderContext& aRend
     AddShaderInfo({ boundingSphereVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
     AddShaderInfo({ boundingSphereFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
     
+    AddShaderInfo({ boundingRectangleVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
+    AddShaderInfo({ boundingRectangleFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
+    
     AddShaderInfo({ lineVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
     AddShaderInfo({ lineFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
     
     CompileShaders();
     
     boundingSpherePipeline = CreateBoundingSpherePipeline();
+    boundingRectanglePipeline = CreateBoundingRectanglePipeline();
     linePipeline = CreateLinePipeline();
     
     std::tie(unitSphereVertexBuffer, unitSphereIndexBuffer, unitSphereIndexCount) = CreateUnitSphereBuffers(*vulkanContext);
+    quadIndexBuffer = CreateQuadIndexBuffer(*vulkanContext);
     std::tie(frustumVertexBuffer, frustumIndexBuffer) = CreateFrustumBuffers(*vulkanContext);
     
     UploadFromStagingBuffers(*vulkanContext, Barriers::transferWriteToVertexInputRead, /* destroyStagingBuffers */ true,
         unitSphereVertexBuffer,
         unitSphereIndexBuffer,
+        quadIndexBuffer,
         frustumIndexBuffer);
 }
 
@@ -103,11 +126,13 @@ DebugStage::~DebugStage()
 void DebugStage::Prepare(const Scene& scene)
 {
     CreateBoundingSphereDescriptors();
+    CreateBoundingRectangleDescriptors();
 }
 
 void DebugStage::Execute(const Frame& frame)
 {
     ExecuteBoundingSpheres(frame);
+    ExecuteBoundingRectangles(frame);
     ExecuteFrozenFrustum(frame);
 }
 
@@ -117,12 +142,17 @@ void DebugStage::RecreatePipelinesAndDescriptors()
     boundingSpherePipeline = CreateBoundingSpherePipeline();
     CreateBoundingSphereDescriptors();
     
+    boundingRectangleDescriptors.clear();
+    boundingRectanglePipeline = CreateBoundingRectanglePipeline();
+    CreateBoundingRectangleDescriptors();
+    
     linePipeline = CreateLinePipeline();
 }
 
 void DebugStage::OnSceneClose()
 {
     boundingSphereDescriptors.clear();
+    boundingRectangleDescriptors.clear();
 }
 
 void DebugStage::ExecuteBoundingSpheres(const Frame& frame)
@@ -152,6 +182,32 @@ void DebugStage::ExecuteBoundingSpheres(const Frame& frame)
     for (uint32_t i = 0; i < renderContext->globals.drawCount; ++i)
     {
         vkCmdDrawIndexed(commandBuffer, unitSphereIndexCount, 1, 0, 0, i);
+    }
+}
+
+void DebugStage::ExecuteBoundingRectangles(const Frame &frame)
+{
+    using namespace PipelineUtils;
+    
+    if (!RenderOptions::Get().GetVisualizeBoundingRectangles() || RenderOptions::Get().GetFreezeCamera())
+    {
+        return;
+    }
+    
+    const VkCommandBuffer commandBuffer = frame.commandBuffer;
+    
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, boundingRectanglePipeline);
+
+    PushConstants(commandBuffer, boundingRectanglePipeline, "globals", renderContext->globals);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, boundingRectanglePipeline.GetLayout(), 0,
+        static_cast<uint32_t>(boundingRectangleDescriptors.size()), boundingRectangleDescriptors.data(), 0, nullptr);
+
+    vkCmdBindIndexBuffer(commandBuffer, quadIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    
+    for (uint32_t i = 0; i < renderContext->globals.drawCount; ++i)
+    {
+        vkCmdDrawIndexed(commandBuffer, DebugStageDetails::quadIndices.size(), 1, 0, 0, i);
     }
 }
 
@@ -208,6 +264,32 @@ void DebugStage::CreateBoundingSphereDescriptors()
     
     boundingSphereDescriptors = vulkanContext->GetDescriptorSetsManager()
         .GetReflectiveDescriptorSetBuilder(boundingSpherePipeline, DescriptorScope::eSceneRenderer)
+        .Bind("Draws", renderContext->drawBuffer)
+        .Bind("Primitives", renderContext->primitiveBuffer)
+        .Build();
+}
+
+Pipeline DebugStage::CreateBoundingRectanglePipeline()
+{
+    using namespace DebugStageDetails;
+    
+    return GraphicsPipelineBuilder(*vulkanContext)
+        .SetShaderModules({ GetShader(boundingRectangleVertexPath), GetShader(boundingRectangleFragmentPath) })
+        .SetInputTopology(InputTopology::eTriangleStrip)
+        .SetPolygonMode(PolygonMode::eFill)
+        .SetCullMode(CullMode::eNone)
+        .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
+        .SetRenderPass(renderContext->renderPass)
+        .EnableBlending()
+        .Build();
+}
+
+void DebugStage::CreateBoundingRectangleDescriptors()
+{
+    Assert(boundingRectangleDescriptors.empty());
+    
+    boundingRectangleDescriptors = vulkanContext->GetDescriptorSetsManager()
+        .GetReflectiveDescriptorSetBuilder(boundingRectanglePipeline, DescriptorScope::eSceneRenderer)
         .Bind("Draws", renderContext->drawBuffer)
         .Bind("Primitives", renderContext->primitiveBuffer)
         .Build();

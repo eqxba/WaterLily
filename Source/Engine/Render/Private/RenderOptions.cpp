@@ -86,6 +86,11 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
         SetVisualizeBoundingSpheres(!_VisualizeBoundingSpheres);
     }
     
+    if (event.key == Key::eLeftBracket && event.action == KeyAction::ePress)
+    {
+        SetVisualizeBoundingRectangles(!_VisualizeBoundingRectangles);
+    }
+    
     if (event.key == Key::eT && event.action == KeyAction::ePress)
     {
         SetTestBool(!_TestBool);

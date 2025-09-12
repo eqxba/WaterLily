@@ -13,6 +13,7 @@ enum class InputTopology
     eLineList,
     eLineStrip,
     eTriangleList,
+    eTriangleStrip,
 };
 
 enum class PolygonMode

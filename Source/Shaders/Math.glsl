@@ -25,22 +25,35 @@ vec3 rotateQuat(vec3 v, vec4 q)
 }
 
 // Adapted version of https://gist.github.com/JarkkoPFC/1186bc8a861dae3c8339b0cda4e6cdb3
-vec4 sphereNdcExtents(vec3 center, float radius, mat4 projection)
+// Negated all entries of center.z (except squares) as original implementation assumes camera looks in +z
+// Negated P11 (as by default we flip Y with it) to make this function return this kind of NDC:
+//        +Y
+//         ^
+//         |
+// -X <----+----> X+
+//         |
+//         v
+//        -Y
+bool sphereNdcExtents(vec3 center, float radius, float p00, float p11, float near, out vec4 lbrt)
 {
-    vec4 lbrt;
-    float rad2 = radius * radius, d = center.z * radius;
+    if (center.z + radius > -near) // Sphere must be completely in front of the camera
+    {
+        return false;
+    }
+
+    float rad2 = radius * radius, d = -center.z * radius;
     
     float hv = sqrt(center.x * center.x + center.z * center.z - rad2);
-    float ha = center.x * hv, hb = center.x * radius, hc = center.z * hv;
-    lbrt.x = (ha - d) * projection[0][0] / (hc + hb); // left
-    lbrt.z = (ha + d) * projection[0][0] / (hc - hb); // right
+    float ha = center.x * hv, hb = center.x * radius, hc = -center.z * hv;
+    lbrt.x = (ha - d) * p00 / (hc + hb); // left
+    lbrt.z = (ha + d) * p00 / (hc - hb); // right
     
     float vv = sqrt(center.y * center.y + center.z * center.z - rad2);
-    float va = center.y * vv, vb = center.y * radius, vc = center.z * vv;
-    lbrt.y = (va - d) * projection[1][1] / (vc + vb); // bottom
-    lbrt.w = (va + d) * projection[1][1] / (vc - vb); // top
+    float va = center.y * vv, vb = center.y * radius, vc = -center.z * vv;
+    lbrt.y = (va - d) * -p11 / (vc + vb); // bottom
+    lbrt.w = (va + d) * -p11 / (vc - vb); // top
     
-    return lbrt;
+    return true;
 }
 
 #endif
