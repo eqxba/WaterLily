@@ -6,7 +6,7 @@
 
 class VulkanContext;
 
-using ShaderDefine = std::pair<std::string_view, std::string_view>;
+using ShaderDefine = std::pair<std::string_view, int>;
 
 struct SpecializationConstantReflection
 {

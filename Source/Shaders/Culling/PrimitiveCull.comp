@@ -5,6 +5,10 @@
 #include "Common.h"
 #include "Math.glsl"
 
+#ifndef FIRST_PASS
+    #define FIRST_PASS 1
+#endif
+
 layout(local_size_x = PRIMITIVE_CULL_WG_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 layout(push_constant) uniform Globals
@@ -22,28 +26,38 @@ layout(set = 0, binding = 1) readonly buffer Draws
     Draw draws[]; 
 };
 
-layout(set = 0, binding = 2) buffer CommandCount
+// TODO: Too much memory for a single bit
+layout(set = 0, binding = 2) buffer DrawsVisibility 
+{
+    uint drawsVisibility[];
+};
+
+layout(set = 0, binding = 3) buffer CommandCount
 {
     uint commandCount;
 };
 
 #if MESH_PIPELINE
-layout(set = 0, binding = 3) writeonly buffer TaskCommands
+layout(set = 0, binding = 4) writeonly buffer TaskCommands
 {
     TaskCommand taskCommands[];
 };
 #else
-layout(set = 0, binding = 3) writeonly buffer IndirectCommands
+layout(set = 0, binding = 4) writeonly buffer IndirectCommands
 {
     VkDrawIndexedIndirectCommand indirectCommands[];
 };
 #endif
 
 #if VISUALIZE_LODS
-layout(set = 0, binding = 4) writeonly buffer DrawsDebugData
+layout(set = 0, binding = 5) writeonly buffer DrawsDebugData
 {
     uint drawsDebugData[];
 };
+#endif
+
+#if !FIRST_PASS
+layout(set = 1, binding = 0) uniform sampler2D depthPyramid; // TODO: Sort sets
 #endif
 
 bool frustumCull(vec3 center, float radius)
@@ -60,22 +74,6 @@ bool frustumCull(vec3 center, float radius)
     // Note: infinite far
 
     return bCulled;
-}
-
-bool contributionCull(vec3 center, float radius)
-{
-    vec4 lbrt;
-    bool validExtents = sphereNdcExtents(center, radius, globals.projection[0][0], globals.projection[1][1], globals.cullData.near, lbrt);
-
-    if (!validExtents)
-    {
-        return false;
-    }
-
-    float width = lbrt.z - lbrt.x;
-    float height = lbrt.w - lbrt.y;
-    
-    return max(width, height) < CONTRIBUTION_CULL_THRESHOLD;
 }
 
 uint calculateLodIndex(Primitive primitive, Draw draw, vec3 center, float radius)
@@ -106,19 +104,72 @@ void main()
     Draw draw = draws[drawIndex];    
     Primitive primitive = primitives[draw.primitiveIndex];
 
+    bool bVisibleLastFrame = drawsVisibility[drawIndex] == 1;
+
+    if (FIRST_PASS == 1 && !bVisibleLastFrame)
+    {
+        #if !MESH_PIPELINE && !DRAW_INDIRECT_COUNT
+            indirectCommands[drawIndex].instanceCount = 0;
+        #endif
+
+        return;
+    }
+
     vec3 center = rotateQuat(primitive.center, draw.rotation) * draw.scale + draw.position;
     center = (globals.cullData.view * vec4(center, 1.0)).xyz;
 
     float radius = primitive.radius * draw.scale;
 
-    bool bCulled = frustumCull(center, radius) || contributionCull(center, radius);
+    bool bCulled = frustumCull(center, radius);
 
-    #if MESH_PIPELINE || DRAW_INDIRECT_COUNT
-        if (bCulled)
+    bool bValidLbrt = false;
+    vec4 lbrt = vec4(0.0); // NDC (Y up, [-1.0, -1.0] to [1.0, 1.0] range)
+    vec2 lbrtExtents = vec2(0.0);
+
+    if (!bCulled) // Contribution culling
+    {
+        bValidLbrt = sphereNdcExtents(center, radius, globals.projection[0][0], globals.projection[1][1], globals.cullData.near, lbrt);
+
+        if (bValidLbrt)
         {
-            return;
+            lbrtExtents = lbrt.zw - lbrt.xy;
+            bCulled = max(lbrtExtents.x, lbrtExtents.y) < CONTRIBUTION_CULL_THRESHOLD;
         }
+    }
+
+    #if !FIRST_PASS
+        if (!bCulled && bValidLbrt) // Occlusion culling
+        {
+            vec4 lbrtUv = vec4(ndcToUv(lbrt.xy), ndcToUv(lbrt.zw));
+
+            // TODO: Support samplerFilterMinmax implementation when we'll have it available ;)
+            // We use ceil() here to reduce rectangle to 1x1 texel or smaller, which can cover 2x2 texels (as it's arbitrarily offset)
+            // Sampler does nearest filtering and we sample 4 corners to be conservative
+            vec2 extentsInTexels = vec2(textureSize(depthPyramid, 0)) * (lbrtUv.zy - lbrtUv.xw); // in UV b > t, so it's y - w
+            float mipLevel = ceil(log2((max(extentsInTexels.x, extentsInTexels.y))));
+            
+            float d0 = textureLod(depthPyramid, lbrtUv.xy, mipLevel).r;
+            float d1 = textureLod(depthPyramid, lbrtUv.zy, mipLevel).r;
+            float d2 = textureLod(depthPyramid, lbrtUv.xw, mipLevel).r;
+            float d3 = textureLod(depthPyramid, lbrtUv.zw, mipLevel).r;
+
+            float minDepth = min(min(d0, d1), min(d2, d3));
+
+            float sphereDepth = -globals.cullData.near / (center.z + radius); // near is positive, but camera looks in -z direction
+            bCulled = sphereDepth < minDepth;
+        }
+
+        drawsVisibility[drawIndex] = bCulled ? 0 : 1;
     #endif
+
+    if (bCulled || (FIRST_PASS == 0 && bVisibleLastFrame))
+    {
+        #if !MESH_PIPELINE && !DRAW_INDIRECT_COUNT
+            indirectCommands[drawIndex].instanceCount = 0;
+        #endif
+
+        return;
+    }
 
     uint lodIndex = globals.bUseLods == 1 ? calculateLodIndex(primitive, draw, center, radius) : 0;
     Lod lod = primitive.lods[lodIndex];
@@ -154,19 +205,8 @@ void main()
             uint commandIndex = drawIndex;
         #endif
 
-        if (commandIndex >= PRIMITIVE_CULL_MAX_COMMANDS)
-        {
-            return;
-        }
-
         indirectCommands[commandIndex].indexCount = lod.indexCount;
-
-        #if DRAW_INDIRECT_COUNT
-            indirectCommands[commandIndex].instanceCount = 1;
-        #else
-            indirectCommands[commandIndex].instanceCount = bCulled ? 0 : 1;
-        #endif
-        
+        indirectCommands[commandIndex].instanceCount = 1;    
         indirectCommands[commandIndex].firstIndex = lod.indexOffset;
         indirectCommands[commandIndex].vertexOffset = primitive.vertexOffset;
         indirectCommands[commandIndex].firstInstance = drawIndex;

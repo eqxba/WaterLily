@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Utils/RingAccumulator.hpp"
 #include "Engine/Render/Ui/Widget.hpp"
 
 class VulkanContext;
@@ -20,6 +21,13 @@ public:
 private:
     const VulkanContext* vulkanContext = nullptr;
     
-    std::array<float, 50> frameTimes = {};
+    RingAccumulator<float> cpuFrameTimesSeconds;
+    RingAccumulator<float> gpuFrameTimesMs;
+    
+    // Extra GPU timings
+    RingAccumulator<float> firstPassTimesMs;
+    RingAccumulator<float> secondPassTimesMs;
+    RingAccumulator<float> depthPyramidTimesMs;
+    
     uint64_t triangleCount = 0;
 };

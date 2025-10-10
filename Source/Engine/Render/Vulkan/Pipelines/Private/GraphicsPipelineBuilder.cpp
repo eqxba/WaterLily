@@ -149,8 +149,13 @@ Pipeline GraphicsPipelineBuilder::Build() const
     using namespace VulkanUtils;
     using namespace ShaderUtils;
     
-    Assert(!shaderModules.empty() && std::ranges::all_of(shaderModules, [](const auto* shader) { return shader && shader->IsValid(); }));
+    Assert(!shaderModules.empty());
     Assert(renderPass != nullptr);
+    
+    if (!std::ranges::all_of(shaderModules, &ShaderModule::IsValid))
+    {
+        return {};
+    }
     
     const VkDevice device = vulkanContext->GetDevice();
     
@@ -202,9 +207,9 @@ Pipeline GraphicsPipelineBuilder::Build() const
     return { pipeline, std::move(pipelineData), *vulkanContext };
 }
 
-GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(std::vector<const ShaderModule*> aShaderModules)
+GraphicsPipelineBuilder& GraphicsPipelineBuilder::SetShaderModules(const std::span<const ShaderModule> aShaderModules)
 {
-    shaderModules = std::move(aShaderModules);
+    shaderModules = aShaderModules;
 
     return *this;
 }

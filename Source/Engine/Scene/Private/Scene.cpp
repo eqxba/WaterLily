@@ -51,8 +51,7 @@ void Scene::InitTexture()
     const auto stagingBuffer = Buffer(stagingBufferDescription, false, pixelData, vulkanContext);
 
     const VkExtent3D extent = stbImage.GetExtent();
-    const uint32_t maxDimension = std::max(extent.width, extent.height);
-    const uint32_t mipLevelsCount = static_cast<uint32_t>(std::floor(std::log2(maxDimension))) + 1;
+    const uint32_t mipLevelsCount = ImageUtils::MipLevelsCount(extent);
 
     ImageDescription textureDescription = {
         .extent = extent,
@@ -63,6 +62,8 @@ void Scene::InitTexture()
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, };
 
     SamplerDescription samplerDescription = {
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
         .maxAnisotropy = vulkanContext.GetDevice().GetProperties().physicalProperties.limits.maxSamplerAnisotropy,
         .maxLod = static_cast<float>(mipLevelsCount), };
     

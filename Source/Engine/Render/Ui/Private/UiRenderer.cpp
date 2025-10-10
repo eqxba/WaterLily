@@ -50,8 +50,7 @@ namespace UiRendererDetails
             .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
         
-        SamplerDescription samplerDescription = { .addressMode = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE } };
+        SamplerDescription samplerDescription = { .addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE };
 
         auto fontTexture = Texture(std::move(fontImageDescription), std::move(samplerDescription), vulkanContext);
         
@@ -78,10 +77,17 @@ namespace UiRendererDetails
             .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
+        
+        std::vector<PipelineBarrier> previousBarriers = { {
+            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
 
         return RenderPassBuilder(vulkanContext)
             .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
             .AddColorAttachment(colorAttachmentDescription)
+            .SetPreviousBarriers(std::move(previousBarriers))
             .Build();
     }
 
@@ -96,7 +102,7 @@ namespace UiRendererDetails
         framebuffers.reserve(swapchainTargets.size());
 
         std::ranges::transform(swapchainTargets, std::back_inserter(framebuffers), [&](const RenderTarget& target) {
-            const std::array<VkImageView, 1> attachments = { target.view };
+            const std::array<VkImageView, 1> attachments = { target.views[0] };
             return CreateFrameBuffer(renderPass, swapchain.GetExtent(), attachments, vulkanContext);
         });
         
@@ -252,10 +258,9 @@ void UiRenderer::Render(const Frame& frame)
     const Buffer& indexBuffer = indexBuffers[frame.index];
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
-    
-    const VkRenderPassBeginInfo beginInfo = renderPass.GetBeginInfo(framebuffers[frame.swapchainImageIndex]);
 
-    vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    renderPass.Begin(commandBuffer, framebuffers[frame.swapchainImageIndex]);
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.GetLayout(),
@@ -295,19 +300,14 @@ void UiRenderer::Render(const Frame& frame)
         std::ranges::for_each(drawData->CmdLists, processDrawList);
     }
 
-    vkCmdEndRenderPass(commandBuffer);
+    renderPass.End(commandBuffer);
 }
 
 void UiRenderer::CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules)
 {
-    std::vector<const ShaderModule*> shaderPointers;
-    shaderPointers.reserve(shaderModules.size());
-    
-    std::ranges::transform(shaderModules, std::back_inserter(shaderPointers), [](const auto& shader) { return &shader; });
-    
     // TODO: Multisampling for UI
     graphicsPipeline = GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules(std::move(shaderPointers))
+        .SetShaderModules(shaderModules)
         .SetVertexData(UiRendererDetails::GetVertexBindings(), UiRendererDetails::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)

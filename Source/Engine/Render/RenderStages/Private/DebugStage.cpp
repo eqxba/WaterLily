@@ -94,20 +94,9 @@ DebugStage::DebugStage(const VulkanContext& aVulkanContext, RenderContext& aRend
     using namespace BufferUtils;
     using namespace DebugStageDetails;
     
-    AddShaderInfo({ boundingSphereVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
-    AddShaderInfo({ boundingSphereFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
-    
-    AddShaderInfo({ boundingRectangleVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
-    AddShaderInfo({ boundingRectangleFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
-    
-    AddShaderInfo({ lineVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {} });
-    AddShaderInfo({ lineFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {} });
-    
-    CompileShaders();
-    
-    boundingSpherePipeline = CreateBoundingSpherePipeline();
-    boundingRectanglePipeline = CreateBoundingRectanglePipeline();
-    linePipeline = CreateLinePipeline();
+    AddPipeline(boundingSpherePipeline, [&]() { return BuildBoundingSpherePipeline(); });
+    AddPipeline(boundingRectanglePipeline, [&]() { return BuildBoundingRectanglePipeline(); });
+    AddPipeline(linePipeline, [&]() { return BuildLinePipeline(); });
     
     std::tie(unitSphereVertexBuffer, unitSphereIndexBuffer, unitSphereIndexCount) = CreateUnitSphereBuffers(*vulkanContext);
     quadIndexBuffer = CreateQuadIndexBuffer(*vulkanContext);
@@ -123,10 +112,16 @@ DebugStage::DebugStage(const VulkanContext& aVulkanContext, RenderContext& aRend
 DebugStage::~DebugStage()
 {}
 
-void DebugStage::Prepare(const Scene& scene)
+void DebugStage::OnSceneOpen(const Scene& scene)
 {
-    CreateBoundingSphereDescriptors();
-    CreateBoundingRectangleDescriptors();
+    BuildBoundingSphereDescriptors();
+    BuildBoundingRectangleDescriptors();
+}
+
+void DebugStage::OnSceneClose()
+{
+    boundingSphereDescriptors.clear();
+    boundingRectangleDescriptors.clear();
 }
 
 void DebugStage::Execute(const Frame& frame)
@@ -136,23 +131,13 @@ void DebugStage::Execute(const Frame& frame)
     ExecuteFrozenFrustum(frame);
 }
 
-void DebugStage::RecreatePipelinesAndDescriptors()
-{
-    boundingSphereDescriptors.clear();
-    boundingSpherePipeline = CreateBoundingSpherePipeline();
-    CreateBoundingSphereDescriptors();
-    
-    boundingRectangleDescriptors.clear();
-    boundingRectanglePipeline = CreateBoundingRectanglePipeline();
-    CreateBoundingRectangleDescriptors();
-    
-    linePipeline = CreateLinePipeline();
-}
-
-void DebugStage::OnSceneClose()
+void DebugStage::RebuildDescriptors()
 {
     boundingSphereDescriptors.clear();
     boundingRectangleDescriptors.clear();
+    
+    BuildBoundingSphereDescriptors();
+    BuildBoundingRectangleDescriptors();
 }
 
 void DebugStage::ExecuteBoundingSpheres(const Frame& frame)
@@ -241,24 +226,29 @@ void DebugStage::ExecuteFrozenFrustum(const Frame& frame)
     vkCmdDrawIndexed(commandBuffer, DebugStageDetails::frustumLineListIndices.size(), 1, 0, 0, 0);
 }
 
-Pipeline DebugStage::CreateBoundingSpherePipeline()
+Pipeline DebugStage::BuildBoundingSpherePipeline()
 {
     using namespace DebugStageDetails;
     
+    std::vector<ShaderModule> shaders;
+    
+    shaders.push_back(GetShader(boundingSphereVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {}, {}));
+    shaders.push_back(GetShader(boundingSphereFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {}, {}));
+    
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules({ GetShader(boundingSphereVertexPath), GetShader(boundingSphereFragmentPath) })
+        .SetShaderModules(shaders)
         .SetVertexData({ std::from_range, bindings }, { std::from_range, attributes })
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eNone)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, false, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->renderPass)
+        .SetRenderPass(renderContext->secondRenderPass)
         .EnableBlending()
         .Build();
 }
 
-void DebugStage::CreateBoundingSphereDescriptors()
+void DebugStage::BuildBoundingSphereDescriptors()
 {
     Assert(boundingSphereDescriptors.empty());
     
@@ -269,22 +259,27 @@ void DebugStage::CreateBoundingSphereDescriptors()
         .Build();
 }
 
-Pipeline DebugStage::CreateBoundingRectanglePipeline()
+Pipeline DebugStage::BuildBoundingRectanglePipeline()
 {
     using namespace DebugStageDetails;
     
+    std::vector<ShaderModule> shaders;
+    
+    shaders.push_back(GetShader(boundingRectangleVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {}, {}));
+    shaders.push_back(GetShader(boundingRectangleFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {}, {}));
+    
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules({ GetShader(boundingRectangleVertexPath), GetShader(boundingRectangleFragmentPath) })
+        .SetShaderModules(shaders)
         .SetInputTopology(InputTopology::eTriangleStrip)
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eNone)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
-        .SetRenderPass(renderContext->renderPass)
+        .SetRenderPass(renderContext->secondRenderPass)
         .EnableBlending()
         .Build();
 }
 
-void DebugStage::CreateBoundingRectangleDescriptors()
+void DebugStage::BuildBoundingRectangleDescriptors()
 {
     Assert(boundingRectangleDescriptors.empty());
     
@@ -295,16 +290,21 @@ void DebugStage::CreateBoundingRectangleDescriptors()
         .Build();
 }
 
-Pipeline DebugStage::CreateLinePipeline()
+Pipeline DebugStage::BuildLinePipeline()
 {
     using namespace DebugStageDetails;
     
+    std::vector<ShaderModule> shaders;
+    
+    shaders.push_back(GetShader(lineVertexPath, VK_SHADER_STAGE_VERTEX_BIT, {}, {}));
+    shaders.push_back(GetShader(lineFragmentPath, VK_SHADER_STAGE_FRAGMENT_BIT, {}, {}));
+    
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules({ GetShader(lineVertexPath), GetShader(lineFragmentPath) })
+        .SetShaderModules(shaders)
         .SetVertexData({ std::from_range, bindings }, { std::from_range, attributes })
         .SetInputTopology(InputTopology::eLineList)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, false, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->renderPass)
+        .SetRenderPass(renderContext->secondRenderPass)
         .Build();
 }

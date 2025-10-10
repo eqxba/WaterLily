@@ -17,33 +17,25 @@ namespace ForwardStageDetails
 ForwardStage::ForwardStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : RenderStage{ aVulkanContext, aRenderContext }
 {
-    using namespace ForwardStageDetails;
-    
     if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
     {
-        AddShaderInfo({ taskShaderPath, VK_SHADER_STAGE_TASK_BIT_EXT, [&]() { return GetGlobalDefines(); } });
-        AddShaderInfo({ meshShaderPath, VK_SHADER_STAGE_MESH_BIT_EXT, [&]() { return GetGlobalDefines(); } });
+        AddPipeline(graphicsPipelines[GraphicsPipelineType::eMesh], [&]() { return BuildMeshPipeline(); });
     }
     
-    AddShaderInfo({ vertexShaderPath, VK_SHADER_STAGE_VERTEX_BIT, [&]() { return GetGlobalDefines(); } });
-    AddShaderInfo({ fragmentShaderPath, VK_SHADER_STAGE_FRAGMENT_BIT, [&]() { return GetGlobalDefines(); } });
-    
-    CompileShaders();
-    
-    if (vulkanContext->GetDevice().GetProperties().meshShadersSupported)
-    {
-        graphicsPipelines[GraphicsPipelineType::eMesh] = CreateMeshPipeline();
-    }
-    
-    graphicsPipelines[GraphicsPipelineType::eVertex] = CreateVertexPipeline();
+    AddPipeline(graphicsPipelines[GraphicsPipelineType::eVertex], [&]() { return BuildVertexPipeline(); });
 }
 
 ForwardStage::~ForwardStage()
 {}
 
-void ForwardStage::Prepare(const Scene& scene)
+void ForwardStage::OnSceneOpen(const Scene& scene)
 {
-    CreateDescriptors();
+    BuildDescriptors();
+}
+
+void ForwardStage::OnSceneClose()
+{
+    descriptors.clear();
 }
 
 void ForwardStage::Execute(const Frame& frame)
@@ -75,53 +67,58 @@ void ForwardStage::Execute(const Frame& frame)
     }
 }
 
-void ForwardStage::RecreatePipelinesAndDescriptors()
+void ForwardStage::RebuildDescriptors()
 {
     descriptors.clear();
     
-    for (auto& [type, pipeline] : graphicsPipelines)
-    {
-        pipeline = type == GraphicsPipelineType::eMesh ? CreateMeshPipeline() : CreateVertexPipeline();
-    }
-    
-    CreateDescriptors();
+    BuildDescriptors();
 }
 
-void ForwardStage::OnSceneClose()
-{
-    descriptors.clear();
-}
-
-Pipeline ForwardStage::CreateMeshPipeline()
+Pipeline ForwardStage::BuildMeshPipeline()
 {
     using namespace ForwardStageDetails;
+    
+    std::vector<ShaderModule> shaders;
+    
+    std::vector runtimeDefines = { gpu::defines::visualizeLods };
+    
+    shaders.push_back(GetShader(taskShaderPath, VK_SHADER_STAGE_TASK_BIT_EXT, {}, {}));
+    shaders.push_back(GetShader(meshShaderPath, VK_SHADER_STAGE_MESH_BIT_EXT, {}, {}));
+    shaders.push_back(GetShader(fragmentShaderPath, VK_SHADER_STAGE_FRAGMENT_BIT, runtimeDefines, {}));
 
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules({ GetShader(taskShaderPath), GetShader(meshShaderPath), GetShader(fragmentShaderPath) })
+        .SetShaderModules(shaders)
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->renderPass)
+        .SetRenderPass(renderContext->firstRenderPass)
         .Build();
 }
 
-Pipeline ForwardStage::CreateVertexPipeline()
+Pipeline ForwardStage::BuildVertexPipeline()
 {
     using namespace ForwardStageDetails;
     
+    std::vector runtimeDefines = { gpu::defines::visualizeLods };
+    
+    std::vector<ShaderModule> shaders;
+    
+    shaders.push_back(GetShader(vertexShaderPath, VK_SHADER_STAGE_VERTEX_BIT, runtimeDefines, {}));
+    shaders.push_back(GetShader(fragmentShaderPath, VK_SHADER_STAGE_FRAGMENT_BIT, runtimeDefines, {}));
+    
     return GraphicsPipelineBuilder(*vulkanContext)
-        .SetShaderModules({ GetShader(vertexShaderPath), GetShader(fragmentShaderPath) })
+        .SetShaderModules(shaders)
         .SetVertexData(SceneHelpers::GetVertexBindings(), SceneHelpers::GetVertexAttributes())
         .SetInputTopology(InputTopology::eTriangleList)
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eBack, false)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->renderPass)
+        .SetRenderPass(renderContext->firstRenderPass)
         .Build();
 }
 
-void ForwardStage::CreateDescriptors()
+void ForwardStage::BuildDescriptors()
 {
     Assert(descriptors.empty());
     
@@ -141,9 +138,9 @@ void ForwardStage::CreateDescriptors()
         .GetReflectiveDescriptorSetBuilder(graphicsPipelines[GraphicsPipelineType::eVertex], DescriptorScope::eSceneRenderer)
         .Bind("Draws", renderContext->drawBuffer);
     
-    if (renderContext->visualizeLods)
+    if (RenderOptions::Get().GetVisualizeLods())
     {
-        builder.Bind("DrawsDebugData", renderContext->drawDebugDataBuffer);
+        builder.Bind("DrawsDebugData", renderContext->drawsDebugDataBuffer);
     }
     
     descriptors[GraphicsPipelineType::eVertex] = builder.Build();

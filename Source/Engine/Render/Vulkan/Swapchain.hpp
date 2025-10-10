@@ -16,7 +16,7 @@ struct SwapchainSupportDetails
 class Swapchain
 {
 public:
-    Swapchain(const VkExtent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext);
+    Swapchain(const VkExtent2D& requiredExtentInPixels, bool vSync, const VulkanContext& aVulkanContext);
     ~Swapchain();
 
     Swapchain(const Swapchain&) = delete;
@@ -26,7 +26,7 @@ public:
     Swapchain& operator=(Swapchain&&) = delete;
 
     // Call in case of simple resize (not when window's been recreated!)
-    void Recreate(const VkExtent2D& requiredExtentInPixels);
+    void Recreate(const VkExtent2D& requiredExtentInPixels, bool vSync);
 
     VkSurfaceFormatKHR GetSurfaceFormat() const
     {
@@ -54,7 +54,7 @@ public:
     }
 
 private:
-    void Create(const VkExtent2D& requiredExtentInPixels);
+    void Create(const VkExtent2D& requiredExtentInPixels, bool vSync);
     void Cleanup();
     
     ImageDescription GetRenderTargetDescription() const;

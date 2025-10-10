@@ -15,14 +15,18 @@ struct DebugData
 
 struct RenderContext
 {
-    RenderPass renderPass;
+    // For 2-pass occlusion culling
+    RenderPass firstRenderPass;
+    RenderPass secondRenderPass;
     
     RenderTarget colorTarget;
     RenderTarget depthTarget;
+    RenderTarget depthResolveTarget;
     
-    std::vector<VkFramebuffer> framebuffers;
+    std::vector<VkFramebuffer> firstPassFramebuffers;
+    std::vector<VkFramebuffer> secondPassFramebuffers;
 
-    std::vector<ShaderDefine> globalDefines;
+    std::unordered_map<std::string_view, std::function<int()>> runtimeDefineGetters;
     gpu::PushConstants globals = { .view = Matrix4::identity, .projection = Matrix4::identity };
     
     // Vertex pipeline
@@ -36,14 +40,11 @@ struct RenderContext
     Buffer primitiveBuffer;
 
     Buffer drawBuffer;
-    Buffer drawDebugDataBuffer;
+    Buffer drawsVisibilityBuffer;
+    Buffer drawsDebugDataBuffer;
 
     Buffer commandCountBuffer;
     Buffer commandBuffer; // Either indirect commands or task commands, see PrimitiveCull.comp & PrimitiveCullStage
-    
-    // Store this in a better way and use a callback on render option change
-    bool visualizeLods = false;
-    GraphicsPipelineType graphicsPipelineType = GraphicsPipelineType::eVertex;
     
     DebugData debugData;
 };

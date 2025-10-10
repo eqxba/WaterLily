@@ -22,7 +22,7 @@ public:
 
     Pipeline Build() const;
 
-    ComputePipelineBuilder& SetShaderModule(const ShaderModule* shaderModule);
+    ComputePipelineBuilder& SetShaderModule(const ShaderModule& shaderModule);
     ComputePipelineBuilder& SetSpecializationConstants(std::vector<SpecializationConstant> specializationConstants);
 
 private:

@@ -28,6 +28,7 @@ public:
     bool IsMsaaSampleCountSupported(VkSampleCountFlagBits sampleCount) const;
     
     // Getters and setters
+    RENDER_OPTION(VSync, bool, true, AlwaysSupported)
     RENDER_OPTION(RendererType, RendererType, RendererType::eScene, AlwaysSupported)
     RENDER_OPTION(GraphicsPipelineType, GraphicsPipelineType, GraphicsPipelineType::eVertex, IsGraphicsPipelineTypeSupported)
     RENDER_OPTION(UseLods, bool, true, AlwaysSupported)
@@ -38,6 +39,10 @@ public:
     RENDER_OPTION(MsaaSampleCount, VkSampleCountFlagBits, VK_SAMPLE_COUNT_1_BIT, IsMsaaSampleCountSupported)
     RENDER_OPTION(VisualizeBoundingSpheres, bool, false, AlwaysSupported)
     RENDER_OPTION(VisualizeBoundingRectangles, bool, false, AlwaysSupported)
+    RENDER_OPTION(ShowExtraGpuTimings, bool, false, AlwaysSupported)
+    RENDER_OPTION(VisualizeDepth, bool, false, AlwaysSupported)
+    RENDER_OPTION(DepthMipToVisualize, uint32_t, 0, AlwaysSupported)
+    RENDER_OPTION(MaxDepthMipToVisualize, uint32_t, 0, AlwaysSupported) // TODO: For UI, we need better max limit solution
     
     // Just for random occasional tests
     RENDER_OPTION(TestBool, bool, false, AlwaysSupported)

@@ -25,7 +25,7 @@ namespace ShaderManagerDetails
             relativeToShadersDir.append(".");
             relativeToShadersDir.append(define);
             relativeToShadersDir.append("=");
-            relativeToShadersDir.append(value);
+            relativeToShadersDir.append(std::to_string(value));
         }
         
         relativeToShadersDir.append(compiledFileExtension);

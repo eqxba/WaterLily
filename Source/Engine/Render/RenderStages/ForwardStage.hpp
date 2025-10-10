@@ -9,18 +9,17 @@ public:
     ForwardStage(const VulkanContext& vulkanContext, RenderContext& renderContext);
     ~ForwardStage() override;
     
-    void Prepare(const Scene& scene) override;
+    void OnSceneOpen(const Scene& scene) override;
+    void OnSceneClose() override;
     
     void Execute(const Frame& frame) override;
     
-    void RecreatePipelinesAndDescriptors() override;
-    
-    void OnSceneClose() override;
+    void RebuildDescriptors() override;
     
 private:
-    Pipeline CreateMeshPipeline();
-    Pipeline CreateVertexPipeline();
-    void CreateDescriptors();
+    Pipeline BuildMeshPipeline();
+    Pipeline BuildVertexPipeline();
+    void BuildDescriptors();
     
     void ExecuteMesh(const Frame& frame) const;
     void ExecuteVertex(const Frame& frame) const;

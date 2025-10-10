@@ -4,15 +4,23 @@
 
 namespace RenderPassDetails
 {
-    static VkSubpassDependency GetSubpassDependency(const PipelineBarrier& barrier, const bool previous)
+    static VkSubpassDependency2 GetSubpassDependency(const PipelineBarrier& barrier, const bool previous)
     {
         return {
+            .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+            .pNext = nullptr,
             .srcSubpass = previous ? VK_SUBPASS_EXTERNAL : 0,
             .dstSubpass = previous ? 0 : VK_SUBPASS_EXTERNAL,
             .srcStageMask = barrier.srcStage,
             .dstStageMask = barrier.dstStage,
             .srcAccessMask = barrier.srcAccessMask,
             .dstAccessMask = barrier.dstAccessMask, };
+    }
+
+    static VkAttachmentReference2 GetAttachmentReference(const size_t attachment, const VkImageLayout layout)
+    {
+        return { .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, .pNext = nullptr,
+            .attachment = static_cast<uint32_t>(attachment), .layout = layout };
     }
 }
 
@@ -66,6 +74,17 @@ VkRenderPassBeginInfo RenderPass::GetBeginInfo(const VkFramebuffer framebuffer)
     return renderPassInfo;
 }
 
+void RenderPass::Begin(const VkCommandBuffer commandBuffer, const VkFramebuffer framebuffer)
+{
+    const VkRenderPassBeginInfo beginInfo = GetBeginInfo(framebuffer);
+    vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void RenderPass::End(const VkCommandBuffer commandBuffer)
+{
+    vkCmdEndRenderPass(commandBuffer);
+}
+
 RenderPassBuilder::RenderPassBuilder(const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
 {}
@@ -75,7 +94,7 @@ RenderPass RenderPassBuilder::Build()
     using namespace RenderPassDetails;
     
     // Set samples only for depth and color attachments, resolve attachments were initialized to have 1 sample
-    std::ranges::for_each(colorAttachmentReferences, [&](const VkAttachmentReference& reference) {
+    std::ranges::for_each(colorAttachmentReferences, [&](const VkAttachmentReference2& reference) {
         attachments[reference.attachment].samples = sampleCount;
     });
 
@@ -85,23 +104,24 @@ RenderPass RenderPassBuilder::Build()
     }
 
     // Always have only 1 subpass
-    VkSubpassDescription subpass{};
+    VkSubpassDescription2 subpass = { .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2 };
+    subpass.pNext = depthStencilResolve ? &depthStencilResolve.value() : nullptr;
     subpass.pipelineBindPoint = bindPoint;
     subpass.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentReferences.size());
     subpass.pColorAttachments = colorAttachmentReferences.data();
     subpass.pDepthStencilAttachment = depthStencilAttachmentReference ? &depthStencilAttachmentReference.value() : VK_NULL_HANDLE;
     subpass.pResolveAttachments = resolveAttachmentReferences.data();
 
-    std::vector<VkSubpassDependency> dependencies;
+    std::vector<VkSubpassDependency2> dependencies;
     dependencies.reserve(previousBarriers.size() + followingBarriers.size());
     
     std::ranges::transform(previousBarriers, std::back_inserter(dependencies), [](const PipelineBarrier& barrier) {
         return GetSubpassDependency(barrier, true); });
     std::ranges::transform(followingBarriers, std::back_inserter(dependencies), [](const PipelineBarrier& barrier) {
         return GetSubpassDependency(barrier, false); });
-
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    
+    VkRenderPassCreateInfo2 renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
     renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
     renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
@@ -110,7 +130,7 @@ RenderPass RenderPassBuilder::Build()
     renderPassInfo.pDependencies = dependencies.data();
 
     VkRenderPass renderPass;
-    const VkResult result = vkCreateRenderPass(vulkanContext->GetDevice(), &renderPassInfo, nullptr, &renderPass);
+    const VkResult result = vkCreateRenderPass2(vulkanContext->GetDevice(), &renderPassInfo, nullptr, &renderPass);
     Assert(result == VK_SUCCESS);
 
     return { renderPass, std::move(defaultClearValues), *vulkanContext };
@@ -133,18 +153,18 @@ RenderPassBuilder& RenderPassBuilder::SetMultisampling(const VkSampleCountFlagBi
 RenderPassBuilder& RenderPassBuilder::AddColorAttachment(const AttachmentDescription& description)
 {
     AddAttachment(description);
-    colorAttachmentReferences.emplace_back(static_cast<uint32_t>(attachments.size() - 1), description.actualLayout);
+    colorAttachmentReferences.push_back(RenderPassDetails::GetAttachmentReference(attachments.size() - 1, description.actualLayout));
 
     return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::AddColorAndResolveAttachments(const AttachmentDescription& colorDescription, 
+RenderPassBuilder& RenderPassBuilder::AddColorAndResolveAttachments(const AttachmentDescription& description, 
     const AttachmentDescription& resolveDescription)
 {
-    AddColorAttachment(colorDescription);
+    AddColorAttachment(description);
 
     AddAttachment(resolveDescription);
-    resolveAttachmentReferences.emplace_back(static_cast<uint32_t>(attachments.size() - 1), resolveDescription.actualLayout);
+    resolveAttachmentReferences.push_back(RenderPassDetails::GetAttachmentReference(attachments.size() - 1, resolveDescription.actualLayout));
 
     return *this;
 }
@@ -156,7 +176,29 @@ RenderPassBuilder& RenderPassBuilder::AddDepthStencilAttachment(const Attachment
     Assert(description.stencilStoreOp.has_value());
 
     AddAttachment(description);
-    depthStencilAttachmentReference = { static_cast<uint32_t>(attachments.size() - 1), description.actualLayout };
+    depthStencilAttachmentReference = RenderPassDetails::GetAttachmentReference(attachments.size() - 1, description.actualLayout);
+
+    return *this;
+}
+
+RenderPassBuilder& RenderPassBuilder::AddDepthStencilAndResolveAttachments(const AttachmentDescription& description,
+    const AttachmentDescription& resolveDescription)
+{
+    AddDepthStencilAttachment(description);
+    
+    Assert(!depthStencilResolveAttachmentReference.has_value());
+    Assert(resolveDescription.stencilLoadOp.has_value());
+    Assert(resolveDescription.stencilStoreOp.has_value());
+    Assert(!depthStencilResolve.has_value());
+    
+    AddAttachment(resolveDescription);
+    depthStencilResolveAttachmentReference = RenderPassDetails::GetAttachmentReference(attachments.size() - 1, resolveDescription.actualLayout);
+    
+    depthStencilResolve = VkSubpassDescriptionDepthStencilResolve{
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
+        .depthResolveMode = VK_RESOLVE_MODE_MIN_BIT,
+        .stencilResolveMode = VK_RESOLVE_MODE_NONE,
+        .pDepthStencilResolveAttachment = &depthStencilResolveAttachmentReference.value() };
 
     return *this;
 }
@@ -177,7 +219,7 @@ RenderPassBuilder& RenderPassBuilder::SetFollowingBarriers(std::vector<PipelineB
 
 void RenderPassBuilder::AddAttachment(const AttachmentDescription& description)
 {
-    VkAttachmentDescription attachment{};
+    VkAttachmentDescription2 attachment = { .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2 };
 
     attachment.format = description.format;
     attachment.samples = VK_SAMPLE_COUNT_1_BIT;

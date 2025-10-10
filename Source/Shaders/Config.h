@@ -3,6 +3,7 @@
 
 #define PRIMITIVE_CULL_WG_SIZE 64
 #define PRIMITIVE_CULL_MAX_COMMANDS 4194304 // Based on maxTaskWorkGroupTotalCount for my 3060
+#define DEPTH_PYRAMID_WG_SIZE 32
 
 #define TASK_WG_SIZE 64
 #define MESH_WG_SIZE 64
@@ -39,6 +40,7 @@ namespace gpu
 {   
     constexpr uint32_t primitiveCullWgSize = PRIMITIVE_CULL_WG_SIZE;
     constexpr uint32_t primitiveCullMaxCommands = PRIMITIVE_CULL_MAX_COMMANDS;
+    constexpr uint32_t depthPyramidWgSize = DEPTH_PYRAMID_WG_SIZE;
 
     constexpr uint32_t taskWgSize = TASK_WG_SIZE;
     constexpr uint32_t meshWgSize = MESH_WG_SIZE;

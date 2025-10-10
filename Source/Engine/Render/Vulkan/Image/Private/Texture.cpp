@@ -4,7 +4,7 @@
 
 Texture::Texture(ImageDescription imageDescription, const VulkanContext& vulkanContext)
     : image{ std::move(imageDescription), vulkanContext }
-    , view{ image, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext }
+    , view{ image, VK_IMAGE_ASPECT_COLOR_BIT, 0, imageDescription.mipLevelsCount, vulkanContext }
 {}
 
 Texture::Texture(ImageDescription imageDescription, SamplerDescription samplerDescription,

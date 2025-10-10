@@ -83,9 +83,9 @@ std::tuple<VkDescriptorSet, DescriptorSetLayout> DescriptorSetBuilder::Build()
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const RenderTarget& renderTarget,
-    const VkImageLayout aLayout, const VkShaderStageFlags shaderStages)
+    const uint32_t mipLevel, const VkImageLayout aLayout, const VkShaderStageFlags shaderStages)
 {
-    return Bind(binding, renderTarget.view, aLayout, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, shaderStages);
+    return Bind(binding, renderTarget.views[mipLevel], aLayout, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, shaderStages);
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const Texture& texture,
@@ -132,9 +132,9 @@ DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const I
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const RenderTarget& renderTarget,
-    const VkImageLayout aLayout)
+    const uint32_t mipLevel, const VkImageLayout aLayout)
 {
-    return Bind(binding, renderTarget.view, aLayout);
+    return Bind(binding, renderTarget.views[mipLevel], aLayout);
 }
 
 DescriptorSetBuilder& DescriptorSetBuilder::Bind(const uint32_t binding, const Texture& texture)
@@ -246,10 +246,10 @@ std::vector<VkDescriptorSet> ReflectiveDescriptorSetBuilder::Build()
 }
 
 ReflectiveDescriptorSetBuilder& ReflectiveDescriptorSetBuilder::Bind(const std::string_view name,
-    const RenderTarget& renderTarget, VkImageLayout layout)
+    const RenderTarget& renderTarget, const uint32_t mipLevel, VkImageLayout layout)
 {
     const auto [builder, bindingReflection] = GetBuilderAndBinding(name);
-    builder->Bind(bindingReflection->index, renderTarget, layout);
+    builder->Bind(bindingReflection->index, renderTarget, mipLevel, layout);
     
     return *this;
 }

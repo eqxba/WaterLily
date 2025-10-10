@@ -55,6 +55,4 @@ private:
     
     RendererType rendererType;
     Renderer* renderer = nullptr;
-
-    VkQueryPool queryPool = VK_NULL_HANDLE;
 };

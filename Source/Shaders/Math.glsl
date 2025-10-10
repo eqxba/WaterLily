@@ -56,4 +56,12 @@ bool sphereNdcExtents(vec3 center, float radius, float p00, float p11, float nea
     return true;
 }
 
+vec2 ndcToUv(vec2 p)
+{
+    vec2 uv = p * 0.5 + 0.5;
+    uv.y = 1.0 - uv.y;
+    
+    return uv;
+}
+
 #endif

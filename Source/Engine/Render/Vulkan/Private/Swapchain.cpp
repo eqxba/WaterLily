@@ -68,10 +68,10 @@ namespace SwapchainDetails
         return availableFormats.front();
     }
 
-    static VkPresentModeKHR SelectPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+    static VkPresentModeKHR SelectPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes, const bool vSync)
     {
-        const auto isPreferredPresentMode = [](const auto& presentMode) {
-            return presentMode == VK_PRESENT_MODE_MAILBOX_KHR;
+        const auto isPreferredPresentMode = [vSync](const auto& presentMode) {
+            return presentMode == vSync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
         };
 
         const auto it = std::ranges::find_if(availablePresentModes, isPreferredPresentMode);
@@ -120,7 +120,7 @@ namespace SwapchainDetails
     }
 
     static VkSwapchainKHR CreateSwapchain(const VulkanContext& vulkanContext, const SwapchainSupportDetails& supportDetails, 
-        const VkSurfaceCapabilitiesKHR& capabilities, const VkSurfaceFormatKHR surfaceFormat, const VkExtent2D extent)
+        const VkSurfaceCapabilitiesKHR& capabilities, const VkSurfaceFormatKHR surfaceFormat, const VkExtent2D extent, const bool vSync)
     {
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -150,7 +150,7 @@ namespace SwapchainDetails
 
         createInfo.preTransform = capabilities.currentTransform;
         createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        createInfo.presentMode = SelectPresentMode(supportDetails.presentModes);
+        createInfo.presentMode = SelectPresentMode(supportDetails.presentModes, vSync);
         createInfo.clipped = VK_TRUE;
         // TODO: Create swapchain with the use of the old one
         createInfo.oldSwapchain = VK_NULL_HANDLE;
@@ -189,7 +189,7 @@ namespace SwapchainDetails
     }
 }
 
-Swapchain::Swapchain(const VkExtent2D& requiredExtentInPixels, const VulkanContext& aVulkanContext)
+Swapchain::Swapchain(const VkExtent2D& requiredExtentInPixels, const bool vSync, const VulkanContext& aVulkanContext)
     : vulkanContext{aVulkanContext}
 {
     using namespace SwapchainDetails;
@@ -197,7 +197,7 @@ Swapchain::Swapchain(const VkExtent2D& requiredExtentInPixels, const VulkanConte
     supportDetails = GetSwapchainSupportDetails(vulkanContext);
     surfaceFormat = SelectSurfaceFormat(supportDetails.formats);
 
-    Create(requiredExtentInPixels);
+    Create(requiredExtentInPixels, vSync);
 }
 
 Swapchain::~Swapchain()
@@ -205,20 +205,20 @@ Swapchain::~Swapchain()
     Cleanup();
 }
 
-void Swapchain::Recreate(const VkExtent2D& requiredExtentInPixels)
+void Swapchain::Recreate(const VkExtent2D& requiredExtentInPixels, const bool vSync)
 {
     Cleanup();
-    Create(requiredExtentInPixels);
+    Create(requiredExtentInPixels, vSync);
 }
 
-void Swapchain::Create(const VkExtent2D& requiredExtentInPixels)
+void Swapchain::Create(const VkExtent2D& requiredExtentInPixels, const bool vSync)
 {
     using namespace SwapchainDetails;
 
     const VkSurfaceCapabilitiesKHR surfaceCapabilities = GetSurfaceCapabilities(vulkanContext);
     extent = SelectExtent(surfaceCapabilities, requiredExtentInPixels);
 
-    swapchain = CreateSwapchain(vulkanContext, supportDetails, surfaceCapabilities, surfaceFormat, extent);
+    swapchain = CreateSwapchain(vulkanContext, supportDetails, surfaceCapabilities, surfaceFormat, extent, vSync);
 
     renderTargets = CreateRenderTargets(swapchain, GetRenderTargetDescription(), vulkanContext);
 }

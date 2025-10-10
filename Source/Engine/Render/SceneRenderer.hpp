@@ -5,6 +5,7 @@
 
 class VulkanContext;
 class EventSystem;
+class PrimitiveCullStage;
 class RenderStage;
 class Scene;
 
@@ -30,20 +31,19 @@ public:
     void Render(const Frame& frame) override;
 
 private:
+    void InitRuntimeDefineGetters();
+    
     void CreateRenderTargets();
     void DestroyRenderTargets();
     
     void CreateFramebuffers();
     void DestroyFramebuffers();
-    
-    void PrepareGlobalDefines();
 
     void OnBeforeSwapchainRecreated();
     void OnSwapchainRecreated();
     void OnTryReloadShaders();
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose();
-    void OnGlobalDefinesChanged();
     void OnMsaaSampleCountChanged();
 
     const VulkanContext* vulkanContext = nullptr;
@@ -52,7 +52,7 @@ private:
     
     RenderContext renderContext;
 
-    std::unique_ptr<RenderStage> primitiveCullStage;
+    std::unique_ptr<PrimitiveCullStage> primitiveCullStage;
     std::unique_ptr<RenderStage> forwardStage;
     std::unique_ptr<RenderStage> debugStage;
     

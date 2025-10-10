@@ -8,6 +8,8 @@ namespace PipelineUtils
 
     template<typename T>
     void PushConstants(const VkCommandBuffer commandBuffer, const Pipeline& pipeline, const std::string& name, const T& value);
+
+    uint32_t GroupCount(uint32_t threadCount, uint32_t groupSize);
 }
 
 template<typename T>

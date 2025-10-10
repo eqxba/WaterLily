@@ -1,0 +1,36 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive: require
+
+#include "Common.h"
+
+layout(local_size_x = DEPTH_PYRAMID_WG_SIZE, local_size_y = DEPTH_PYRAMID_WG_SIZE, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D srcDepth;
+layout(set = 0, binding = 1, r32f) uniform writeonly image2D dstDepth;
+
+layout(push_constant) uniform Constants
+{
+	vec2 dstSize;
+};
+
+// TODO: Alternative impl with filterMinMax available
+void main()
+{
+	uvec2 dstPos = gl_GlobalInvocationID.xy;
+
+    if (dstPos.x >= dstSize.x || dstPos.y >= dstSize.y)
+	{
+		return;
+	}
+
+    // It's actually not conservative on the first pass when we downsample original depth target
+    // into previous power of 2 (depth pyramid mip0), but now I'm ok with that
+    // see https://github.com/zeux/niagara/discussions/50
+
+    // It's ok for gather to go out of bounds bc we have address mode set to clamp to edge
+    vec4 depth = textureGather(srcDepth, (vec2(dstPos) + 0.5) / dstSize, 0);
+    float minDepth = min(min(depth.x, depth.y), min(depth.z, depth.w));
+
+    imageStore(dstDepth, ivec2(dstPos), vec4(minDepth));
+}

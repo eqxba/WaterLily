@@ -13,3 +13,8 @@ void PipelineUtils::PushConstants(const VkCommandBuffer commandBuffer, const Pip
     vkCmdPushConstants(commandBuffer, pipeline.GetLayout(), range.stageFlags, range.offset,
         static_cast<uint32_t>(data.size()), data.data());
 }
+
+uint32_t PipelineUtils::GroupCount(const uint32_t threadCount, const uint32_t groupSize)
+{
+    return static_cast<uint32_t>(std::ceil(static_cast<float>(threadCount) / static_cast<float>(groupSize)));
+}

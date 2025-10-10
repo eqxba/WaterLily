@@ -6,17 +6,22 @@ namespace SamplerDetails
 {
     static VkSampler CreateSampler(const SamplerDescription& description, const VulkanContext& vulkanContext)
     {
-        // TODO: More parameters to description
+        const VkSamplerReductionModeCreateInfoEXT samplerReductionModeCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT,
+            .pNext = nullptr,
+            .reductionMode = description.reductionMode };
+        
         const VkSamplerCreateInfo samplerInfo = {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .magFilter = VK_FILTER_LINEAR,
-            .minFilter = VK_FILTER_LINEAR,
-            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-            .addressModeU = description.addressMode[0],
-            .addressModeV = description.addressMode[1],
-            .addressModeW = description.addressMode[2],
+            .pNext = description.reductionMode != VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT ? &samplerReductionModeCreateInfo : nullptr,
+            .magFilter = description.filter,
+            .minFilter = description.filter,
+            .mipmapMode = description.mipmapMode,
+            .addressModeU = description.addressMode,
+            .addressModeV = description.addressMode,
+            .addressModeW = description.addressMode,
             .mipLodBias = 0.0f,
-            .anisotropyEnable = VK_TRUE,
+            .anisotropyEnable = description.mipmapMode == VK_SAMPLER_MIPMAP_MODE_LINEAR,
             .maxAnisotropy = description.maxAnisotropy,
             .compareEnable = VK_FALSE,
             .compareOp = VK_COMPARE_OP_ALWAYS,

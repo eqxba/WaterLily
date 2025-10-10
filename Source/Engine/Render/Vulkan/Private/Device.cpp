@@ -150,7 +150,10 @@ namespace DeviceDetails
         VkPhysicalDeviceProperties deviceProperties;
         vkGetPhysicalDeviceProperties(*it, &deviceProperties);
 
-        LogI << "Selected physical device: " << deviceProperties.deviceName << std::endl;
+        LogI << "Selected physical device: " << deviceProperties.deviceName << "\nVulkan API "
+            << VK_API_VERSION_MAJOR(deviceProperties.apiVersion) << '.'
+            << VK_API_VERSION_MINOR(deviceProperties.apiVersion) << '.'
+            << VK_API_VERSION_PATCH(deviceProperties.apiVersion) << '\n';
 
         return { *it, deviceProperties };
     }
@@ -203,7 +206,8 @@ namespace DeviceDetails
             .pNext = &deviceFeatures11,
             .drawIndirectCount = properties.drawIndirectCountSupported,
             .storageBuffer8BitAccess = VK_TRUE,
-            .shaderInt8 = VK_TRUE };
+            .shaderInt8 = VK_TRUE,
+            .samplerFilterMinmax = properties.samplerFilterMinmaxSupported };
 
         VkPhysicalDeviceFeatures2 deviceFeatures2 = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
@@ -336,4 +340,5 @@ void Device::InitProperties()
     const VkPhysicalDeviceVulkan12Features supported12Features = GetSupported12Features(physicalDevice);
     
     properties.drawIndirectCountSupported = supported12Features.drawIndirectCount;
+    properties.samplerFilterMinmaxSupported = supported12Features.samplerFilterMinmax;
 }

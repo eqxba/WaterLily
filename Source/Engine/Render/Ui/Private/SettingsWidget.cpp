@@ -11,6 +11,7 @@ namespace SettingsWidgetDetails
     constexpr float widgetWidth = 350.0f;
 
     static bool showDemoWindow = false;
+    static bool vSync = false;
 
     template <typename T>
     void Combo(const char* label, const std::span<const T> options, std::function<T()> get, std::function<void(T)> set)
@@ -44,12 +45,22 @@ namespace SettingsWidgetDetails
             ImGui::EndCombo();
         }
     }
+
+    void Checkbox(const char* label, bool* shadowValue, std::function<void(bool)> set)
+    {
+        if (ImGui::Checkbox(label, shadowValue))
+        {
+            set(*shadowValue);
+        }
+    }
 }
 
 SettingsWidget::SettingsWidget(const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
     , renderOptions{ &RenderOptions::Get() }
 {
+    SettingsWidgetDetails::vSync = renderOptions->GetVSync();
+    
     std::ranges::copy_if(OptionValues::graphicsPipelineTypes, std::back_inserter(supportedGraphicsPipelineTypes),
         [&](const GraphicsPipelineType type) { return renderOptions->IsGraphicsPipelineTypeSupported(type); });
     std::ranges::copy_if(OptionValues::msaaSampleCounts, std::back_inserter(supportedMsaaSampleCounts),
@@ -75,6 +86,8 @@ void SettingsWidget::Build()
     
     if (ImGui::CollapsingHeader("Render options", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        Checkbox("VSync", &vSync, [&](const bool vSync) { renderOptions->SetVSync(vSync); });
+        
         Combo<RendererType>("Renderer", OptionValues::rendererTypes,
             [&]() { return renderOptions->GetRendererType(); },
             [&](auto type) { renderOptions->SetRendererType(type); });
@@ -94,6 +107,12 @@ void SettingsWidget::Build()
             Combo<VkSampleCountFlagBits>("MSAA sample count", supportedMsaaSampleCounts,
                 [&]() { return renderOptions->GetMsaaSampleCount(); },
                 [&](auto count) { renderOptions->SetMsaaSampleCount(count); });
+            
+            int depthMipToVisualize = renderOptions->GetDepthMipToVisualize();
+            if (ImGui::SliderInt("Depth mip", &depthMipToVisualize, 0, renderOptions->GetMaxDepthMipToVisualize()))
+            {
+                renderOptions->SetDepthMipToVisualize(depthMipToVisualize);
+            }
         }
     }
     

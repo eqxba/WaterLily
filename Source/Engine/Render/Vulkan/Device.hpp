@@ -27,6 +27,7 @@ struct DeviceProperties
     bool meshShadersSupported = false;
     bool pipelineStatisticsQuerySupported = false;
     bool drawIndirectCountSupported = false;
+    bool samplerFilterMinmaxSupported = false;
 };
 
 class Device

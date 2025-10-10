@@ -24,7 +24,7 @@ public:
     // API for building layout and binding resources
     
     // Some helpers for high-level resources
-    DescriptorSetBuilder& Bind(uint32_t binding, const RenderTarget& renderTarget, VkImageLayout layout, VkShaderStageFlags shaderStages);
+    DescriptorSetBuilder& Bind(uint32_t binding, const RenderTarget& renderTarget, uint32_t mipLevel, VkImageLayout layout, VkShaderStageFlags shaderStages);
     DescriptorSetBuilder& Bind(uint32_t binding, const Texture& texture, VkShaderStageFlags shaderStages);
     
     DescriptorSetBuilder& Bind(uint32_t binding, const Buffer& buffer, VkDescriptorType type, VkShaderStageFlags shaderStages);
@@ -35,7 +35,7 @@ public:
     // API for binding resources when we already have the layout
     
     // Some helpers for high-level resources
-    DescriptorSetBuilder& Bind(uint32_t binding, const RenderTarget& renderTarget, VkImageLayout layout);
+    DescriptorSetBuilder& Bind(uint32_t binding, const RenderTarget& renderTarget, uint32_t mipLevel, VkImageLayout layout);
     DescriptorSetBuilder& Bind(uint32_t binding, const Texture& texture);
     
     DescriptorSetBuilder& Bind(uint32_t binding, const Buffer& buffer);
@@ -70,7 +70,7 @@ public:
     std::vector<VkDescriptorSet> Build();
     
     // Some helpers for high-level resources
-    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const RenderTarget& renderTarget, VkImageLayout layout);
+    ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const RenderTarget& renderTarget, uint32_t mipLevel, VkImageLayout layout);
     ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const Texture& texture);
     
     ReflectiveDescriptorSetBuilder& Bind(std::string_view name, const Buffer& buffer);

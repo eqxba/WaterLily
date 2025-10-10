@@ -4,8 +4,8 @@
 
 namespace ImageViewDetails
 {
-    static VkImageView CreateImageView(VkDevice device, VkImage image, const ImageDescription& description, 
-        VkImageAspectFlags aspectFlags)
+    static VkImageView CreateImageView(VkDevice device, VkImage image, const ImageDescription& description,
+        const VkImageAspectFlags aspectMask, const uint32_t baseMipLevel, const uint32_t levelCount)
     {
         VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -16,9 +16,9 @@ namespace ImageViewDetails
         createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.subresourceRange.aspectMask = aspectFlags;
-        createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = description.mipLevelsCount;
+        createInfo.subresourceRange.aspectMask = aspectMask;
+        createInfo.subresourceRange.baseMipLevel = baseMipLevel;
+        createInfo.subresourceRange.levelCount = levelCount;
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
@@ -30,15 +30,17 @@ namespace ImageViewDetails
     }
 }
 
-ImageView::ImageView(VkImage image, const ImageDescription& description, VkImageAspectFlags aspectFlags,
-    const VulkanContext& aVulkanContext)
+ImageView::ImageView(VkImage image, const ImageDescription& description, VkImageAspectFlags aAspectMask,
+    const uint32_t baseMipLevel, const uint32_t levelCount, const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
+    , aspectMask{ aAspectMask }
 {
-    imageView = ImageViewDetails::CreateImageView(vulkanContext->GetDevice(), image, description, aspectFlags);
+    imageView = ImageViewDetails::CreateImageView(vulkanContext->GetDevice(), image, description, aspectMask, baseMipLevel, levelCount);
 }
 
-ImageView::ImageView(const Image& image, VkImageAspectFlags aspectFlags, const VulkanContext& aVulkanContext)
-    : ImageView(image, image.GetDescription(), aspectFlags, aVulkanContext)
+ImageView::ImageView(const Image& image, VkImageAspectFlags aspectMask, const uint32_t baseMipLevel,
+    const uint32_t levelCount, const VulkanContext& aVulkanContext)
+    : ImageView(image, image.GetDescription(), aspectMask, baseMipLevel, levelCount, aVulkanContext)
 {}
 
 ImageView::~ImageView()
@@ -53,9 +55,11 @@ ImageView::~ImageView()
 ImageView::ImageView(ImageView&& other) noexcept
     : vulkanContext{ other.vulkanContext }
     , imageView{ other.imageView }
+    , aspectMask{ other.aspectMask }
 {
     other.vulkanContext = nullptr;
     other.imageView = VK_NULL_HANDLE;
+    other.aspectMask = VK_IMAGE_ASPECT_NONE;
 }
 
 ImageView& ImageView::operator=(ImageView&& other) noexcept
@@ -64,6 +68,7 @@ ImageView& ImageView::operator=(ImageView&& other) noexcept
     {
         std::swap(vulkanContext, other.vulkanContext);
         std::swap(imageView, other.imageView);
+        std::swap(aspectMask, other.aspectMask);
     }
     return *this;
 }

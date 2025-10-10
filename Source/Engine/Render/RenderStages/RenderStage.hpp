@@ -8,7 +8,7 @@
 class RenderStage
 {
 public:
-    RenderStage(const VulkanContext& vulkanContext, RenderContext& renderContext);
+    RenderStage(const VulkanContext& vulkanContext, const RenderContext& renderContext);
     virtual ~RenderStage();
     
     RenderStage(const RenderStage&) = delete;
@@ -17,43 +17,31 @@ public:
     RenderStage(RenderStage&&) = delete;
     RenderStage& operator=(RenderStage&&) = delete;
     
-    virtual void Prepare(const Scene& scene);
+    virtual void CreateRenderTargetDependentResources();
+    virtual void DestroyRenderTargetDependentResources();
+    
+    virtual void OnSceneOpen(const Scene& scene);
+    virtual void OnSceneClose();
     
     virtual void Execute(const Frame& frame);
     
-    virtual void RecreatePipelinesAndDescriptors();
+    virtual void RebuildDescriptors();
     
-    virtual void OnSceneClose();
-    
-    bool TryReloadShaders();
-    void ApplyReloadedShaders();
+    bool TryRebuildPipelines();
+    void ApplyRebuiltPipelines();
     
 protected:
-    struct ShaderInfo
-    {
-        std::string_view path;
-        VkShaderStageFlagBits shaderStage;
-        std::function<std::span<const ShaderDefine>()> definesGetter;
-    };
-
-    void CompileShaders();
+    using PipelineBuildFunction = std::function<Pipeline()>;
     
-    void AddShaderInfo(ShaderInfo shaderInfo);
-    const ShaderModule* GetShader(std::string_view path) const;
+    void AddPipeline(Pipeline& pipelineReference, PipelineBuildFunction buildFunction);
     
-    std::span<const ShaderDefine> GetGlobalDefines() const
-    {
-        return renderContext ? renderContext->globalDefines : std::span<const ShaderDefine>();
-    }
+    ShaderModule GetShader(std::string_view path, VkShaderStageFlagBits shaderStage,
+        std::span<std::string_view> runtimeDefines, std::span<const ShaderDefine> defines) const;
     
-    const VulkanContext* vulkanContext = nullptr;
-    const RenderContext* renderContext = nullptr;
+    const VulkanContext* const vulkanContext = nullptr;
+    const RenderContext* const renderContext = nullptr;
     
 private:
-    std::unordered_map<std::string_view, ShaderModule> CompileShadersImpl();
-    
-    std::vector<ShaderInfo> shaderInfos;
-    
-    std::unordered_map<std::string_view, ShaderModule> shaders;
-    std::unordered_map<std::string_view, ShaderModule> reloadedShaders;
+    std::vector<std::pair<Pipeline*, PipelineBuildFunction>> pipelineData;
+    std::vector<Pipeline> rebuiltPipelines;
 };

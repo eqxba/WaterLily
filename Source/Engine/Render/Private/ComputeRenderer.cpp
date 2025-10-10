@@ -98,7 +98,7 @@ void ComputeRenderer::Render(const Frame& frame)
 void ComputeRenderer::CreatePipeline(const ShaderModule& shaderModule)
 {
     computePipeline = ComputePipelineBuilder(*vulkanContext)
-        .SetShaderModule(&shaderModule)
+        .SetShaderModule(shaderModule)
         .Build();
 }
 
@@ -108,7 +108,7 @@ void ComputeRenderer::CreateDescriptors()
     
     descriptors = vulkanContext->GetDescriptorSetsManager()
         .GetReflectiveDescriptorSetBuilder(computePipeline, DescriptorScope::eComputeRenderer)
-        .Bind("renderTarget", renderTarget, VK_IMAGE_LAYOUT_GENERAL)
+        .Bind("renderTarget", renderTarget, 0, VK_IMAGE_LAYOUT_GENERAL)
         .Build();
 }
 
@@ -116,8 +116,6 @@ void ComputeRenderer::OnBeforeSwapchainRecreated()
 {
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eComputeRenderer);
     descriptors.clear();
-    
-    renderTarget.~RenderTarget();
 }
 
 void ComputeRenderer::OnSwapchainRecreated()

@@ -18,6 +18,11 @@ public:
 
     RenderPass(RenderPass&& other) noexcept;
     RenderPass& operator=(RenderPass&& other) noexcept;
+    
+    VkRenderPassBeginInfo GetBeginInfo(VkFramebuffer framebuffer);
+    
+    void Begin(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void End(VkCommandBuffer commandBuffer);
 
     bool IsValid() const
     {
@@ -33,8 +38,6 @@ public:
     {
         return defaultClearValues;
     }
-    
-    VkRenderPassBeginInfo GetBeginInfo(const VkFramebuffer framebuffer);
 
 private:
     const VulkanContext* vulkanContext = nullptr;
@@ -67,8 +70,9 @@ public:
     RenderPassBuilder& SetBindPoint(VkPipelineBindPoint bindPoint);
     RenderPassBuilder& SetMultisampling(VkSampleCountFlagBits sampleCount);
     RenderPassBuilder& AddColorAttachment(const AttachmentDescription& description);
-    RenderPassBuilder& AddColorAndResolveAttachments(const AttachmentDescription& colorDescription, const AttachmentDescription& resolveDescription);
+    RenderPassBuilder& AddColorAndResolveAttachments(const AttachmentDescription& description, const AttachmentDescription& resolveDescription);
     RenderPassBuilder& AddDepthStencilAttachment(const AttachmentDescription& description);
+    RenderPassBuilder& AddDepthStencilAndResolveAttachments(const AttachmentDescription& description, const AttachmentDescription& resolveDescription);
     RenderPassBuilder& SetPreviousBarriers(std::vector<PipelineBarrier> barriers);
     RenderPassBuilder& SetFollowingBarriers(std::vector<PipelineBarrier> barriers);
 
@@ -77,11 +81,14 @@ private:
 
     const VulkanContext* vulkanContext = nullptr;
 
-    std::vector<VkAttachmentDescription> attachments;
+    std::vector<VkAttachmentDescription2> attachments;
 
-    std::vector<VkAttachmentReference> colorAttachmentReferences;
-    std::vector<VkAttachmentReference> resolveAttachmentReferences;
-    std::optional<VkAttachmentReference> depthStencilAttachmentReference;
+    std::vector<VkAttachmentReference2> colorAttachmentReferences;
+    std::vector<VkAttachmentReference2> resolveAttachmentReferences;
+    std::optional<VkAttachmentReference2> depthStencilAttachmentReference;
+    std::optional<VkAttachmentReference2> depthStencilResolveAttachmentReference;
+    
+    std::optional<VkSubpassDescriptionDepthStencilResolve> depthStencilResolve;
     
     std::vector<VkClearValue> defaultClearValues;
     

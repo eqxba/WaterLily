@@ -68,6 +68,9 @@ private:
     void OnResize(const ES::WindowResized& event);
     void OnBeforeWindowRecreated();
     void OnWindowRecreated(const ES::WindowRecreated& event);
+    void OnVSyncChanged();
+    
+    void RecreateSwapchain(VkExtent2D requiredExtentInPixels, bool vSync);
 
     EventSystem& eventSystem;
 

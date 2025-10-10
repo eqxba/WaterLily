@@ -7,6 +7,7 @@
 #include "Engine/Render/Vulkan/VulkanConfig.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
 #include "Engine/Render/RenderStages/DebugStage.hpp"
+#include "Engine/Render/Vulkan/Image/ImageUtils.hpp"
 #include "Engine/Render/Vulkan/Buffer/BufferUtils.hpp"
 #include "Engine/Render/RenderStages/ForwardStage.hpp"
 #include "Engine/Render/RenderStages/PrimitiveCullStage.hpp"
@@ -25,35 +26,40 @@ namespace SceneRendererDetails
         Scene::SetTotalTriangles(totalTriangles);
     }
 
-    static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
+    static RenderPass CreateFirstRenderPass(const VulkanContext& vulkanContext)
     {
+        const VkSampleCountFlagBits sampleCount = RenderOptions::Get().GetMsaaSampleCount();
+        const bool singleSample = sampleCount == VK_SAMPLE_COUNT_1_BIT; // Rendering into swapchain directly
+        
         AttachmentDescription colorAttachmentDescription = {
             .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .initialLayout = singleSample ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .defaultClearValue = { .color = { { 0.73f, 0.95f, 1.0f, 1.0f } } } };
         
-        AttachmentDescription resolveAttachmentDescription = {
-            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-        
         AttachmentDescription depthStencilAttachmentDescription = {
             .format = VulkanConfig::depthImageFormat,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .finalLayout = singleSample ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .defaultClearValue = { .depthStencil = { 0.0f, 0 } } };
+        
+        AttachmentDescription depthStencilResolveAttachmentDescription = {
+            .format = VulkanConfig::depthImageFormat,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // We're building depth pyramid from it
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }; // So we'll need to read from it
         
         std::vector<PipelineBarrier> previousBarriers = { {
             // Wait for any previous depth output
@@ -67,22 +73,74 @@ namespace SceneRendererDetails
             .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
         
-        std::vector<PipelineBarrier> followingBarriers = { {
-            // Make UI renderer wait for our color output
+        auto builder = RenderPassBuilder(vulkanContext)
+            .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
+            .SetMultisampling(sampleCount)
+            .AddColorAttachment(colorAttachmentDescription);
+        
+        if (singleSample)
+        {
+            builder.AddDepthStencilAttachment(depthStencilAttachmentDescription);
+        }
+        else
+        {
+            builder.AddDepthStencilAndResolveAttachments(depthStencilAttachmentDescription, depthStencilResolveAttachmentDescription);
+        }
+        
+        return builder
+            .SetPreviousBarriers(std::move(previousBarriers))
+            .Build();
+    }
+
+    static RenderPass CreateSecondRenderPass(const VulkanContext& vulkanContext)
+    {
+        const VkSampleCountFlagBits sampleCount = RenderOptions::Get().GetMsaaSampleCount();
+        const bool singleSample = sampleCount == VK_SAMPLE_COUNT_1_BIT;
+        
+        AttachmentDescription colorAttachmentDescription = {
+            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD, // Load in the 2nd pass
+            .storeOp = singleSample ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+        
+        AttachmentDescription resolveAttachmentDescription = {
+            .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+        
+        AttachmentDescription depthStencilAttachmentDescription = {
+            .format = VulkanConfig::depthImageFormat,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = singleSample ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .actualLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+        
+        std::vector<PipelineBarrier> previousBarriers = { {
+            // Wait for any previous depth output
+            .srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }, {
+            // Wait for any previous color output
             .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
-
-        const VkSampleCountFlagBits sampleCount = RenderOptions::Get().GetMsaaSampleCount();
         
         auto builder = RenderPassBuilder(vulkanContext)
             .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
             .SetMultisampling(sampleCount);
         
-        // Use separate color attachment only when we use MSAA, otherwise render directly into swapchain
-        // Swapchain images always have 1 sample and we do not provide resolve attachment in that case
-        if (sampleCount == VK_SAMPLE_COUNT_1_BIT)
+        // Render directly into swapchain, use separate color + resolve pair only when we use MSAA (swapchain RT is always 1 sample)
+        if (singleSample)
         {
             builder.AddColorAttachment(colorAttachmentDescription);
         }
@@ -94,7 +152,6 @@ namespace SceneRendererDetails
         return builder
             .AddDepthStencilAttachment(depthStencilAttachmentDescription)
             .SetPreviousBarriers(std::move(previousBarriers))
-            .SetFollowingBarriers(std::move(followingBarriers))
             .Build();
     }
 
@@ -195,6 +252,13 @@ namespace SceneRendererDetails
 
         renderContext.drawBuffer = Buffer(drawBufferDescription, true, drawSpan, vulkanContext);
         
+        const BufferDescription drawsVisibilityBufferDescription = {
+            .size = draws.size() * sizeof(uint32_t),
+            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+
+        renderContext.drawsVisibilityBuffer = Buffer(drawsVisibilityBufferDescription, false, vulkanContext);
+        
         // TODO: We always create this one, but can skip if we implement compile time switch for debug features
         // And/or we can create it lazily
         const BufferDescription drawDebugDataBufferDescription = {
@@ -202,7 +266,7 @@ namespace SceneRendererDetails
             .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
-        renderContext.drawDebugDataBuffer = Buffer(drawDebugDataBufferDescription, false, vulkanContext);
+        renderContext.drawsDebugDataBuffer = Buffer(drawDebugDataBufferDescription, false, vulkanContext);
     }
 
     static glm::vec4 NormalizePlane(const glm::vec4 plane)
@@ -215,12 +279,10 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     : vulkanContext{ &aVulkanContext }
     , eventSystem{ &aEventSystem }
 {
-    renderContext.renderPass = SceneRendererDetails::CreateRenderPass(*vulkanContext);
+    renderContext.firstRenderPass = SceneRendererDetails::CreateFirstRenderPass(*vulkanContext);
+    renderContext.secondRenderPass = SceneRendererDetails::CreateSecondRenderPass(*vulkanContext);
     
-    CreateRenderTargets();
-    CreateFramebuffers();
-    
-    PrepareGlobalDefines();
+    InitRuntimeDefineGetters();
 
     primitiveCullStage = std::make_unique<PrimitiveCullStage>(*vulkanContext, renderContext);
     forwardStage = std::make_unique<ForwardStage>(*vulkanContext, renderContext);
@@ -229,14 +291,19 @@ SceneRenderer::SceneRenderer(EventSystem& aEventSystem, const VulkanContext& aVu
     renderStages.push_back(primitiveCullStage.get());
     renderStages.push_back(forwardStage.get());
     renderStages.push_back(debugStage.get());
+    
+    CreateRenderTargets();
+    CreateFramebuffers();
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &SceneRenderer::OnBeforeSwapchainRecreated);
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &SceneRenderer::OnSwapchainRecreated);
     eventSystem->Subscribe<ES::TryReloadShaders>(this, &SceneRenderer::OnTryReloadShaders);
     eventSystem->Subscribe<ES::SceneOpened>(this, &SceneRenderer::OnSceneOpen);
     eventSystem->Subscribe<ES::SceneClosed>(this, &SceneRenderer::OnSceneClose);
-    eventSystem->Subscribe<RenderOptions::GraphicsPipelineTypeChanged>(this, &SceneRenderer::OnGlobalDefinesChanged);
-    eventSystem->Subscribe<RenderOptions::VisualizeLodsChanged>(this, &SceneRenderer::OnGlobalDefinesChanged);
+    
+    // Runtime defines
+    eventSystem->Subscribe<RenderOptions::GraphicsPipelineTypeChanged>(this, &SceneRenderer::OnTryReloadShaders);
+    eventSystem->Subscribe<RenderOptions::VisualizeLodsChanged>(this, &SceneRenderer::OnTryReloadShaders);
     eventSystem->Subscribe<RenderOptions::MsaaSampleCountChanged>(this, &SceneRenderer::OnMsaaSampleCountChanged);
 }
 
@@ -300,15 +367,50 @@ void SceneRenderer::Render(const Frame& frame)
         return;
     }
     
-    primitiveCullStage->Execute(frame);
+    const bool msaaEnabled = VK_SAMPLE_COUNT_1_BIT != RenderOptions::Get().GetMsaaSampleCount();
+    const bool freezeCamera = RenderOptions::Get().GetFreezeCamera();
     
-    const VkRenderPassBeginInfo beginInfo = renderContext.renderPass.GetBeginInfo(renderContext.framebuffers[frame.swapchainImageIndex]);
-    vkCmdBeginRenderPass(frame.commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    const VkFramebuffer firstPassFramebuffer = renderContext.firstPassFramebuffers[msaaEnabled ? 0 : frame.swapchainImageIndex];
+    const VkFramebuffer secondPassFramebuffer = renderContext.secondPassFramebuffers[frame.swapchainImageIndex];
     
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eFirstPassBegin);
+    
+    primitiveCullStage->ExecuteFirstPass(frame);
+    
+    renderContext.firstRenderPass.Begin(frame.commandBuffer, firstPassFramebuffer);
     forwardStage->Execute(frame);
-    debugStage->Execute(frame);
+    renderContext.firstRenderPass.End(frame.commandBuffer);
     
-    vkCmdEndRenderPass(frame.commandBuffer);
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eFirstPassEnd);
+    
+    if (!freezeCamera)
+    {
+        primitiveCullStage->BuildDepthPyramid(frame);
+    }
+        
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eDepthPyramidEnd);
+        
+    if (!freezeCamera)
+    {
+        primitiveCullStage->ExecuteSecondPass(frame);
+    }
+    
+    renderContext.secondRenderPass.Begin(frame.commandBuffer, secondPassFramebuffer);
+    
+    if (!freezeCamera)
+    {
+        forwardStage->Execute(frame);
+    }
+    
+    debugStage->Execute(frame); // TODO: Not a separate stage, just debug objects in the scene
+    renderContext.secondRenderPass.End(frame.commandBuffer);
+    
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eSecondPassEnd);
+    
+    if (RenderOptions::Get().GetVisualizeDepth())
+    {
+        primitiveCullStage->VisualizeDepth(frame);
+    }
 }
 
 void SceneRenderer::CreateRenderTargets()
@@ -336,62 +438,118 @@ void SceneRenderer::CreateRenderTargets()
         .mipLevelsCount = 1,
         .samples = sampleCount,
         .format = VulkanConfig::depthImageFormat,
-        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // rEMOVE SAMPLeD !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
     
     renderContext.depthTarget = RenderTarget(depthTargetDescription, VK_IMAGE_ASPECT_DEPTH_BIT, *vulkanContext);
+    
+    // Create depth resolve target only when we use MSAA, we'll need it for depth pyramid build
+    if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
+    {
+        ImageDescription depthResolveTargetDescription = {
+            .extent = { swapchainExtent.width, swapchainExtent.height, 1 },
+            .mipLevelsCount = 1,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .format = VulkanConfig::depthImageFormat,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
+        
+        renderContext.depthResolveTarget = RenderTarget(depthResolveTargetDescription, VK_IMAGE_ASPECT_DEPTH_BIT, *vulkanContext);
+    }
+    
+    vulkanContext->GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer cmd) {
+        if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
+        {
+            ImageUtils::TransitionLayout(cmd, renderContext.colorTarget, LayoutTransitions::undefinedToColorAttachmentOptimal, {
+                .srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, .srcAccessMask = VK_ACCESS_NONE,
+                .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT });
+        }
+        
+        ImageUtils::TransitionLayout(cmd, renderContext.depthTarget, LayoutTransitions::undefinedToDepthStencilAttachmentOptimal, {
+            .srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, .srcAccessMask = VK_ACCESS_NONE,
+            .dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT });
+        
+        if (sampleCount != VK_SAMPLE_COUNT_1_BIT)
+        {
+            ImageUtils::TransitionLayout(cmd, renderContext.depthResolveTarget, LayoutTransitions::undefinedToShaderReadOnlyOptimal, {
+                .srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, .srcAccessMask = VK_ACCESS_NONE,
+                .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT });
+        }
+    });
+    
+    std::ranges::for_each(renderStages, &RenderStage::CreateRenderTargetDependentResources);
 }
 
 void SceneRenderer::DestroyRenderTargets()
 {
+    vulkanContext->GetDevice().WaitIdle();
+    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
+    
+    std::ranges::for_each(renderStages, &RenderStage::DestroyRenderTargetDependentResources);
+    
     renderContext.colorTarget = {};
     renderContext.depthTarget = {};
+    renderContext.depthResolveTarget = {};
 }
 
+// TODO: This is too unereadable at this point, split into 2 functions
 void SceneRenderer::CreateFramebuffers()
 {
+    using namespace VulkanUtils;
+    
     const Swapchain& swapchain = vulkanContext->GetSwapchain();
     const bool msaaEnabled = VK_SAMPLE_COUNT_1_BIT != RenderOptions::Get().GetMsaaSampleCount();
 
-    std::vector<VkImageView> attachments = { VK_NULL_HANDLE /* for swapchain RT */, renderContext.depthTarget.view };
-    
-    if (msaaEnabled)
-    {
-        attachments.insert(attachments.begin(), renderContext.colorTarget.view);
-    }
+    std::vector<VkImageView> attachments = { VK_NULL_HANDLE /* for swapchain RT */, renderContext.depthTarget.views[0] };
     
     const auto createFrameBuffer = [&](const RenderTarget& target) {
-        attachments[msaaEnabled ? 1 : 0] = target.view;
-        return VulkanUtils::CreateFrameBuffer(renderContext.renderPass, swapchain.GetExtent(), attachments, *vulkanContext);
+        attachments[msaaEnabled ? 1 : 0] = target.views[0];
+        return VulkanUtils::CreateFrameBuffer(renderContext.secondRenderPass, swapchain.GetExtent(), attachments, *vulkanContext);
     };
+    
+    // First pass framebuffers
+    if (msaaEnabled)
+    {
+        attachments[0] = renderContext.colorTarget.views[0];
+        attachments.push_back(renderContext.depthResolveTarget.views[0]);
+        renderContext.firstPassFramebuffers.push_back(CreateFrameBuffer(renderContext.firstRenderPass, swapchain.GetExtent(), attachments, *vulkanContext));
+        attachments.pop_back();
+    }
+    else
+    {
+        std::ranges::transform(swapchain.GetRenderTargets(), std::back_inserter(renderContext.firstPassFramebuffers), createFrameBuffer);
+    }
+    
+    // Second pass framebuffers
+    if (msaaEnabled)
+    {
+        attachments.insert(attachments.begin(), renderContext.colorTarget.views[0]);
+    }
 
-    // See CreateRenderPass for attachments usage details
-    std::ranges::transform(swapchain.GetRenderTargets(), std::back_inserter(renderContext.framebuffers), createFrameBuffer);
+    std::ranges::transform(swapchain.GetRenderTargets(), std::back_inserter(renderContext.secondPassFramebuffers), createFrameBuffer);
 }
 
 void SceneRenderer::DestroyFramebuffers()
 {
-    VulkanUtils::DestroyFramebuffers(renderContext.framebuffers, *vulkanContext);
+    VulkanUtils::DestroyFramebuffers(renderContext.firstPassFramebuffers, *vulkanContext);
+    VulkanUtils::DestroyFramebuffers(renderContext.secondPassFramebuffers, *vulkanContext);
 }
 
-void SceneRenderer::PrepareGlobalDefines()
+void SceneRenderer::InitRuntimeDefineGetters()
 {
-    const RenderOptions& renderOptions = RenderOptions::Get();
+    using namespace gpu::defines;
+    
     const DeviceProperties& deviceProperties = vulkanContext->GetDevice().GetProperties();
+    std::unordered_map<std::string_view, std::function<int()>>& runtimeDefineGetters = renderContext.runtimeDefineGetters;
     
-    // TODO: Defines storage structures
-    renderContext.visualizeLods = renderOptions.GetVisualizeLods();
-    renderContext.graphicsPipelineType = renderOptions.GetGraphicsPipelineType();
-    
-    renderContext.globalDefines.clear();
-    
-    renderContext.globalDefines.emplace_back(gpu::defines::meshPipeline, renderContext.graphicsPipelineType == GraphicsPipelineType::eMesh ? "1" : "0");
-    renderContext.globalDefines.emplace_back(gpu::defines::drawIndirectCount, deviceProperties.drawIndirectCountSupported ? "1" : "0");
-    renderContext.globalDefines.emplace_back(gpu::defines::visualizeLods, renderContext.visualizeLods ? "1" : "0");
+    runtimeDefineGetters.emplace(meshPipeline, []() { return RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh; });
+    runtimeDefineGetters.emplace(drawIndirectCount, [=]() { return deviceProperties.drawIndirectCountSupported; });
+    runtimeDefineGetters.emplace(visualizeLods, []() { return RenderOptions::Get().GetVisualizeLods(); });
 }
 
 void SceneRenderer::OnBeforeSwapchainRecreated()
-{
+{    
     DestroyFramebuffers();
     DestroyRenderTargets();
 }
@@ -404,12 +562,12 @@ void SceneRenderer::OnSwapchainRecreated()
 
 void SceneRenderer::OnTryReloadShaders()
 {
-    if (std::ranges::all_of(renderStages, &RenderStage::TryReloadShaders))
+    if (std::ranges::all_of(renderStages, &RenderStage::TryRebuildPipelines))
     {
         vulkanContext->GetDevice().WaitIdle();
         vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
         
-        std::ranges::for_each(renderStages, &RenderStage::ApplyReloadedShaders);
+        std::ranges::for_each(renderStages, &RenderStage::ApplyRebuiltPipelines);
     }
 }
 
@@ -441,12 +599,18 @@ void SceneRenderer::OnSceneOpen(const ES::SceneOpened& event)
             renderContext.meshletBuffer);
     }
     
-    std::ranges::for_each(renderStages, [&](RenderStage* stage) { stage->Prepare(*scene); });
+    vulkanContext->GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer cmd) {
+        vkCmdFillBuffer(cmd, renderContext.drawsVisibilityBuffer, 0, VK_WHOLE_SIZE, 0);
+        SynchronizationUtils::SetMemoryBarrier(cmd, Barriers::transferWriteToComputeRead);
+    });
+    
+    std::ranges::for_each(renderStages, [&](RenderStage* stage) { stage->OnSceneOpen(*scene); });
 }
 
 void SceneRenderer::OnSceneClose()
 {
     vulkanContext->GetDevice().WaitIdle();
+    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
 
     renderContext.vertexBuffer = {};
     renderContext.indexBuffer = {};
@@ -461,25 +625,18 @@ void SceneRenderer::OnSceneClose()
     renderContext.drawBuffer = {};
     renderContext.commandCountBuffer = {};
     renderContext.commandBuffer = {};
-
-    vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eSceneRenderer);
     
     std::ranges::for_each(renderStages, &RenderStage::OnSceneClose);
     
     scene = nullptr;
 }
 
-void SceneRenderer::OnGlobalDefinesChanged()
-{
-    PrepareGlobalDefines();
-    eventSystem->Fire<ES::TryReloadShaders>();
-}
-
 void SceneRenderer::OnMsaaSampleCountChanged()
 {
     vulkanContext->GetDevice().WaitIdle();
     
-    renderContext.renderPass = SceneRendererDetails::CreateRenderPass(*vulkanContext);
+    renderContext.firstRenderPass = SceneRendererDetails::CreateFirstRenderPass(*vulkanContext);
+    renderContext.secondRenderPass = SceneRendererDetails::CreateSecondRenderPass(*vulkanContext);
     
     DestroyFramebuffers();
     DestroyRenderTargets();
@@ -487,5 +644,5 @@ void SceneRenderer::OnMsaaSampleCountChanged()
     CreateRenderTargets();
     CreateFramebuffers();
     
-    std::ranges::for_each(renderStages, &RenderStage::RecreatePipelinesAndDescriptors);
+    OnTryReloadShaders();
 }

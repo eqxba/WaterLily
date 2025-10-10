@@ -91,6 +91,16 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
         SetVisualizeBoundingRectangles(!_VisualizeBoundingRectangles);
     }
     
+    if (event.key == Key::eRightBracket && event.action == KeyAction::ePress)
+    {
+        SetShowExtraGpuTimings(!_ShowExtraGpuTimings);
+    }
+    
+    if (event.key == Key::eF3 && event.action == KeyAction::ePress)
+    {
+        SetVisualizeDepth(!_VisualizeDepth);
+    }
+    
     if (event.key == Key::eT && event.action == KeyAction::ePress)
     {
         SetTestBool(!_TestBool);

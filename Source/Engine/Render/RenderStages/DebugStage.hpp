@@ -9,26 +9,25 @@ public:
     DebugStage(const VulkanContext& vulkanContext, RenderContext& renderContext);
     ~DebugStage() override;
     
-    void Prepare(const Scene& scene) override;
+    void OnSceneOpen(const Scene& scene) override;
+    void OnSceneClose() override;
     
     void Execute(const Frame& frame) override;
     
-    void RecreatePipelinesAndDescriptors() override;
-    
-    void OnSceneClose() override;
+    void RebuildDescriptors() override;
     
 private:
     void ExecuteBoundingSpheres(const Frame& frame);
     void ExecuteBoundingRectangles(const Frame& frame);
     void ExecuteFrozenFrustum(const Frame& frame);
     
-    Pipeline CreateBoundingSpherePipeline();
-    void CreateBoundingSphereDescriptors();
+    Pipeline BuildBoundingSpherePipeline();
+    void BuildBoundingSphereDescriptors();
     
-    Pipeline CreateBoundingRectanglePipeline();
-    void CreateBoundingRectangleDescriptors();
+    Pipeline BuildBoundingRectanglePipeline();
+    void BuildBoundingRectangleDescriptors();
     
-    Pipeline CreateLinePipeline();
+    Pipeline BuildLinePipeline();
     
     Pipeline boundingSpherePipeline;
     std::vector<VkDescriptorSet> boundingSphereDescriptors;
