@@ -143,13 +143,9 @@ void ImageUtils::GenerateMipMaps(const VkCommandBuffer commandBuffer, const Text
     const uint32_t mipLevelsCount = texture.image.GetDescription().mipLevelsCount;
     
     Assert(mipLevelsCount > 1);
-    
-    constexpr PipelineBarrier transferBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT };
 
     const auto generateNextMipLevel = [&](uint32_t sourceMip) {
-        TransitionLayout(commandBuffer, texture, texture.view.GetAspectMask(), dstOptimalToSrcOptimal, transferBarrier, sourceMip);
+        TransitionLayout(commandBuffer, texture, texture.view.GetAspectMask(), dstOptimalToSrcOptimal, Barriers::transferWriteToTransferRead, sourceMip);
         BlitImageToImage(commandBuffer, texture, texture, ToVkOffset3D(GetMipExtent(texture, sourceMip)),
             ToVkOffset3D(GetMipExtent(texture, sourceMip + 1)), sourceMip, sourceMip + 1);
     };
@@ -157,7 +153,7 @@ void ImageUtils::GenerateMipMaps(const VkCommandBuffer commandBuffer, const Text
     std::ranges::for_each(std::views::iota(static_cast<uint32_t>(0), texture.image.GetDescription().mipLevelsCount - 1),
         generateNextMipLevel);
     
-    TransitionLayout(commandBuffer, texture, texture.view.GetAspectMask(), dstOptimalToSrcOptimal, transferBarrier, mipLevelsCount - 1);
+    TransitionLayout(commandBuffer, texture, texture.view.GetAspectMask(), dstOptimalToSrcOptimal, Barriers::transferWriteToTransferRead, mipLevelsCount - 1);
 }
 
 void ImageUtils::FillImage(const VkCommandBuffer commandBuffer, const Image& image, const glm::vec4& color)
@@ -171,7 +167,7 @@ void ImageUtils::FillImage(const VkCommandBuffer commandBuffer, const Image& ima
         .baseArrayLayer = 0,
         .layerCount = 1, };
 
-    vkCmdClearColorImage(commandBuffer, image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+    vkCmdClearColorImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &clearRange);
 }
 
 uint32_t ImageUtils::MipLevelsCount(const VkExtent3D extent)

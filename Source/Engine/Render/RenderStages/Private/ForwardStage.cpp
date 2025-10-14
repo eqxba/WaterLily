@@ -91,7 +91,7 @@ Pipeline ForwardStage::BuildMeshPipeline()
         .SetPolygonMode(PolygonMode::eFill)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->firstRenderPass)
+        .SetRenderPass(RenderOptions::Get().GetOcclusionCulling() ? renderContext->firstRenderPass : renderContext->renderPass)
         .Build();
 }
 
@@ -114,7 +114,7 @@ Pipeline ForwardStage::BuildVertexPipeline()
         .SetCullMode(CullMode::eBack, false)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->firstRenderPass)
+        .SetRenderPass(RenderOptions::Get().GetOcclusionCulling() ? renderContext->firstRenderPass : renderContext->renderPass)
         .Build();
 }
 

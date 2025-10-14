@@ -56,6 +56,11 @@ bool RenderOptions::IsMsaaSampleCountSupported(const VkSampleCountFlagBits sampl
 
 void RenderOptions::OnKeyInput(const ES::KeyInput& event)
 {
+    if (event.key == Key::eV && event.action == KeyAction::ePress)
+    {
+        SetVSync(!_VSync);
+    }
+    
     if (event.key == Key::eF1 && event.action == KeyAction::ePress)
     {
         SetGraphicsPipelineType(GraphicsPipelineType::eMesh);
@@ -99,6 +104,11 @@ void RenderOptions::OnKeyInput(const ES::KeyInput& event)
     if (event.key == Key::eF3 && event.action == KeyAction::ePress)
     {
         SetVisualizeDepth(!_VisualizeDepth);
+    }
+    
+    if (event.key == Key::eO && event.action == KeyAction::ePress)
+    {
+        SetOcclusionCulling(!_OcclusionCulling);
     }
     
     if (event.key == Key::eT && event.action == KeyAction::ePress)

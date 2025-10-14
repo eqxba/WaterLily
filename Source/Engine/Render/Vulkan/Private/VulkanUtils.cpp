@@ -150,6 +150,25 @@ void VulkanUtils::DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, 
     framebuffers.clear();
 }
 
+std::vector<VkFramebuffer> VulkanUtils::CreateFramebuffers(const RenderPass& renderPass, const Swapchain& swapchain, std::vector<VkImageView>& attachments,
+    const VulkanContext& vulkanContext)
+{
+    auto swapchainTargetIt = std::find(attachments.begin(), attachments.end(), VK_NULL_HANDLE);
+    Assert(swapchainTargetIt != attachments.end());
+    
+    std::vector<VkFramebuffer> framebuffers;
+    
+    for (const RenderTarget& swapchainTarget : swapchain.GetRenderTargets())
+    {
+        *swapchainTargetIt = swapchainTarget.views[0];
+        framebuffers.push_back(CreateFrameBuffer(renderPass, swapchain.GetExtent(), attachments, vulkanContext));
+    }
+    
+    *swapchainTargetIt = VK_NULL_HANDLE;
+    
+    return framebuffers;
+}
+
 VkViewport VulkanUtils::GetViewport(const float width, const float height)
 {
     VkViewport viewport{};

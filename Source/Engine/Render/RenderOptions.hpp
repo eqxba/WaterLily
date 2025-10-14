@@ -29,7 +29,7 @@ public:
     
     // Getters and setters
     RENDER_OPTION(VSync, bool, true, AlwaysSupported)
-    RENDER_OPTION(RendererType, RendererType, RendererType::eScene, AlwaysSupported)
+    RENDER_OPTION(RendererType, RendererType, RendererType::eForward, AlwaysSupported)
     RENDER_OPTION(GraphicsPipelineType, GraphicsPipelineType, GraphicsPipelineType::eVertex, IsGraphicsPipelineTypeSupported)
     RENDER_OPTION(UseLods, bool, true, AlwaysSupported)
     RENDER_OPTION(VisualizeLods, bool, false, AlwaysSupported)
@@ -40,7 +40,8 @@ public:
     RENDER_OPTION(VisualizeBoundingSpheres, bool, false, AlwaysSupported)
     RENDER_OPTION(VisualizeBoundingRectangles, bool, false, AlwaysSupported)
     RENDER_OPTION(ShowExtraGpuTimings, bool, false, AlwaysSupported)
-    RENDER_OPTION(VisualizeDepth, bool, false, AlwaysSupported)
+    RENDER_OPTION(OcclusionCulling, bool, true, AlwaysSupported)
+    RENDER_OPTION(VisualizeDepth, bool, false, AlwaysSupported) // For HZB
     RENDER_OPTION(DepthMipToVisualize, uint32_t, 0, AlwaysSupported)
     RENDER_OPTION(MaxDepthMipToVisualize, uint32_t, 0, AlwaysSupported) // TODO: For UI, we need better max limit solution
     

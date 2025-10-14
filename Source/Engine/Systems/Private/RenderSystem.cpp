@@ -1,7 +1,7 @@
 #include "Engine/Systems/RenderSystem.hpp"
 
 #include "Engine/EventSystem.hpp"
-#include "Engine/Render/SceneRenderer.hpp"
+#include "Engine/Render/ForwardRenderer.hpp"
 #include "Engine/Render/Ui/UiRenderer.hpp"
 #include "Engine/Render/ComputeRenderer.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
@@ -36,7 +36,7 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     : vulkanContext{ &aVulkanContext }
     , renderOptions{ &RenderOptions::Get() }
     , eventSystem{ aEventSystem }
-    , sceneRenderer{ std::make_unique<SceneRenderer>(eventSystem, aVulkanContext) }
+    , forwardRenderer{ std::make_unique<ForwardRenderer>(eventSystem, aVulkanContext) }
     , computeRenderer{ std::make_unique<ComputeRenderer>(eventSystem, aVulkanContext) }
     , uiRenderer{ std::make_unique<UiRenderer>(window, eventSystem, aVulkanContext) }
 {
@@ -156,7 +156,7 @@ void RenderSystem::Present(const std::vector<VkSemaphore>& waitSemaphores, const
 void RenderSystem::SetRenderer(RendererType aRendererType)
 {
     rendererType = aRendererType;
-    renderer = rendererType == RendererType::eScene ? sceneRenderer.get() : computeRenderer.get();
+    renderer = rendererType == RendererType::eForward ? forwardRenderer.get() : computeRenderer.get();
 }
 
 void RenderSystem::OnKeyInput(const ES::KeyInput& event)

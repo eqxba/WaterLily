@@ -55,14 +55,11 @@ namespace UiRendererDetails
         auto fontTexture = Texture(std::move(fontImageDescription), std::move(samplerDescription), vulkanContext);
         
         vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
-            TransitionLayout(commandBuffer, fontTexture, LayoutTransitions::undefinedToDstOptimal, {
-                .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
+            TransitionLayout(commandBuffer, fontTexture, LayoutTransitions::undefinedToDstOptimal, Barriers::noneToTransferWrite);
 
             CopyBufferToImage(commandBuffer, fontDataBuffer, fontTexture);
             
-            TransitionLayout(commandBuffer, fontTexture, LayoutTransitions::dstOptimalToShaderReadOnlyOptimal, {
-                .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-                .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
+            TransitionLayout(commandBuffer, fontTexture, LayoutTransitions::dstOptimalToShaderReadOnlyOptimal, Barriers::transferWriteToFragmentRead);
         });
 
         return fontTexture;
@@ -70,24 +67,18 @@ namespace UiRendererDetails
 
     static RenderPass CreateRenderPass(const VulkanContext& vulkanContext)
     {
-        AttachmentDescription colorAttachmentDescription = {
+        const AttachmentDescription colorAttachmentDescription = {
             .format = vulkanContext.GetSwapchain().GetSurfaceFormat().format,
             .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .actualLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
-        
-        std::vector<PipelineBarrier> previousBarriers = { {
-            .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT } };
 
         return RenderPassBuilder(vulkanContext)
             .SetBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS)
             .AddColorAttachment(colorAttachmentDescription)
-            .SetPreviousBarriers(std::move(previousBarriers))
+            .SetPreviousBarriers({ Barriers::colorWriteToColorReadWrite })
             .Build();
     }
 
@@ -166,10 +157,10 @@ namespace UiRendererDetails
         return scissor;
     }
 
-    static void CreateWidgets(std::vector<std::unique_ptr<Widget>>& widgets, const VulkanContext& vulkanContext)
+    static void CreateWidgets(std::vector<std::unique_ptr<Widget>>& widgets, EventSystem& eventSystem, const VulkanContext& vulkanContext)
     {
         widgets.push_back(std::make_unique<StatsWidget>(vulkanContext));
-        widgets.push_back(std::make_unique<SettingsWidget>(vulkanContext));
+        widgets.push_back(std::make_unique<SettingsWidget>(eventSystem, vulkanContext));
     }
 }
 
@@ -201,7 +192,7 @@ UiRenderer::UiRenderer(const Window& aWindow, EventSystem& aEventSystem, const V
     CreateGraphicsPipeline(shaders);
     CreateDescriptors();
     
-    CreateWidgets(widgets, *vulkanContext);
+    CreateWidgets(widgets, *eventSystem, *vulkanContext);
 
     eventSystem->Subscribe<ES::BeforeSwapchainRecreated>(this, &UiRenderer::OnBeforeSwapchainRecreated);
     eventSystem->Subscribe<ES::SwapchainRecreated>(this, &UiRenderer::OnSwapchainRecreated);
@@ -259,7 +250,7 @@ void UiRenderer::Render(const Frame& frame)
     
     const VkCommandBuffer commandBuffer = frame.commandBuffer;
 
-    renderPass.Begin(commandBuffer, framebuffers[frame.swapchainImageIndex]);
+    renderPass.Begin(frame, framebuffers[frame.swapchainImageIndex]);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
@@ -300,7 +291,7 @@ void UiRenderer::Render(const Frame& frame)
         std::ranges::for_each(drawData->CmdLists, processDrawList);
     }
 
-    renderPass.End(commandBuffer);
+    renderPass.End(frame);
 }
 
 void UiRenderer::CreateGraphicsPipeline(const std::vector<ShaderModule>& shaderModules)

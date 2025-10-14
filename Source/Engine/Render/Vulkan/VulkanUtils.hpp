@@ -42,6 +42,10 @@ namespace VulkanUtils
         std::span<const VkImageView> attachments, const VulkanContext& vulkanContext);
     void DestroyFramebuffers(std::vector<VkFramebuffer>& framebuffers, const VulkanContext& vulkanContext);
 
+    // Helper version that inserts swapchain attachments one by be into base attachments array instead of VK_NULL_HANDLE one
+    std::vector<VkFramebuffer> CreateFramebuffers(const RenderPass& renderPass, const Swapchain& swapchain, std::vector<VkImageView>& attachments,
+        const VulkanContext& vulkanContext);
+
     VkViewport GetViewport(float width, float height);
     VkRect2D GetScissor(VkExtent2D extent);
 

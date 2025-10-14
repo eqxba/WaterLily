@@ -243,7 +243,7 @@ Pipeline DebugStage::BuildBoundingSpherePipeline()
         .SetCullMode(CullMode::eNone)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, false, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->secondRenderPass)
+        .SetRenderPass(RenderOptions::Get().GetOcclusionCulling() ? renderContext->secondRenderPass : renderContext->renderPass)
         .EnableBlending()
         .Build();
 }
@@ -274,7 +274,7 @@ Pipeline DebugStage::BuildBoundingRectanglePipeline()
         .SetPolygonMode(PolygonMode::eFill)
         .SetCullMode(CullMode::eNone)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
-        .SetRenderPass(renderContext->secondRenderPass)
+        .SetRenderPass(RenderOptions::Get().GetOcclusionCulling() ? renderContext->secondRenderPass : renderContext->renderPass)
         .EnableBlending()
         .Build();
 }
@@ -305,6 +305,6 @@ Pipeline DebugStage::BuildLinePipeline()
         .SetInputTopology(InputTopology::eLineList)
         .SetMultisampling(RenderOptions::Get().GetMsaaSampleCount())
         .SetDepthState(true, false, VK_COMPARE_OP_GREATER_OR_EQUAL)
-        .SetRenderPass(renderContext->secondRenderPass)
+        .SetRenderPass(RenderOptions::Get().GetOcclusionCulling() ? renderContext->secondRenderPass : renderContext->renderPass)
         .Build();
 }

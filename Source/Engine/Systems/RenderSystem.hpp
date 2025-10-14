@@ -46,7 +46,7 @@ private:
 
     EventSystem& eventSystem;
 
-    std::unique_ptr<Renderer> sceneRenderer;
+    std::unique_ptr<Renderer> forwardRenderer;
     std::unique_ptr<Renderer> computeRenderer;
     std::unique_ptr<Renderer> uiRenderer;
     

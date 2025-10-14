@@ -1,5 +1,6 @@
 #include "Engine/Render/Ui/SettingsWidget.hpp"
 
+#include "Engine/EventSystem.hpp"
 #include "Engine/Render/Ui/UiStrings.hpp"
 #include "Engine/Render/Ui/UiConstants.hpp"
 #include "Engine/Render/Vulkan/VulkanContext.hpp"
@@ -11,10 +12,13 @@ namespace SettingsWidgetDetails
     constexpr float widgetWidth = 350.0f;
 
     static bool showDemoWindow = false;
+
+    // Shadow values for checkboxes
     static bool vSync = false;
+    static bool occlusionCulling = false;
 
     template <typename T>
-    void Combo(const char* label, const std::span<const T> options, std::function<T()> get, std::function<void(T)> set)
+    static void Combo(const char* label, const std::span<const T> options, std::function<T()> get, std::function<void(T)> set)
     {
         using namespace UiStrings;
         
@@ -46,7 +50,7 @@ namespace SettingsWidgetDetails
         }
     }
 
-    void Checkbox(const char* label, bool* shadowValue, std::function<void(bool)> set)
+    static void Checkbox(const char* label, bool* shadowValue, std::function<void(bool)> set)
     {
         if (ImGui::Checkbox(label, shadowValue))
         {
@@ -55,16 +59,28 @@ namespace SettingsWidgetDetails
     }
 }
 
-SettingsWidget::SettingsWidget(const VulkanContext& aVulkanContext)
+SettingsWidget::SettingsWidget(EventSystem& aEventSystem, const VulkanContext& aVulkanContext)
     : vulkanContext{ &aVulkanContext }
+    , eventSystem{ &aEventSystem }
     , renderOptions{ &RenderOptions::Get() }
 {
-    SettingsWidgetDetails::vSync = renderOptions->GetVSync();
+    using namespace SettingsWidgetDetails;
     
     std::ranges::copy_if(OptionValues::graphicsPipelineTypes, std::back_inserter(supportedGraphicsPipelineTypes),
         [&](const GraphicsPipelineType type) { return renderOptions->IsGraphicsPipelineTypeSupported(type); });
     std::ranges::copy_if(OptionValues::msaaSampleCounts, std::back_inserter(supportedMsaaSampleCounts),
         [&](const VkSampleCountFlagBits sampleCount) { return renderOptions->IsMsaaSampleCountSupported(sampleCount); });
+    
+    SettingsWidgetDetails::vSync = renderOptions->GetVSync();
+    SettingsWidgetDetails::occlusionCulling = renderOptions->GetOcclusionCulling();
+    
+    eventSystem->Subscribe<RenderOptions::VSyncChanged>(this, &SettingsWidget::OnVSyncChanged);
+    eventSystem->Subscribe<RenderOptions::OcclusionCullingChanged>(this, &SettingsWidget::OnOcclusionCullingChanged);
+}
+
+SettingsWidget::~SettingsWidget()
+{
+    eventSystem->UnsubscribeAll(this);
 }
 
 void SettingsWidget::Process(const Frame& frame, float deltaSeconds)
@@ -87,12 +103,14 @@ void SettingsWidget::Build()
     if (ImGui::CollapsingHeader("Render options", ImGuiTreeNodeFlags_DefaultOpen))
     {
         Checkbox("VSync", &vSync, [&](const bool vSync) { renderOptions->SetVSync(vSync); });
+        ImGui::SameLine();
+        Checkbox("Occlusion culling", &occlusionCulling, [&](const bool occlusionCulling) { renderOptions->SetOcclusionCulling(occlusionCulling); });
         
         Combo<RendererType>("Renderer", OptionValues::rendererTypes,
             [&]() { return renderOptions->GetRendererType(); },
             [&](auto type) { renderOptions->SetRendererType(type); });
     
-        if (renderOptions->GetRendererType() == RendererType::eScene)
+        if (renderOptions->GetRendererType() == RendererType::eForward)
         {
             Combo<GraphicsPipelineType>("Pipeline", supportedGraphicsPipelineTypes,
                 [&]() { return renderOptions->GetGraphicsPipelineType(); },
@@ -127,4 +145,14 @@ void SettingsWidget::Build()
     {
         ImGui::ShowDemoWindow();
     }
+}
+
+void SettingsWidget::OnVSyncChanged()
+{
+    SettingsWidgetDetails::vSync = renderOptions->GetVSync();
+}
+
+void SettingsWidget::OnOcclusionCullingChanged()
+{
+    SettingsWidgetDetails::occlusionCulling = renderOptions->GetOcclusionCulling();
 }

@@ -23,7 +23,13 @@ namespace ComputeRendererDetails
             .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
         
-        return { description, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext };
+        auto renderTarget = RenderTarget(description, VK_IMAGE_ASPECT_COLOR_BIT, vulkanContext);
+        
+        vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer cmd) {
+            ImageUtils::TransitionLayout(cmd, renderTarget, LayoutTransitions::undefinedToDstOptimal, Barriers::noneToTransferWrite);
+        });
+        
+        return renderTarget;
     }
 }
 
@@ -66,10 +72,9 @@ void ComputeRenderer::Render(const Frame& frame)
     const RenderTarget& swapchainTarget = vulkanContext->GetSwapchain().GetRenderTargets()[frame.swapchainImageIndex];
     const VkExtent3D targetExtent = renderTarget.image.GetDescription().extent;
     
-    TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::undefinedToGeneral, {
-        .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT });
-    
     FillImage(commandBuffer, renderTarget, Color::magenta);
+    
+    TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::dstOptimalToGeneral, Barriers::transferWriteToComputeRead);
     
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.GetLayout(), 0,
@@ -80,19 +85,13 @@ void ComputeRenderer::Render(const Frame& frame)
 
     vkCmdDispatch(commandBuffer, groupCount.width, groupCount.height, groupCount.depth);
     
-    TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::generalToSrcOptimal, {
-        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT });
-    
-    TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::undefinedToDstOptimal, {
-        .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
+    TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::generalToSrcOptimal, Barriers::computeWriteToTransferRead);
+    TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::undefinedToDstOptimal, Barriers::noneToTransferWrite);
     
     BlitImageToImage(commandBuffer, renderTarget, swapchainTarget);
-    
-    TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::dstOptimalToColorAttachmentOptimal, {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT });
+
+    TransitionLayout(commandBuffer, renderTarget, LayoutTransitions::srcOptimalToDstOptimal, Barriers::transferReadToTransferWrite);
+    TransitionLayout(commandBuffer, swapchainTarget, LayoutTransitions::dstOptimalToColorAttachmentOptimal, Barriers::transferWriteToColorReadWrite);
 }
 
 void ComputeRenderer::CreatePipeline(const ShaderModule& shaderModule)

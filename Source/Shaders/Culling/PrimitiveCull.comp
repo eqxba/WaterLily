@@ -5,6 +5,10 @@
 #include "Common.h"
 #include "Math.glsl"
 
+#ifndef OCCLUSION_CULLING
+    #define OCCLUSION_CULLING 1
+#endif
+
 #ifndef FIRST_PASS
     #define FIRST_PASS 1
 #endif
@@ -26,11 +30,13 @@ layout(set = 0, binding = 1) readonly buffer Draws
     Draw draws[]; 
 };
 
+#if OCCLUSION_CULLING
 // TODO: Too much memory for a single bit
 layout(set = 0, binding = 2) buffer DrawsVisibility 
 {
     uint drawsVisibility[];
 };
+#endif
 
 layout(set = 0, binding = 3) buffer CommandCount
 {
@@ -56,7 +62,7 @@ layout(set = 0, binding = 5) writeonly buffer DrawsDebugData
 };
 #endif
 
-#if !FIRST_PASS
+#if OCCLUSION_CULLING && !FIRST_PASS
 layout(set = 1, binding = 0) uniform sampler2D depthPyramid; // TODO: Sort sets
 #endif
 
@@ -104,16 +110,20 @@ void main()
     Draw draw = draws[drawIndex];    
     Primitive primitive = primitives[draw.primitiveIndex];
 
-    bool bVisibleLastFrame = drawsVisibility[drawIndex] == 1;
+    #if OCCLUSION_CULLING
+        bool bVisibleLastFrame = drawsVisibility[drawIndex] == 1;
 
-    if (FIRST_PASS == 1 && !bVisibleLastFrame)
-    {
-        #if !MESH_PIPELINE && !DRAW_INDIRECT_COUNT
-            indirectCommands[drawIndex].instanceCount = 0;
+        #if FIRST_PASS
+            if (!bVisibleLastFrame)
+            {
+                #if !MESH_PIPELINE && !DRAW_INDIRECT_COUNT
+                    indirectCommands[drawIndex].instanceCount = 0;
+                #endif
+
+                return;
+            }
         #endif
-
-        return;
-    }
+    #endif
 
     vec3 center = rotateQuat(primitive.center, draw.rotation) * draw.scale + draw.position;
     center = (globals.cullData.view * vec4(center, 1.0)).xyz;
@@ -137,7 +147,7 @@ void main()
         }
     }
 
-    #if !FIRST_PASS
+    #if OCCLUSION_CULLING && !FIRST_PASS
         if (!bCulled && bValidLbrt) // Occlusion culling
         {
             vec4 lbrtUv = vec4(ndcToUv(lbrt.xy), ndcToUv(lbrt.zw));
@@ -162,7 +172,13 @@ void main()
         drawsVisibility[drawIndex] = bCulled ? 0 : 1;
     #endif
 
-    if (bCulled || (FIRST_PASS == 0 && bVisibleLastFrame))
+    #if OCCLUSION_CULLING && !FIRST_PASS
+        bool bSkipPrimitive = (bCulled || bVisibleLastFrame);
+    #else
+        bool bSkipPrimitive = bCulled;
+    #endif
+
+    if (bSkipPrimitive) 
     {
         #if !MESH_PIPELINE && !DRAW_INDIRECT_COUNT
             indirectCommands[drawIndex].instanceCount = 0;

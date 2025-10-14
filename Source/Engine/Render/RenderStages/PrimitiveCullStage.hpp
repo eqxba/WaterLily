@@ -26,16 +26,16 @@ public:
     void VisualizeDepth(const Frame& frame);
 
 private:
-    Pipeline BuildFirstPassPipeline() const;
-    void BuildFirstPassDescriptors();
+    Pipeline BuildPipeline(bool occlusionCulling = true, bool firstPass = true) const;
+    std::vector<VkDescriptorSet> BuildDescriptors(const Pipeline& pipeline);
     
     void CreateDepthPyramidRenderTargetAndSampler();
     Pipeline BuildDepthPyramidPipeline() const;
     void BuildDepthPyramidDescriptors();
     
-    Pipeline BuildSecondPassPipeline() const;
-    void BuildSecondPassDescriptors();
-
+    Pipeline pipeline;
+    std::vector<VkDescriptorSet> descriptors;
+    
     Pipeline firstPassPipeline;
     std::vector<VkDescriptorSet> firstPassDescriptors;
     

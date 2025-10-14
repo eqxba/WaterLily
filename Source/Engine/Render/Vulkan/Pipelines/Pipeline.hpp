@@ -41,6 +41,8 @@ public:
 
     Pipeline(Pipeline&& other) noexcept;
     Pipeline& operator=(Pipeline&& other) noexcept;
+    
+    bool HasBinding(std::string_view name) const;
 
     VkPipelineLayout GetLayout() const
     {

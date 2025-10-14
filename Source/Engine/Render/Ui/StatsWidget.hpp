@@ -25,8 +25,10 @@ private:
     RingAccumulator<float> gpuFrameTimesMs;
     
     // Extra GPU timings
-    RingAccumulator<float> firstPassTimesMs;
-    RingAccumulator<float> secondPassTimesMs;
+    RingAccumulator<float> firstCullingPassTimesMs;
+    RingAccumulator<float> secondCullingPassTimesMs;
+    RingAccumulator<float> firstRenderPassTimesMs;
+    RingAccumulator<float> secondRenderPassTimesMs;
     RingAccumulator<float> depthPyramidTimesMs;
     
     uint64_t triangleCount = 0;

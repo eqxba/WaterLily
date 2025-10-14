@@ -70,14 +70,11 @@ void Scene::InitTexture()
     texture = Texture(std::move(textureDescription), std::move(samplerDescription), vulkanContext);
     
     vulkanContext.GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer commandBuffer) {
-        TransitionLayout(commandBuffer, texture, LayoutTransitions::undefinedToDstOptimal, {
-            .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
+        TransitionLayout(commandBuffer, texture, LayoutTransitions::undefinedToDstOptimal, Barriers::noneToTransferWrite);
 
         CopyBufferToImage(commandBuffer, stagingBuffer, texture);
         GenerateMipMaps(commandBuffer, texture);
         
-        TransitionLayout(commandBuffer, texture, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal, {
-            .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
+        TransitionLayout(commandBuffer, texture, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal, Barriers::transferWriteToFragmentRead);                        
     });
 }

@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include "Engine/Render/Vulkan/Frame.hpp"
+#include "Engine/Render/Vulkan/StatsUtils.hpp"
 #include "Engine/Render/Vulkan/Synchronization/SynchronizationUtils.hpp"
 
 class VulkanContext;
@@ -21,8 +23,8 @@ public:
     
     VkRenderPassBeginInfo GetBeginInfo(VkFramebuffer framebuffer);
     
-    void Begin(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void End(VkCommandBuffer commandBuffer);
+    void Begin(const Frame& frame, VkFramebuffer framebuffer, std::optional<GpuTimestamp> timestamp = std::nullopt);
+    void End(const Frame& frame, std::optional<GpuTimestamp> timestamp = std::nullopt);
 
     bool IsValid() const
     {
@@ -69,10 +71,10 @@ public:
 
     RenderPassBuilder& SetBindPoint(VkPipelineBindPoint bindPoint);
     RenderPassBuilder& SetMultisampling(VkSampleCountFlagBits sampleCount);
-    RenderPassBuilder& AddColorAttachment(const AttachmentDescription& description);
-    RenderPassBuilder& AddColorAndResolveAttachments(const AttachmentDescription& description, const AttachmentDescription& resolveDescription);
-    RenderPassBuilder& AddDepthStencilAttachment(const AttachmentDescription& description);
-    RenderPassBuilder& AddDepthStencilAndResolveAttachments(const AttachmentDescription& description, const AttachmentDescription& resolveDescription);
+    RenderPassBuilder& AddColorAttachment(const AttachmentDescription& description,
+        const std::optional<AttachmentDescription>& resolveDescription = std::nullopt);
+    RenderPassBuilder& AddDepthStencilAttachment(const AttachmentDescription& description,
+        const std::optional<AttachmentDescription>& resolveDescription = std::nullopt);
     RenderPassBuilder& SetPreviousBarriers(std::vector<PipelineBarrier> barriers);
     RenderPassBuilder& SetFollowingBarriers(std::vector<PipelineBarrier> barriers);
 

@@ -212,3 +212,8 @@ Sphere Math::Welzl(std::vector<glm::vec3> points)
 
     return MathDetails::WelzlRecursive(points, {}, static_cast<int>(points.size()));
 }
+
+glm::vec4 Math::NormalizePlane(const glm::vec4 plane)
+{
+    return plane / glm::length(glm::vec3(plane));
+}

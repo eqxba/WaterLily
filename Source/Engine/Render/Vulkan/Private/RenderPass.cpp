@@ -22,6 +22,15 @@ namespace RenderPassDetails
         return { .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, .pNext = nullptr,
             .attachment = static_cast<uint32_t>(attachment), .layout = layout };
     }
+
+    static VkSubpassDescriptionDepthStencilResolve GetDepthStencilResolve(const VkAttachmentReference2& depthStencilResolveAttachmentReference)
+    {
+        return {
+            .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
+            .depthResolveMode = VK_RESOLVE_MODE_MIN_BIT,
+            .stencilResolveMode = VK_RESOLVE_MODE_NONE,
+            .pDepthStencilResolveAttachment = &depthStencilResolveAttachmentReference };
+    }
 }
 
 RenderPass::RenderPass(const VkRenderPass aRenderPass, std::vector<VkClearValue> aDefaultClearValues, const VulkanContext& aVulkanContext)
@@ -74,15 +83,25 @@ VkRenderPassBeginInfo RenderPass::GetBeginInfo(const VkFramebuffer framebuffer)
     return renderPassInfo;
 }
 
-void RenderPass::Begin(const VkCommandBuffer commandBuffer, const VkFramebuffer framebuffer)
+void RenderPass::Begin(const Frame& frame, const VkFramebuffer framebuffer, std::optional<GpuTimestamp> timestamp /* = std::nullopt*/)
 {
+    if (timestamp)
+    {
+        StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, *timestamp);
+    }
+    
     const VkRenderPassBeginInfo beginInfo = GetBeginInfo(framebuffer);
-    vkCmdBeginRenderPass(commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(frame.commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-void RenderPass::End(const VkCommandBuffer commandBuffer)
+void RenderPass::End(const Frame& frame, std::optional<GpuTimestamp> timestamp /* = std::nullopt*/)
 {
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(frame.commandBuffer);
+    
+    if (timestamp)
+    {
+        StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, *timestamp);
+    }
 }
 
 RenderPassBuilder::RenderPassBuilder(const VulkanContext& aVulkanContext)
@@ -150,55 +169,41 @@ RenderPassBuilder& RenderPassBuilder::SetMultisampling(const VkSampleCountFlagBi
     return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::AddColorAttachment(const AttachmentDescription& description)
+RenderPassBuilder& RenderPassBuilder::AddColorAttachment(const AttachmentDescription& description,
+    const std::optional<AttachmentDescription>& resolveDescription /* = std::nullopt */)
 {
     AddAttachment(description);
     colorAttachmentReferences.push_back(RenderPassDetails::GetAttachmentReference(attachments.size() - 1, description.actualLayout));
 
+    if (resolveDescription)
+    {
+        AddAttachment(*resolveDescription);
+        resolveAttachmentReferences.push_back(RenderPassDetails::GetAttachmentReference(attachments.size() - 1, resolveDescription->actualLayout));
+    }
+    
     return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::AddColorAndResolveAttachments(const AttachmentDescription& description, 
-    const AttachmentDescription& resolveDescription)
+RenderPassBuilder& RenderPassBuilder::AddDepthStencilAttachment(const AttachmentDescription& description,
+    const std::optional<AttachmentDescription>& resolveDescription /* = std::nullopt */)
 {
-    AddColorAttachment(description);
-
-    AddAttachment(resolveDescription);
-    resolveAttachmentReferences.push_back(RenderPassDetails::GetAttachmentReference(attachments.size() - 1, resolveDescription.actualLayout));
-
-    return *this;
-}
-
-RenderPassBuilder& RenderPassBuilder::AddDepthStencilAttachment(const AttachmentDescription& description)
-{
-    Assert(!depthStencilAttachmentReference.has_value());
-    Assert(description.stencilLoadOp.has_value());
-    Assert(description.stencilStoreOp.has_value());
+    Assert(!depthStencilAttachmentReference);
+    Assert(description.stencilLoadOp);
+    Assert(description.stencilStoreOp);
 
     AddAttachment(description);
     depthStencilAttachmentReference = RenderPassDetails::GetAttachmentReference(attachments.size() - 1, description.actualLayout);
-
-    return *this;
-}
-
-RenderPassBuilder& RenderPassBuilder::AddDepthStencilAndResolveAttachments(const AttachmentDescription& description,
-    const AttachmentDescription& resolveDescription)
-{
-    AddDepthStencilAttachment(description);
     
-    Assert(!depthStencilResolveAttachmentReference.has_value());
-    Assert(resolveDescription.stencilLoadOp.has_value());
-    Assert(resolveDescription.stencilStoreOp.has_value());
-    Assert(!depthStencilResolve.has_value());
-    
-    AddAttachment(resolveDescription);
-    depthStencilResolveAttachmentReference = RenderPassDetails::GetAttachmentReference(attachments.size() - 1, resolveDescription.actualLayout);
-    
-    depthStencilResolve = VkSubpassDescriptionDepthStencilResolve{
-        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
-        .depthResolveMode = VK_RESOLVE_MODE_MIN_BIT,
-        .stencilResolveMode = VK_RESOLVE_MODE_NONE,
-        .pDepthStencilResolveAttachment = &depthStencilResolveAttachmentReference.value() };
+    if (resolveDescription)
+    {
+        Assert(!depthStencilResolveAttachmentReference);
+        Assert(resolveDescription->stencilLoadOp);
+        Assert(resolveDescription->stencilStoreOp);
+        
+        AddAttachment(*resolveDescription);
+        depthStencilResolveAttachmentReference = RenderPassDetails::GetAttachmentReference(attachments.size() - 1, resolveDescription->actualLayout);
+        depthStencilResolve = RenderPassDetails::GetDepthStencilResolve(*depthStencilResolveAttachmentReference);
+    }
 
     return *this;
 }

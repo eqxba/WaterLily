@@ -15,7 +15,7 @@ public:
     
     bool IsValid() const
     {
-        return image.IsValid() && std::ranges::all_of(views, &ImageView::IsValid);
+        return image.IsValid() && std::ranges::all_of(views, &ImageView::IsValid) && (views.size() == 1 || textureView.IsValid());
     }
     
     operator const Image&() const

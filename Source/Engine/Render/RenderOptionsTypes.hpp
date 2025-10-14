@@ -2,7 +2,7 @@
 
 enum class RendererType
 {
-    eScene = 0,
+    eForward = 0,
     eCompute,
 };
 
@@ -15,7 +15,7 @@ enum class GraphicsPipelineType
 namespace OptionValues
 {
     // Other code might need these to iterate through
-    inline constexpr std::array rendererTypes = { RendererType::eScene, RendererType::eCompute };
+    inline constexpr std::array rendererTypes = { RendererType::eForward, RendererType::eCompute };
     inline constexpr std::array graphicsPipelineTypes = { GraphicsPipelineType::eMesh, GraphicsPipelineType::eVertex };
     inline constexpr std::array msaaSampleCounts = { VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT, VK_SAMPLE_COUNT_4_BIT,
         VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_16_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_64_BIT };

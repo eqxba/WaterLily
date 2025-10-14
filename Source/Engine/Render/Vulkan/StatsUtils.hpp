@@ -9,10 +9,16 @@ enum class GpuTimestamp : uint32_t
 {
     eFrameBegin,
     eFrameEnd,
-    eFirstPassBegin,
-    eFirstPassEnd,
+    eFirstCullingPassBegin,
+    eFirstCullingPassEnd,
+    eFirstRenderPassBegin,
+    eFirstRenderPassEnd,
+    eDepthPyramidBegin,
     eDepthPyramidEnd,
-    eSecondPassEnd,
+    eSecondCullingPassBegin,
+    eSecondCullingPassEnd,
+    eSecondRenderPassBegin,
+    eSecondRenderPassEnd,
     eCount
 };
 
@@ -33,9 +39,11 @@ struct FrameQueryPools
 enum class GpuTiming
 {
     eFrame,
-    eFirstPass,
+    eFirstCullingPass,
+    eFirstRenderPass,
     eDepthPyramid,
-    eSecondPass,
+    eSecondCullingPass,
+    eSecondRenderPass,
 };
 
 namespace StatsUtils

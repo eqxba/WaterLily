@@ -15,7 +15,7 @@ struct DebugData
 
 struct RenderContext
 {
-    // For 2-pass occlusion culling
+    RenderPass renderPass;
     RenderPass firstRenderPass;
     RenderPass secondRenderPass;
     
@@ -23,6 +23,7 @@ struct RenderContext
     RenderTarget depthTarget;
     RenderTarget depthResolveTarget;
     
+    std::vector<VkFramebuffer> framebuffers;
     std::vector<VkFramebuffer> firstPassFramebuffers;
     std::vector<VkFramebuffer> secondPassFramebuffers;
 

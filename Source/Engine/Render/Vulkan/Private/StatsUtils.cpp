@@ -102,17 +102,25 @@ float StatsUtils::GetTimingMs(const Device& device, const FrameRenderStats& rend
         rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFrameBegin)];
         rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFrameEnd)];
         break;
-    case GpuTiming::eFirstPass:
-        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstPassBegin)];
-        rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstPassEnd)];
+    case GpuTiming::eFirstCullingPass:
+        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstCullingPassBegin)];
+        rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstCullingPassEnd)];
+        break;
+    case GpuTiming::eFirstRenderPass:
+        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstRenderPassBegin)];
+        rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstRenderPassEnd)];
         break;
     case GpuTiming::eDepthPyramid:
-        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eFirstPassEnd)];
+        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eDepthPyramidBegin)];
         rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eDepthPyramidEnd)];
         break;
-    case GpuTiming::eSecondPass:
-        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eDepthPyramidEnd)];
-        rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eSecondPassEnd)];
+    case GpuTiming::eSecondCullingPass:
+        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eSecondCullingPassBegin)];
+        rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eSecondCullingPassEnd)];
+        break;
+    case GpuTiming::eSecondRenderPass:
+        rawBegin = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eSecondRenderPassBegin)];
+        rawEnd = renderStats.rawTimestamps[static_cast<uint32_t>(GpuTimestamp::eSecondRenderPassEnd)];
         break;
     }
     

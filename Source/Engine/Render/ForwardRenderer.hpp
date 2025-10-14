@@ -14,37 +14,43 @@ namespace ES
     struct SceneOpened;
 }
 
-class SceneRenderer : public Renderer
+class ForwardRenderer : public Renderer
 {
 public:
-    SceneRenderer(EventSystem& eventSystem, const VulkanContext& vulkanContext);
-    ~SceneRenderer() override;
+    ForwardRenderer(EventSystem& eventSystem, const VulkanContext& vulkanContext);
+    ~ForwardRenderer() override;
 
-    SceneRenderer(const SceneRenderer&) = delete;
-    SceneRenderer& operator=(const SceneRenderer&) = delete;
+    ForwardRenderer(const ForwardRenderer&) = delete;
+    ForwardRenderer& operator=(const ForwardRenderer&) = delete;
 
-    SceneRenderer(SceneRenderer&&) = delete;
-    SceneRenderer& operator=(SceneRenderer&&) = delete;
+    ForwardRenderer(ForwardRenderer&&) = delete;
+    ForwardRenderer& operator=(ForwardRenderer&&) = delete;
 
     void Process(const Frame& frame, float deltaSeconds) override;
 
     void Render(const Frame& frame) override;
 
 private:
+    void RenderWithOcclusionCulling(const Frame& frame);
+    
     void InitRuntimeDefineGetters();
+    
+    void CreateRenderPasses();
+    void DestroyRenderPasses();
     
     void CreateRenderTargets();
     void DestroyRenderTargets();
     
     void CreateFramebuffers();
     void DestroyFramebuffers();
+    
+    void Reinitialize();
 
     void OnBeforeSwapchainRecreated();
     void OnSwapchainRecreated();
     void OnTryReloadShaders();
     void OnSceneOpen(const ES::SceneOpened& event);
     void OnSceneClose();
-    void OnMsaaSampleCountChanged();
 
     const VulkanContext* vulkanContext = nullptr;
 

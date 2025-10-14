@@ -13,59 +13,27 @@ namespace PrimitiveCullStageDetails
 {
     static constexpr std::string_view cullShaderPath = "~/Shaders/Culling/PrimitiveCull.comp";
     static constexpr std::string_view depthPyramidShaderPath = "~/Shaders/Culling/DepthPyramid.comp";
-
-    // TODO: Move from here and from other places to Sync utils
-    static constexpr PipelineBarrier beforeClearCommandCountBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-        .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
-        .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT };
-
-    static constexpr PipelineBarrier afterClearCommandCountBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT };
-
-    static constexpr PipelineBarrier afterCullBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT };
-
-    static constexpr PipelineBarrier meshAfterCullBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT,
-        .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT };
-
-    constexpr PipelineBarrier beforePyramidBuildBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-        .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT };
-
-    constexpr PipelineBarrier beforePyramidBuildMsDepthBarrier = {
-        .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT };
 }
 
 PrimitiveCullStage::PrimitiveCullStage(const VulkanContext& aVulkanContext, RenderContext& aRenderContext)
     : RenderStage{ aVulkanContext, aRenderContext }
 {
-    AddPipeline(firstPassPipeline, [&]() { return BuildFirstPassPipeline(); });
+    // TODO: Keep only required ones
+    AddPipeline(pipeline, [&]() { return BuildPipeline(false); });
+    AddPipeline(firstPassPipeline, [&]() { return BuildPipeline(true, true); });
     AddPipeline(depthPyramidPipeline, [&]() { return BuildDepthPyramidPipeline(); });
-    AddPipeline(secondPassPipeline, [&]() { return BuildSecondPassPipeline(); });
+    AddPipeline(secondPassPipeline, [&]() { return BuildPipeline(true, false); });
 }
 
 PrimitiveCullStage::~PrimitiveCullStage() = default;
 
 void PrimitiveCullStage::CreateRenderTargetDependentResources()
 {
-    CreateDepthPyramidRenderTargetAndSampler();
-    BuildDepthPyramidDescriptors();
+    if (RenderOptions::Get().GetOcclusionCulling())
+    {
+        CreateDepthPyramidRenderTargetAndSampler();
+        BuildDepthPyramidDescriptors();
+    }
 }
 
 void PrimitiveCullStage::DestroyRenderTargetDependentResources()
@@ -78,19 +46,51 @@ void PrimitiveCullStage::DestroyRenderTargetDependentResources()
 
 void PrimitiveCullStage::OnSceneOpen(const Scene& scene)
 {
-    BuildFirstPassDescriptors();
-    BuildSecondPassDescriptors();
+    if (RenderOptions::Get().GetOcclusionCulling())
+    {
+        firstPassDescriptors = BuildDescriptors(firstPassPipeline);
+        secondPassDescriptors = BuildDescriptors(secondPassPipeline);
+    }
+    else
+    {
+        descriptors = BuildDescriptors(pipeline);
+    }
 }
 
 void PrimitiveCullStage::OnSceneClose()
 {
+    descriptors.clear();
     firstPassDescriptors.clear();
     secondPassDescriptors.clear();
 }
 
 void PrimitiveCullStage::Execute(const Frame& frame)
 {
-    Assert(false); // Use dedicated Execute methods (ExecuteFirstPass, BuildDepthPyramid, ExecuteSecondPass);
+    Assert(!RenderOptions::Get().GetOcclusionCulling()); // Use dedicated Execute methods (ExecuteFirstPass, BuildDepthPyramid, ExecuteSecondPass);
+    
+    using namespace SynchronizationUtils;
+    using namespace PipelineUtils;
+
+    const VkCommandBuffer cmd = frame.commandBuffer;
+
+    StatsUtils::WriteTimestamp(cmd, frame.queryPools.timestamps, GpuTimestamp::eFirstCullingPassBegin);
+    
+    SetMemoryBarrier(cmd, Barriers::indirectCommandReadToTransferWrite);
+    vkCmdFillBuffer(cmd, renderContext->commandCountBuffer, 0, sizeof(uint32_t), 0);
+    SetMemoryBarrier(cmd, Barriers::transferWriteToComputeReadWrite);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+
+    PushConstants(cmd, pipeline, "globals", renderContext->globals);
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.GetLayout(), 0, static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
+    
+    vkCmdDispatch(cmd, GroupCount(renderContext->globals.drawCount, gpu::primitiveCullWgSize), 1, 1);
+
+    SetMemoryBarrier(cmd, RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh
+        ? Barriers::computeWriteToIndirectCommandRead | Barriers::computeWriteToTaskRead : Barriers::computeWriteToIndirectCommandRead);
+    
+    StatsUtils::WriteTimestamp(cmd, frame.queryPools.timestamps, GpuTimestamp::eFirstCullingPassEnd);
 }
 
 void PrimitiveCullStage::RebuildDescriptors()
@@ -100,22 +100,30 @@ void PrimitiveCullStage::RebuildDescriptors()
     depthPyramidDescriptor = VK_NULL_HANDLE;
     secondPassDescriptors.clear();
     
-    BuildFirstPassDescriptors();
-    BuildDepthPyramidDescriptors();
-    BuildSecondPassDescriptors();
+    if (RenderOptions::Get().GetOcclusionCulling())
+    {
+        firstPassDescriptors = BuildDescriptors(firstPassPipeline);
+        BuildDepthPyramidDescriptors();
+        secondPassDescriptors = BuildDescriptors(secondPassPipeline);
+    }
+    else
+    {
+        descriptors = BuildDescriptors(pipeline);
+    }
 }
 
 void PrimitiveCullStage::ExecuteFirstPass(const Frame& frame)
 {
     using namespace SynchronizationUtils;
-    using namespace PrimitiveCullStageDetails;
     using namespace PipelineUtils;
 
     const VkCommandBuffer cmd = frame.commandBuffer;
+    
+    StatsUtils::WriteTimestamp(cmd, frame.queryPools.timestamps, GpuTimestamp::eFirstCullingPassBegin);
 
-    SetMemoryBarrier(cmd, beforeClearCommandCountBarrier);
+    SetMemoryBarrier(cmd, Barriers::indirectCommandReadToTransferWrite);
     vkCmdFillBuffer(cmd, renderContext->commandCountBuffer, 0, sizeof(uint32_t), 0);
-    SetMemoryBarrier(cmd, afterClearCommandCountBarrier);
+    SetMemoryBarrier(cmd, Barriers::transferWriteToComputeReadWrite);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, firstPassPipeline);
 
@@ -126,7 +134,10 @@ void PrimitiveCullStage::ExecuteFirstPass(const Frame& frame)
     
     vkCmdDispatch(cmd, GroupCount(renderContext->globals.drawCount, gpu::primitiveCullWgSize), 1, 1);
 
-    SetMemoryBarrier(cmd, RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh ? meshAfterCullBarrier : afterCullBarrier);
+    SetMemoryBarrier(cmd, RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh
+        ? Barriers::computeWriteToIndirectCommandRead | Barriers::computeWriteToTaskRead : Barriers::computeWriteToIndirectCommandRead);
+    
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eFirstCullingPassEnd);
 }
 
 void PrimitiveCullStage::BuildDepthPyramid(const Frame& frame)
@@ -134,22 +145,22 @@ void PrimitiveCullStage::BuildDepthPyramid(const Frame& frame)
     using namespace ImageUtils;
     using namespace PipelineUtils;
     using namespace SynchronizationUtils;
-    using namespace PrimitiveCullStageDetails;
     
     const VkCommandBuffer cmd = frame.commandBuffer;
+    const VkExtent3D pyramidExtent = depthPyramidRenderTarget.image.GetDescription().extent;
     
-    SetMemoryBarrier(cmd, RenderOptions::Get().GetMsaaSampleCount() == 1 ? beforePyramidBuildBarrier : beforePyramidBuildMsDepthBarrier);
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eDepthPyramidBegin);
+    
+    // Block our sampling until we have depth RT output finished / depth resolve RT resolved in the 1st pass
+    SetMemoryBarrier(cmd, RenderOptions::Get().GetMsaaSampleCount() == 1 ? Barriers::lateDepthStencilWriteToComputeRead : Barriers::resolveToComputeRead);
+    
+    // Prepare pyramid RT for writing into it, block on pyramid reads from previous frame (2nd pass)
+    TransitionLayout(cmd, depthPyramidRenderTarget, LayoutTransitions::shaderReadOnlyOptimalToGeneral, Barriers::computeReadToComputeWrite);
     
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPyramidPipeline);
     
-    const VkExtent3D pyramidExtent = depthPyramidRenderTarget.image.GetDescription().extent;
-    
     for (uint32_t targetMip = 0; targetMip < depthPyramidRenderTarget.image.GetDescription().mipLevelsCount; ++targetMip)
     {
-        TransitionLayout(cmd, depthPyramidRenderTarget, LayoutTransitions::shaderReadOnlyOptimalToGeneral, {
-            .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-            .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT }, targetMip);
-        
         const uint32_t dstWidth = std::max(1u, pyramidExtent.width >> targetMip);
         const uint32_t dstHeight = std::max(1u, pyramidExtent.height >> targetMip);
         
@@ -160,10 +171,10 @@ void PrimitiveCullStage::BuildDepthPyramid(const Frame& frame)
         
         vkCmdDispatch(cmd, GroupCount(dstWidth, gpu::depthPyramidWgSize), GroupCount(dstHeight, gpu::depthPyramidWgSize), 1);
         
-        TransitionLayout(cmd, depthPyramidRenderTarget, LayoutTransitions::generalToShaderReadOnlyOptimal, {
-            .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-            .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT }, targetMip);
+        TransitionLayout(cmd, depthPyramidRenderTarget, LayoutTransitions::generalToShaderReadOnlyOptimal, Barriers::computeWriteToComputeRead, targetMip);
     }
+    
+    StatsUtils::WriteTimestamp(frame.commandBuffer, frame.queryPools.timestamps, GpuTimestamp::eDepthPyramidEnd);
 }
 
 void PrimitiveCullStage::VisualizeDepth(const Frame& frame)
@@ -172,39 +183,34 @@ void PrimitiveCullStage::VisualizeDepth(const Frame& frame)
     
     const RenderTarget& targetRt = vulkanContext->GetSwapchain().GetRenderTargets()[frame.swapchainImageIndex];
     
-    TransitionLayout(frame.commandBuffer, depthPyramidRenderTarget, LayoutTransitions::shaderReadOnlyOptimalToSrcOptimal, {
-        .srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT });
+    TransitionLayout(frame.commandBuffer, depthPyramidRenderTarget, LayoutTransitions::shaderReadOnlyOptimalToSrcOptimal,
+        Barriers::computeReadToTransferRead);
     
-    TransitionLayout(frame.commandBuffer, targetRt, LayoutTransitions::colorAttachmentOptimalToDstOptimal, {
-        .srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT });
+    TransitionLayout(frame.commandBuffer, targetRt, LayoutTransitions::colorAttachmentOptimalToDstOptimal,
+        Barriers::colorReadWriteToTransferWrite);
 
     BlitImageToImage(frame.commandBuffer, depthPyramidRenderTarget, targetRt, RenderOptions::Get().GetDepthMipToVisualize(),
         0, VK_FILTER_NEAREST);
     
-    TransitionLayout(frame.commandBuffer, depthPyramidRenderTarget, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal, {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
+    TransitionLayout(frame.commandBuffer, depthPyramidRenderTarget, LayoutTransitions::srcOptimalToShaderReadOnlyOptimal,
+        Barriers::transferReadToComputeRead);
     
-    TransitionLayout(frame.commandBuffer, targetRt, LayoutTransitions::dstOptimalToColorAttachmentOptimal, {
-        .srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT, .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT });
+    TransitionLayout(frame.commandBuffer, targetRt, LayoutTransitions::dstOptimalToColorAttachmentOptimal,
+        Barriers::transferWriteToColorReadWrite);
 }
 
 void PrimitiveCullStage::ExecuteSecondPass(const Frame& frame)
 {
     using namespace SynchronizationUtils;
-    using namespace PrimitiveCullStageDetails;
     using namespace PipelineUtils;
 
     const VkCommandBuffer cmd = frame.commandBuffer;
+    
+    StatsUtils::WriteTimestamp(cmd, frame.queryPools.timestamps, GpuTimestamp::eSecondCullingPassBegin);
 
-    SetMemoryBarrier(cmd, beforeClearCommandCountBarrier);
+    SetMemoryBarrier(cmd, Barriers::indirectCommandReadToTransferWrite);
     vkCmdFillBuffer(cmd, renderContext->commandCountBuffer, 0, sizeof(uint32_t), 0);
-    SetMemoryBarrier(cmd, afterClearCommandCountBarrier);
+    SetMemoryBarrier(cmd, Barriers::transferWriteToComputeReadWrite);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, secondPassPipeline);
 
@@ -221,43 +227,47 @@ void PrimitiveCullStage::ExecuteSecondPass(const Frame& frame)
 
     vkCmdDispatch(cmd, groupCountX, 1, 1);
 
-    SetMemoryBarrier(cmd, RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh ? meshAfterCullBarrier : afterCullBarrier);
+    SetMemoryBarrier(cmd, RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh
+        ? Barriers::computeWriteToIndirectCommandRead | Barriers::computeWriteToTaskRead : Barriers::computeWriteToIndirectCommandRead);
+    
+    StatsUtils::WriteTimestamp(cmd, frame.queryPools.timestamps, GpuTimestamp::eSecondCullingPassEnd);
 }
 
-Pipeline PrimitiveCullStage::BuildFirstPassPipeline() const
+Pipeline PrimitiveCullStage::BuildPipeline(const bool occlusionCulling /* = true */, const bool firstPass /* = true */) const
 {
     std::vector runtimeDefines = { gpu::defines::meshPipeline, gpu::defines::visualizeLods, gpu::defines::drawIndirectCount };
-    std::vector<ShaderDefine> defines = { { "FIRST_PASS", 1 } };
+    std::vector<ShaderDefine> defines = { { "OCCLUSION_CULLING", occlusionCulling }, { "FIRST_PASS", firstPass } };
     
     ShaderModule shader = GetShader(PrimitiveCullStageDetails::cullShaderPath, VK_SHADER_STAGE_COMPUTE_BIT, runtimeDefines, defines);
     
     return ComputePipelineBuilder(*vulkanContext)
         .SetShaderModule(shader)
-        .SetSpecializationConstants({ { "FIRST_PASS", VK_TRUE } })
         .Build();
 }
 
-void PrimitiveCullStage::BuildFirstPassDescriptors()
+std::vector<VkDescriptorSet> PrimitiveCullStage::BuildDescriptors(const Pipeline& aPipeline)
 {
-    Assert(firstPassDescriptors.empty());
-    
     const bool meshPipeline = RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
     
     ReflectiveDescriptorSetBuilder builder = vulkanContext->GetDescriptorSetsManager()
-        .GetReflectiveDescriptorSetBuilder(firstPassPipeline, DescriptorScope::eSceneRenderer)
+        .GetReflectiveDescriptorSetBuilder(aPipeline, DescriptorScope::eSceneRenderer)
         .Bind("Primitives", renderContext->primitiveBuffer)
         .Bind("Draws", renderContext->drawBuffer)
-        .Bind("DrawsVisibility", renderContext->drawsVisibilityBuffer)
         .Bind("CommandCount", renderContext->commandCountBuffer)
         .Bind(meshPipeline ? "TaskCommands" : "IndirectCommands", renderContext->commandBuffer)
         .Bind("Primitives", renderContext->primitiveBuffer);
+    
+    if (aPipeline.HasBinding("DrawsVisibility"))
+    {
+        builder.Bind("DrawsVisibility", renderContext->drawsVisibilityBuffer);
+    }
     
     if (RenderOptions::Get().GetVisualizeLods())
     {
         builder.Bind("DrawsDebugData", renderContext->drawsDebugDataBuffer);
     }
     
-    firstPassDescriptors = builder.Build();
+    return builder.Build();
 }
 
 void PrimitiveCullStage::CreateDepthPyramidRenderTargetAndSampler()
@@ -281,9 +291,7 @@ void PrimitiveCullStage::CreateDepthPyramidRenderTargetAndSampler()
     depthPyramidRenderTarget = RenderTarget(std::move(pyramidImageDescription), VK_IMAGE_ASPECT_COLOR_BIT, *vulkanContext);
     
     vulkanContext->GetDevice().ExecuteOneTimeCommandBuffer([&](VkCommandBuffer cmd) {
-        ImageUtils::TransitionLayout(cmd, depthPyramidRenderTarget, LayoutTransitions::undefinedToShaderReadOnlyOptimal, {
-            .srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, .srcAccessMask = VK_ACCESS_NONE,
-            .dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT });
+        ImageUtils::TransitionLayout(cmd, depthPyramidRenderTarget, LayoutTransitions::undefinedToShaderReadOnlyOptimal, Barriers::noneToComputeWrite);
     });
     
     // TODO: Support on shader side and simplify sampling there
@@ -331,40 +339,4 @@ void PrimitiveCullStage::BuildDepthPyramidDescriptors()
         .GetReflectiveDescriptorSetBuilder(secondPassPipeline, DescriptorScope::eGlobal)
         .Bind("depthPyramid", depthPyramidRenderTarget.textureView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, depthPyramidSampler)
         .Build()[0];
-}
-
-Pipeline PrimitiveCullStage::BuildSecondPassPipeline() const
-{
-    std::vector runtimeDefines = { gpu::defines::meshPipeline, gpu::defines::visualizeLods, gpu::defines::drawIndirectCount };
-    std::vector<ShaderDefine> defines = { { "FIRST_PASS", 0 } };
-    
-    ShaderModule shader = GetShader(PrimitiveCullStageDetails::cullShaderPath, VK_SHADER_STAGE_COMPUTE_BIT, runtimeDefines, defines);
-    
-    return ComputePipelineBuilder(*vulkanContext)
-        .SetShaderModule(shader)
-        .SetSpecializationConstants({ { "FIRST_PASS", VK_FALSE } })
-        .Build();
-}
-
-void PrimitiveCullStage::BuildSecondPassDescriptors()
-{
-    Assert(secondPassDescriptors.empty());
-    
-    const bool meshPipeline = RenderOptions::Get().GetGraphicsPipelineType() == GraphicsPipelineType::eMesh;
-    
-    ReflectiveDescriptorSetBuilder builder = vulkanContext->GetDescriptorSetsManager()
-        .GetReflectiveDescriptorSetBuilder(firstPassPipeline, DescriptorScope::eSceneRenderer)
-        .Bind("Primitives", renderContext->primitiveBuffer)
-        .Bind("Draws", renderContext->drawBuffer)
-        .Bind("DrawsVisibility", renderContext->drawsVisibilityBuffer)
-        .Bind("CommandCount", renderContext->commandCountBuffer)
-        .Bind(meshPipeline ? "TaskCommands" : "IndirectCommands", renderContext->commandBuffer)
-        .Bind("Primitives", renderContext->primitiveBuffer);
-    
-    if (RenderOptions::Get().GetVisualizeLods())
-    {
-        builder.Bind("DrawsDebugData", renderContext->drawsDebugDataBuffer);
-    }
-    
-    secondPassDescriptors = builder.Build();
 }

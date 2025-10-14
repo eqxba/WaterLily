@@ -14,7 +14,7 @@ namespace UiStrings
     {
         switch (rendererType)
         {
-            case RendererType::eScene: return "Scene";
+            case RendererType::eForward: return "Forward";
             case RendererType::eCompute: return "Compute";
         }
         

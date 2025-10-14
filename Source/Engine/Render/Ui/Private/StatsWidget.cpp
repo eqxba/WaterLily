@@ -17,8 +17,10 @@ void StatsWidget::Process(const Frame& frame, const float deltaSeconds)
     
     cpuFrameTimesSeconds.Push(deltaSeconds);
     gpuFrameTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eFrame));
-    firstPassTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eFirstPass));
-    secondPassTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eSecondPass));
+    firstCullingPassTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eFirstCullingPass));
+    secondCullingPassTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eSecondCullingPass));
+    firstRenderPassTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eFirstRenderPass));
+    secondRenderPassTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eSecondRenderPass));
     depthPyramidTimesMs.Push(GetTimingMs(vulkanContext->GetDevice(), frame.renderStats, GpuTiming::eDepthPyramid));
 
     triangleCount = frame.renderStats.triangleCount;
@@ -43,11 +45,24 @@ void StatsWidget::Build()
     ImGui::Text("CPU Frame time: %.2f ms.", cpuFrameTimesSeconds.GetAverage() * 1000.0f);
     ImGui::Text("GPU Frame time: %.2f ms.", gpuFrameTimesMs.GetAverage());
     
-    if (RenderOptions::Get().GetShowExtraGpuTimings())
+    if (const RenderOptions& renderOptions = RenderOptions::Get(); renderOptions.GetShowExtraGpuTimings())
     {
-        ImGui::Text("First pass: %.2f ms.", firstPassTimesMs.GetAverage());
-        ImGui::Text("Second pass: %.2f ms.", secondPassTimesMs.GetAverage());
-        ImGui::Text("Depth pyramid: %.2f ms.", depthPyramidTimesMs.GetAverage());
+        const bool occlusionCulling = renderOptions.GetOcclusionCulling();
+        
+        ImGui::Text("First culling pass: %.2f ms.", firstCullingPassTimesMs.GetAverage());
+        
+        if (occlusionCulling)
+        {
+            ImGui::Text("Second culling pass: %.2f ms.", secondCullingPassTimesMs.GetAverage());
+        }
+        
+        ImGui::Text("First render pass: %.2f ms.", firstRenderPassTimesMs.GetAverage());
+        
+        if (occlusionCulling)
+        {
+            ImGui::Text("Second render pass: %.2f ms.", secondRenderPassTimesMs.GetAverage());
+            ImGui::Text("Depth pyramid: %.2f ms.", depthPyramidTimesMs.GetAverage());
+        }
     }
 
     ImGui::Text("Triangles (total): %.2fM", Scene::GetTotalTriangles() / 1'000'000.0f);

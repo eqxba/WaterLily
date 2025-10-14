@@ -63,3 +63,12 @@ Pipeline& Pipeline::operator=(Pipeline&& other) noexcept
 
     return *this;
 }
+
+bool Pipeline::HasBinding(const std::string_view name) const
+{
+    Assert(IsValid());
+    
+    return std::ranges::any_of(setReflections, [&](const DescriptorSetReflection& set) {
+        return std::ranges::any_of(set.bindings, [&](const BindingReflection& b) { return b.name == name; });
+    });
+}
