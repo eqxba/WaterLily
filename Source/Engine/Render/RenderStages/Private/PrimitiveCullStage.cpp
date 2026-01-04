@@ -216,11 +216,11 @@ void PrimitiveCullStage::ExecuteSecondPass(const Frame& frame)
 
     PushConstants(cmd, secondPassPipeline, "globals", renderContext->globals);
     
-    std::vector<VkDescriptorSet> descriptors = secondPassDescriptors;
-    descriptors.push_back(depthPyramidDescriptor);
+    std::vector<VkDescriptorSet> passDescriptors = secondPassDescriptors;
+    passDescriptors.push_back(depthPyramidDescriptor);
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, secondPassPipeline.GetLayout(), 0,
-        static_cast<uint32_t>(descriptors.size()), descriptors.data(), 0, nullptr);
+        static_cast<uint32_t>(passDescriptors.size()), passDescriptors.data(), 0, nullptr);
 
     const auto groupCountX = static_cast<uint32_t>(std::ceil(static_cast<float>(renderContext->globals.drawCount) /
         static_cast<float>(gpu::primitiveCullWgSize)));

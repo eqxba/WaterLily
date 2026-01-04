@@ -47,5 +47,7 @@ namespace UiStrings
             case VK_SAMPLE_COUNT_64_BIT: return "64x";
             case VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM: return placeholder;
         }
+
+        return placeholder;
     }
 }

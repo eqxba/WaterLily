@@ -16,8 +16,12 @@ public:
     CommandBufferSync(CommandBufferSync&& other) noexcept;
     CommandBufferSync& operator=(CommandBufferSync&& other) noexcept;
 
-    const std::tuple<const std::vector<VkSemaphore>&, const std::vector<VkPipelineStageFlags>&,
-        const std::vector<VkSemaphore>&, VkFence> AsTuple() const
+    std::tuple<std::vector<VkSemaphore>&, std::vector<VkPipelineStageFlags>&, std::vector<VkSemaphore>&, VkFence> AsTuple()
+    {
+        return { waitSemaphores, waitStages, signalSemaphores, fence };
+    }
+
+    std::tuple<const std::vector<VkSemaphore>&, const std::vector<VkPipelineStageFlags>&, const std::vector<VkSemaphore>&, VkFence> AsTuple() const
     {
         return { waitSemaphores, waitStages, signalSemaphores, fence };
     }

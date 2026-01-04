@@ -12,6 +12,7 @@ namespace Math
     glm::mat4 PerspectiveInfinite(float verticalFov, float aspectRatio, float near, bool reverseDepth = true);
 
     Sphere Welzl(std::vector<glm::vec3> points);
+    Sphere AverageSphere(const std::vector<glm::vec3>& points);
 
     glm::vec4 NormalizePlane(const glm::vec4 plane);
 }

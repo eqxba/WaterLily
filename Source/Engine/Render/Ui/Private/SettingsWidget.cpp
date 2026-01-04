@@ -102,9 +102,9 @@ void SettingsWidget::Build()
     
     if (ImGui::CollapsingHeader("Render options", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        Checkbox("VSync", &vSync, [&](const bool vSync) { renderOptions->SetVSync(vSync); });
+        Checkbox("VSync", &vSync, [&](const bool aVSync) { renderOptions->SetVSync(aVSync); });
         ImGui::SameLine();
-        Checkbox("Occlusion culling", &occlusionCulling, [&](const bool occlusionCulling) { renderOptions->SetOcclusionCulling(occlusionCulling); });
+        Checkbox("Occlusion culling", &occlusionCulling, [&](const bool aOcclusionCulling) { renderOptions->SetOcclusionCulling(aOcclusionCulling); });
         
         Combo<RendererType>("Renderer", OptionValues::rendererTypes,
             [&]() { return renderOptions->GetRendererType(); },

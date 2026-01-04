@@ -62,7 +62,7 @@ namespace ForwardRendererDetails
 
         const BufferDescription vertexBufferDescription = {
             .size = verticesSpan.size_bytes(),
-            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             .memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT };
 
         renderContext.vertexBuffer = Buffer(vertexBufferDescription, true, verticesSpan, vulkanContext);

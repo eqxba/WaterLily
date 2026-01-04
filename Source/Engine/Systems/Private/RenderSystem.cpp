@@ -17,10 +17,9 @@ namespace RenderSystemDetails
         
         std::vector<VkSemaphore> waitSemaphores = { CreateSemaphore(device) };
         std::vector<VkPipelineStageFlags> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-        std::vector<VkSemaphore> signalSemaphores = { CreateSemaphore(device) };
         VkFence fence = CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT);
         
-        return { waitSemaphores, waitStages, signalSemaphores, fence, device };
+        return { waitSemaphores, waitStages, {}, fence, device };
     }
 
     static VkCommandBuffer CreateCommandBuffer(const VulkanContext& vulkanContext)
@@ -48,7 +47,11 @@ RenderSystem::RenderSystem(const Window& window, EventSystem& aEventSystem, cons
     
     constexpr auto frameIndices = std::views::iota(static_cast<uint32_t>(0), VulkanConfig::maxFramesInFlight);
     std::ranges::transform(frameIndices, std::back_inserter(frames), createFrame);
-    
+
+    // We must have a separate "ready to present / finished rendering" semaphore per swapchain image, not per frame in flight
+    std::ranges::transform(vulkanContext->GetSwapchain().GetRenderTargets(), std::back_inserter(readyToPresentSemaphores), 
+        [&](const auto& _) { return VulkanUtils::CreateSemaphore(vulkanContext->GetDevice()); });
+
     SetRenderer(renderOptions->GetRendererType());
 
     eventSystem.Subscribe<ES::KeyInput>(this, &RenderSystem::OnKeyInput);
@@ -60,6 +63,8 @@ RenderSystem::~RenderSystem()
     eventSystem.UnsubscribeAll(this);
 
     vulkanContext->GetDevice().WaitIdle();
+
+    VulkanUtils::DestroySemaphores(vulkanContext->GetDevice(), readyToPresentSemaphores);
     
     vulkanContext->GetDescriptorSetsManager().ResetDescriptors(DescriptorScope::eGlobal);
     
@@ -79,7 +84,7 @@ void RenderSystem::Render()
 
     Frame& frame = frames[currentFrame];
 
-    const auto& [waitSemaphores, waitStages, signalSemaphores, fence] = frame.sync.AsTuple();
+    auto [waitSemaphores, waitStages, signalSemaphores, fence] = frame.sync.AsTuple();
 
     const Device& device = vulkanContext->GetDevice();
 
@@ -92,6 +97,9 @@ void RenderSystem::Render()
     // Acquire next image from the swapchain, frame wait semaphore will be signaled by the presentation engine when it
     // finishes using the image so we can start rendering
     frame.swapchainImageIndex = AcquireNextSwapchainImage(waitSemaphores[0]);
+
+    // Add corresponding to acquired swapchain image signal ("ready to present / finished rendering") semaphore to frame signal semaphores
+    signalSemaphores.push_back(readyToPresentSemaphores[frame.swapchainImageIndex]);
 
     // Submit scene rendering commands
     const auto renderCommands = [&](VkCommandBuffer commandBuffer) {
@@ -122,7 +130,11 @@ void RenderSystem::Render()
     SubmitCommandBuffer(frame.commandBuffer, device.GetQueues().graphicsAndCompute, renderCommands, frame.sync);
 
     // Present will happen when rendering is finished and the frame signal semaphores are signaled
+    // along with corresponding to acquired swapchain image readyToPresentSemaphore
     Present(signalSemaphores, frame.swapchainImageIndex);
+
+    // Remove added above readyToPresentSemaphore, as we can get another swapchain image next frame
+    signalSemaphores.pop_back();
 
     currentFrame = (currentFrame + 1) % VulkanConfig::maxFramesInFlight;
 }

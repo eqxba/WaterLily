@@ -52,6 +52,8 @@ private:
     
     std::vector<Frame> frames;
     uint32_t currentFrame = 0;
+
+    std::vector<VkSemaphore> readyToPresentSemaphores;
     
     RendererType rendererType;
     Renderer* renderer = nullptr;

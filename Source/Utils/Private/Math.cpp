@@ -213,6 +213,28 @@ Sphere Math::Welzl(std::vector<glm::vec3> points)
     return MathDetails::WelzlRecursive(points, {}, static_cast<int>(points.size()));
 }
 
+Sphere Math::AverageSphere(const std::vector<glm::vec3>& points)
+{
+    Sphere sphere;
+
+    if (points.empty())
+    {
+        return sphere;
+    }
+    
+    sphere.center = std::accumulate(points.begin(), points.end(), glm::vec3(0.0f)) / static_cast<float>(points.size());
+
+    const auto distanceCompare = [&sphere](const glm::vec3& a, const glm::vec3& b) {
+        return glm::length2(a - sphere.center) < glm::length2(b - sphere.center);
+    };
+
+    const auto maxDistanceIt = std::ranges::max_element(points, distanceCompare);
+
+    sphere.radius = glm::length(*maxDistanceIt - sphere.center);
+
+    return sphere;
+}
+
 glm::vec4 Math::NormalizePlane(const glm::vec4 plane)
 {
     return plane / glm::length(glm::vec3(plane));

@@ -5,7 +5,7 @@
 struct BindingReflection
 {
     uint32_t index = 0;
-    std::string name;
+    std::vector<std::string> names; // Same binging might have multiple names
     VkDescriptorType type;
     VkShaderStageFlags shaderStages;
 };

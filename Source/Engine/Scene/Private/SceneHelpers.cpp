@@ -138,7 +138,9 @@ namespace SceneHelpersDetails
             return glm::vec3(vertex.posAndU.x, vertex.posAndU.y, vertex.posAndU.z);
         });
                           
-        return Math::Welzl(std::move(positions));
+        // TODO: Temp - Fix recursive bug.
+        //return Math::Welzl(std::move(positions));
+        return Math::AverageSphere(positions);
     }
 
     static void GeneratePrimitive(const cgltf_primitive& cgltfPrimitive, RawScene& rawScene)

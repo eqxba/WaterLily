@@ -19,7 +19,7 @@ namespace DescriptorSetBuilderDetails
             const DescriptorSetReflection& setReflection = setReflections[i];
             
             const auto it = std::ranges::find_if(setReflection.bindings, [&](const BindingReflection& bindingReflection){
-                return bindingReflection.name == name; });
+                return std::ranges::contains(bindingReflection.names, name); });
             
             if (it != setReflection.bindings.end())
             {

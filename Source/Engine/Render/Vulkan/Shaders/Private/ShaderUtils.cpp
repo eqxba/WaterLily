@@ -60,9 +60,9 @@ namespace ShaderUtilsDetails
         {
             bindingsReflection.push_back({
                 .index = binding->binding,
-                .name = *binding->name != 0 ? binding->name : binding->type_description->type_name,
+                .names = { *binding->name != 0 ? binding->name : binding->type_description->type_name },
                 .type = GetDescriptorType(binding->descriptor_type),
-                .shaderStages = shaderStage, });
+                .shaderStages = static_cast<VkShaderStageFlags>(shaderStage), });
         }
         
         return bindingsReflection;
@@ -96,7 +96,7 @@ namespace ShaderUtilsDetails
         {
             const auto bindingIt = std::ranges::find_if(setReflection.bindings, [&](const BindingReflection& existingBinding) {
                 return newBinding.index == existingBinding.index; });
-            
+
             if (bindingIt == setReflection.bindings.end())
             {
                 setReflection.bindings.push_back(newBinding);
@@ -104,10 +104,18 @@ namespace ShaderUtilsDetails
             else
             {
                 BindingReflection& existingBinding = *bindingIt;
-                
+
                 Assert(existingBinding.type == newBinding.type);
-                
+
                 existingBinding.shaderStages |= newBinding.shaderStages;
+
+                for (const std::string& newName : newBinding.names)
+                {
+                    if (!std::ranges::contains(existingBinding.names, newName))
+                    {
+                        existingBinding.names.push_back(newName);
+                    }
+                }
             }
         }
     }

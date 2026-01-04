@@ -192,7 +192,7 @@ void DebugStage::ExecuteBoundingRectangles(const Frame &frame)
     
     for (uint32_t i = 0; i < renderContext->globals.drawCount; ++i)
     {
-        vkCmdDrawIndexed(commandBuffer, DebugStageDetails::quadIndices.size(), 1, 0, 0, i);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(DebugStageDetails::quadIndices.size()), 1, 0, 0, i);
     }
 }
 
@@ -223,7 +223,7 @@ void DebugStage::ExecuteFrozenFrustum(const Frame& frame)
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, frustumIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
     
-    vkCmdDrawIndexed(commandBuffer, DebugStageDetails::frustumLineListIndices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(DebugStageDetails::frustumLineListIndices.size()), 1, 0, 0, 0);
 }
 
 Pipeline DebugStage::BuildBoundingSpherePipeline()

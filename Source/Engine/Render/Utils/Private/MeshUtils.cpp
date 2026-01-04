@@ -2,22 +2,22 @@
 
 std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> MeshUtils::GenerateSphereMesh(const uint32_t stacks, const uint32_t sectors)
 {
-    using namespace std::numbers;
+    constexpr auto pi = static_cast<float>(std::numbers::pi);
     
     std::vector<glm::vec3> vertices;
     std::vector<uint32_t> indices;
     
     for (uint32_t i = 0; i <= stacks; ++i)
     {
-        float stackAngle = pi / 2.0f - i * (pi / stacks);
-        float xy = cosf(stackAngle);
-        float z  = sinf(stackAngle);
+        const float stackAngle = pi / 2.0f - static_cast<float>(i) * (pi / static_cast<float>(stacks));
+        const float xy = cosf(stackAngle);
+        const float z  = sinf(stackAngle);
 
         for (uint32_t j = 0; j <= sectors; ++j)
         {
-            float sectorAngle = j * (2.0f * pi / sectors);
-            float x = xy * cosf(sectorAngle);
-            float y = xy * sinf(sectorAngle);
+            const float sectorAngle = static_cast<float>(j) * (2.0f * pi / static_cast<float>(sectors));
+            const float x = xy * cosf(sectorAngle);
+            const float y = xy * sinf(sectorAngle);
             
             vertices.emplace_back(x, y, z);
         }
@@ -45,7 +45,7 @@ std::pair<std::vector<glm::vec3>, std::vector<uint32_t>> MeshUtils::GenerateSphe
 
 std::vector<glm::vec3> MeshUtils::GenerateCircleLineStrip(const uint32_t segments)
 {
-    using namespace std::numbers;
+    constexpr auto pi = static_cast<float>(std::numbers::pi);
     
     std::vector<glm::vec3> vertices;
     vertices.reserve(segments + 1);
@@ -65,7 +65,7 @@ std::vector<glm::vec3> MeshUtils::GenerateCircleLineStrip(const uint32_t segment
 
 std::vector<glm::vec3> MeshUtils::GenerateCircleLineList(const uint32_t segments)
 {
-    using namespace std::numbers;
+    constexpr auto pi = static_cast<float>(std::numbers::pi);
 
     std::vector<glm::vec3> vertices;
     vertices.reserve(segments * 2);

@@ -23,6 +23,7 @@
 #include <numbers>
 #include <ranges>
 #include <utility>
+#include <variant>
 
 #include "macros.hpp"
 #include "Utils/Assert.hpp"

@@ -71,7 +71,7 @@ namespace SwapchainDetails
     static VkPresentModeKHR SelectPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes, const bool vSync)
     {
         const auto isPreferredPresentMode = [vSync](const auto& presentMode) {
-            return presentMode == vSync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+            return presentMode == (vSync ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR);
         };
 
         const auto it = std::ranges::find_if(availablePresentModes, isPreferredPresentMode);
